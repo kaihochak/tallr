@@ -1,0 +1,27 @@
+{
+  "package": {
+    "productName": "Tally",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "bundle": {
+      "identifier": "dev.tally.app",
+      "icon": [],
+      "macOS": {
+        "entitlements": null,
+        "exceptionDomain": ""
+      }
+    },
+    "allowlist": { "all": true },
+    "windows": [
+      { "title": "Tally", "width": 460, "height": 640, "resizable": true, "visible": true }
+    ],
+    "systemTray": { "iconPath": "", "iconAsTemplate": true }
+  },
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devPath": "http://localhost:5173",
+    "distDir": "./dist"
+  }
+}
