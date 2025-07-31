@@ -5,7 +5,7 @@ use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, net::SocketAddr, path::PathBuf, sync::Arc, time::SystemTime};
-use tauri::{AppHandle, CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu, State as TauriState};
+use tauri::{AppHandle, CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu, State as TauriState, Icon};
 
 static APP_STATE: Lazy<Arc<Mutex<State>>> = Lazy::new(|| Arc::new(Mutex::new(State::default())));
 
@@ -187,6 +187,29 @@ fn persist_snapshot(app: &AppHandle) {
         updated_at: state.updated_at,
     };
     app.emit_all("state-update", &snapshot).ok();
+    
+    // Update tray icon based on aggregate state
+    update_tray_icon(app, &state);
+}
+
+fn update_tray_icon(app: &AppHandle, state: &State) {
+    // Determine aggregate state
+    let has_error = state.tasks.values().any(|t| t.state == "ERROR");
+    let has_waiting = state.tasks.values().any(|t| t.state == "WAITING_USER");
+    
+    // For now, we'll update the tooltip to indicate state
+    // In a real implementation, you'd have different icon files
+    let tooltip = if has_error {
+        "Tally - Error"
+    } else if has_waiting {
+        "Tally - Waiting for user"
+    } else {
+        "Tally"
+    };
+    
+    if let Some(tray) = app.tray_handle_by_id("main") {
+        let _ = tray.set_tooltip(tooltip);
+    }
 }
 
 async fn start_gateway(app: AppHandle, addr: SocketAddr, token: Option<String>) {
@@ -344,7 +367,7 @@ fn build_tray() -> SystemTray {
     let open = CustomMenuItem::new("open", "Open Window");
     let quit = CustomMenuItem::new("quit", "Quit");
     let menu = SystemTrayMenu::new().add_item(open).add_item(quit);
-    SystemTray::new().with_menu(menu)
+    SystemTray::new().with_menu(menu).with_id("main")
 }
 
 fn tray_handler(app: &AppHandle, event: SystemTrayEvent) {

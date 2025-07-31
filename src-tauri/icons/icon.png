@@ -1,0 +1,6 @@
+# This is a placeholder for the icon
+# In a real implementation, you would have actual PNG icon files here
+# The icon should be:
+# - 32x32 pixels for system tray on macOS
+# - Transparent background
+# - Simple design that works in light/dark mode

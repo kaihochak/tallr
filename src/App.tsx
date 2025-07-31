@@ -28,6 +28,14 @@ interface AgentTask {
   snoozedUntil?: number
 }
 
+interface Timer {
+  projectId: string
+  isRunning: boolean
+  startedAt?: number
+  elapsedMsTotal: number
+  softLimitMinutes?: number
+}
+
 interface Snapshot {
   projects: Project[]
   tasks: AgentTask[]
@@ -60,6 +68,9 @@ export default function App() {
   const [snap, setSnap] = useState<Snapshot | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [alwaysOnTop, setAlwaysOnTop] = useState(false)
+  const [selectedIndex, setSelectedIndex] = useState(0)
+  const [isQuickSwitcherOpen, setIsQuickSwitcherOpen] = useState(false)
+  const [timers, setTimers] = useState<Record<string, Timer>>({})
 
   useEffect(() => {
     // Load initial snapshot
@@ -75,6 +86,58 @@ export default function App() {
     }
   }, [])
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // ⌘K to open quick switcher
+      if (e.metaKey && e.key === 'k') {
+        e.preventDefault()
+        setIsQuickSwitcherOpen(true)
+        return
+      }
+
+      // Escape to close quick switcher
+      if (e.key === 'Escape' && isQuickSwitcherOpen) {
+        setIsQuickSwitcherOpen(false)
+        setSearchTerm('')
+        return
+      }
+
+      // Arrow navigation and Enter when not in input
+      if (!isQuickSwitcherOpen && filteredTasks.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault()
+          setSelectedIndex(prev => Math.min(prev + 1, filteredTasks.length - 1))
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault()
+          setSelectedIndex(prev => Math.max(prev - 1, 0))
+        } else if (e.key === 'Enter') {
+          e.preventDefault()
+          const task = filteredTasks[selectedIndex]
+          if (task) handleJumpToContext(task.projectId)
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isQuickSwitcherOpen, filteredTasks, selectedIndex])
+
+  // Reset selection when filtered tasks change
+  useEffect(() => {
+    setSelectedIndex(0)
+  }, [filteredTasks])
+
+  // Timer tick for updating running timers
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Force re-render for running timers
+      setTimers(prev => ({ ...prev }))
+    }, 1000)
+    
+    return () => clearInterval(interval)
+  }, [])
+
   const handleJumpToContext = async (projectId: string) => {
     try {
       await invoke('jump_to_context', { projectId })
@@ -87,6 +150,65 @@ export default function App() {
     const newState = !alwaysOnTop
     await tauriWindow.getCurrent().setAlwaysOnTop(newState)
     setAlwaysOnTop(newState)
+  }
+
+  const startTimer = (projectId: string, limitMinutes: number = 25) => {
+    setTimers(prev => ({
+      ...prev,
+      [projectId]: {
+        projectId,
+        isRunning: true,
+        startedAt: Date.now(),
+        elapsedMsTotal: prev[projectId]?.elapsedMsTotal || 0,
+        softLimitMinutes: limitMinutes
+      }
+    }))
+  }
+
+  const stopTimer = (projectId: string) => {
+    setTimers(prev => {
+      const timer = prev[projectId]
+      if (!timer || !timer.isRunning) return prev
+      
+      return {
+        ...prev,
+        [projectId]: {
+          ...timer,
+          isRunning: false,
+          elapsedMsTotal: timer.elapsedMsTotal + (Date.now() - (timer.startedAt || Date.now())),
+          startedAt: undefined
+        }
+      }
+    })
+  }
+
+  const resetTimer = (projectId: string) => {
+    setTimers(prev => {
+      const updated = { ...prev }
+      delete updated[projectId]
+      return updated
+    })
+  }
+
+  const getTimerDisplay = (projectId: string) => {
+    const timer = timers[projectId]
+    if (!timer) return '0:00'
+    
+    let totalMs = timer.elapsedMsTotal
+    if (timer.isRunning && timer.startedAt) {
+      totalMs += Date.now() - timer.startedAt
+    }
+    
+    const minutes = Math.floor(totalMs / 60000)
+    const seconds = Math.floor((totalMs % 60000) / 1000)
+    
+    // Check if we've hit the soft limit
+    if (timer.softLimitMinutes && minutes >= timer.softLimitMinutes) {
+      // Show alert (would normally be a notification)
+      console.log(`Timer alert: ${minutes}m elapsed for project ${projectId}`)
+    }
+    
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`
   }
 
   const filteredTasks = snap?.tasks.filter(task => {
@@ -146,19 +268,44 @@ export default function App() {
       {/* Search Bar */}
       <div style={{ padding: '12px 20px', backgroundColor: '#ffffff' }}>
         <input
+          ref={(input) => {
+            if (isQuickSwitcherOpen && input) {
+              input.focus()
+            }
+          }}
           type="text"
-          placeholder="Search projects, tasks, agents..."
+          placeholder={isQuickSwitcherOpen ? "⌘K Quick switcher - Type to search..." : "Search projects, tasks, agents..."}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && filteredTasks.length > 0) {
+              e.preventDefault()
+              const task = filteredTasks[0]
+              handleJumpToContext(task.projectId)
+              setIsQuickSwitcherOpen(false)
+              setSearchTerm('')
+            }
+          }}
           style={{
             width: '100%',
             padding: '8px 12px',
-            border: '1px solid #d2d2d7',
+            border: isQuickSwitcherOpen ? '2px solid #007aff' : '1px solid #d2d2d7',
             borderRadius: '8px',
             fontSize: '14px',
-            outline: 'none'
+            outline: 'none',
+            backgroundColor: isQuickSwitcherOpen ? '#f0f8ff' : '#ffffff'
           }}
         />
+        {isQuickSwitcherOpen && (
+          <div style={{ 
+            fontSize: '11px', 
+            marginTop: '4px', 
+            color: '#86868b',
+            textAlign: 'center'
+          }}>
+            ↑↓ navigate • Enter select • Esc close
+          </div>
+        )}
       </div>
 
       {/* Task List */}
@@ -189,17 +336,18 @@ export default function App() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {filteredTasks
               .sort((a, b) => b.lastEventAt - a.lastEventAt)
-              .map(task => {
+              .map((task, index) => {
                 const project = snap.projects.find(p => p.id === task.projectId)
+                const isSelected = index === selectedIndex
                 return (
                   <div
                     key={task.id}
                     onClick={() => handleJumpToContext(task.projectId)}
                     style={{
                       padding: '12px 16px',
-                      backgroundColor: '#ffffff',
+                      backgroundColor: isSelected ? '#e3f2fd' : '#ffffff',
                       borderRadius: '12px',
-                      border: '1px solid #d2d2d7',
+                      border: isSelected ? '2px solid #007aff' : '1px solid #d2d2d7',
                       cursor: 'pointer',
                       transition: 'all 0.2s',
                       ':hover': {
@@ -207,10 +355,15 @@ export default function App() {
                       }
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'
+                      if (!isSelected) {
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'
+                      }
+                      setSelectedIndex(index)
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.boxShadow = 'none'
+                      if (!isSelected) {
+                        e.currentTarget.style.boxShadow = 'none'
+                      }
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -234,6 +387,98 @@ export default function App() {
                             {task.details}
                           </div>
                         )}
+                        {/* Timer controls */}
+                        <div style={{ 
+                          marginTop: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}>
+                          <span style={{ 
+                            fontSize: '12px',
+                            fontFamily: 'SF Mono, Monaco, monospace',
+                            color: timers[task.projectId]?.isRunning ? '#007aff' : '#86868b'
+                          }}>
+                            ⏱️ {getTimerDisplay(task.projectId)}
+                          </span>
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            {!timers[task.projectId]?.isRunning ? (
+                              <>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    startTimer(task.projectId, 25)
+                                  }}
+                                  style={{
+                                    padding: '2px 6px',
+                                    fontSize: '10px',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    backgroundColor: '#34c759',
+                                    color: 'white',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  25m
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    startTimer(task.projectId, 45)
+                                  }}
+                                  style={{
+                                    padding: '2px 6px',
+                                    fontSize: '10px',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    backgroundColor: '#ff9500',
+                                    color: 'white',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  45m
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    stopTimer(task.projectId)
+                                  }}
+                                  style={{
+                                    padding: '2px 6px',
+                                    fontSize: '10px',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    backgroundColor: '#ff3b30',
+                                    color: 'white',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Stop
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    resetTimer(task.projectId)
+                                  }}
+                                  style={{
+                                    padding: '2px 6px',
+                                    fontSize: '10px',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    backgroundColor: '#8e8e93',
+                                    color: 'white',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Reset
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
                       </div>
                       <div style={{ 
                         display: 'flex',
@@ -272,7 +517,7 @@ export default function App() {
         color: '#86868b',
         textAlign: 'center'
       }}>
-        Click any task to jump to IDE + Terminal
+        ⌘K quick switch • ↑↓ navigate • Enter jump • Click to jump to IDE + Terminal
       </footer>
     </div>
   )
