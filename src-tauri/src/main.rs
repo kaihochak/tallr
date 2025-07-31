@@ -94,6 +94,71 @@ fn get_snapshot() -> SnapshotResponse {
     }
 }
 
+#[tauri::command]
+fn jump_to_context(project_id: String) -> Result<(), String> {
+    let state = APP_STATE.lock();
+    let project = state.projects.get(&project_id)
+        .ok_or_else(|| "Project not found".to_string())?;
+    
+    let repo_path = &project.repo_path;
+    let preferred_ide = &project.preferred_ide;
+    
+    // Try to open IDE (cursor first, then vscode)
+    let ide_result = if preferred_ide == "cursor" || preferred_ide == "vscode" {
+        // Try cursor first
+        std::process::Command::new("cursor")
+            .arg("--reuse-window")
+            .arg(repo_path)
+            .spawn()
+            .or_else(|_| {
+                // Fallback to VS Code
+                std::process::Command::new("code")
+                    .arg("--reuse-window")
+                    .arg(repo_path)
+                    .spawn()
+            })
+            .or_else(|_| {
+                // Final fallback: open VS Code via open command
+                std::process::Command::new("open")
+                    .arg("-a")
+                    .arg("Visual Studio Code")
+                    .arg(repo_path)
+                    .spawn()
+            })
+    } else {
+        Err(std::io::Error::new(std::io::ErrorKind::NotFound, "IDE not supported"))
+    };
+    
+    if ide_result.is_err() {
+        return Err("Failed to open IDE".to_string());
+    }
+    
+    // Open terminal in the repo directory
+    let terminal_script = format!(
+        r#"
+tell application "Terminal"
+    activate
+    if (count of windows) = 0 then
+        do script "cd {}"
+    else
+        tell window 1
+            set currentTab to do script "cd {}"
+        end tell
+    end if
+end tell
+"#,
+        repo_path, repo_path
+    );
+    
+    std::process::Command::new("osascript")
+        .arg("-e")
+        .arg(&terminal_script)
+        .spawn()
+        .map_err(|e| format!("Failed to open terminal: {}", e))?;
+    
+    Ok(())
+}
+
 fn now() -> i64 {
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
@@ -313,7 +378,7 @@ fn main() {
             persist_snapshot(&handle);
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_snapshot])
+        .invoke_handler(tauri::generate_handler![get_snapshot, jump_to_context])
         .system_tray(build_tray())
         .on_system_tray_event(|app, e| tray_handler(app, e))
         .run(tauri::generate_context!())
