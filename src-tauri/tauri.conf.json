@@ -1,41 +1,67 @@
 {
-  "package": {
-    "productName": "Tally",
-    "version": "0.1.0"
-  },
-  "tauri": {
-    "bundle": {
-      "identifier": "dev.tally.app",
-      "icon": ["icons/icon.png"],
-      "macOS": {
-        "entitlements": null,
-        "exceptionDomain": ""
-      }
-    },
-    "allowlist": { 
-      "all": true,
-      "shell": {
-        "all": false,
-        "open": true,
-        "execute": true,
-        "sidecar": false,
-        "scope": [
-          { "name": "cursor", "cmd": "cursor", "args": ["--reuse-window", { "validator": ".*" }] },
-          { "name": "code", "cmd": "code", "args": ["--reuse-window", { "validator": ".*" }] },
-          { "name": "open", "cmd": "open", "args": ["-a", "Visual Studio Code", { "validator": ".*" }] },
-          { "name": "osascript", "cmd": "osascript", "args": ["-e", { "validator": ".*" }] }
-        ]
-      }
-    },
-    "windows": [
-      { "title": "Tally", "width": 460, "height": 640, "resizable": true, "visible": true }
-    ],
-    "systemTray": { "iconPath": "icons/icon.png", "iconAsTemplate": true }
-  },
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Tally",
+  "version": "0.1.0",
+  "identifier": "dev.tally.app",
   "build": {
     "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "npm run build",
-    "devPath": "http://localhost:5173",
-    "distDir": "./dist"
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Tally",
+        "width": 460,
+        "height": 640,
+        "resizable": true,
+        "visible": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost http://127.0.0.1:4317"
+    },
+    "trayIcon": {
+      "iconPath": "icons/32x32.png",
+      "iconAsTemplate": true,
+      "menuOnLeftClick": false
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  },
+  "plugins": {
+    "shell": {
+      "open": true,
+      "scope": [
+        {
+          "name": "cursor",
+          "cmd": "cursor",
+          "args": ["--reuse-window", {"validator": ".*"}]
+        },
+        {
+          "name": "code", 
+          "cmd": "code",
+          "args": ["--reuse-window", {"validator": ".*"}]
+        },
+        {
+          "name": "osascript",
+          "cmd": "osascript", 
+          "args": ["-e", {"validator": ".*"}]
+        }
+      ]
+    },
+    "notification": {
+      "all": true
+    }
   }
 }
