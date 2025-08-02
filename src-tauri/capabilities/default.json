@@ -5,6 +5,29 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "opener:default"
+    "opener:default",
+    "shell:allow-execute",
+    "shell:allow-open",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "cursor",
+          "cmd": "cursor",
+          "args": ["--reuse-window", {"validator": ".*"}]
+        },
+        {
+          "name": "code",
+          "cmd": "code", 
+          "args": ["--reuse-window", {"validator": ".*"}]
+        },
+        {
+          "name": "osascript",
+          "cmd": "osascript",
+          "args": ["-e", {"validator": ".*"}]
+        }
+      ]
+    },
+    "notification:default"
   ]
 }

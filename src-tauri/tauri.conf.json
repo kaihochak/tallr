@@ -41,27 +41,7 @@
   },
   "plugins": {
     "shell": {
-      "open": true,
-      "scope": [
-        {
-          "name": "cursor",
-          "cmd": "cursor",
-          "args": ["--reuse-window", {"validator": ".*"}]
-        },
-        {
-          "name": "code", 
-          "cmd": "code",
-          "args": ["--reuse-window", {"validator": ".*"}]
-        },
-        {
-          "name": "osascript",
-          "cmd": "osascript", 
-          "args": ["-e", {"validator": ".*"}]
-        }
-      ]
-    },
-    "notification": {
-      "all": true
+      "open": true
     }
   }
 }
