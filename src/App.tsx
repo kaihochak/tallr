@@ -79,7 +79,8 @@ function App() {
   useEffect(() => {
     const loadTasks = async () => {
       try {
-        const data = await invoke<AppState>("get_tasks");
+        const response = await fetch("http://127.0.0.1:4317/v1/state");
+        const data = await response.json();
         setAppState(data);
       } catch (error) {
         console.error("Failed to load tasks:", error);
@@ -87,6 +88,10 @@ function App() {
     };
 
     loadTasks();
+    
+    // Poll for updates every 2 seconds
+    const interval = setInterval(loadTasks, 2000);
+    return () => clearInterval(interval);
   }, []);
 
   // Keyboard shortcuts

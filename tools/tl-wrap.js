@@ -13,8 +13,13 @@
  *   node tl-wrap.js claude --your-args-here
  */
 
-const { spawn } = require('child_process');
-const http = require('http');
+import { spawn } from 'child_process';
+import http from 'http';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Configuration from environment
 const config = {
@@ -250,11 +255,11 @@ async function main() {
 }
 
 // Run if called directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((error) => {
     console.error('[Tally] Wrapper error:', error);
     process.exit(1);
   });
 }
 
-module.exports = { makeRequest, processLine, WAITING_PATTERNS, ERROR_PATTERNS };
+export { makeRequest, processLine, WAITING_PATTERNS, ERROR_PATTERNS };
