@@ -1,5 +1,15 @@
 # Tally Development Guide (Tauri v2 + React 19)
 
+## Core MVP Focus
+
+Tally is a lightweight tool that tracks your AI CLI sessions (Claude, Gemini) and notifies you when they need input. This guide focuses on the essential features needed for a working MVP.
+
+### Four Core Use Cases
+1. **Track Claude Sessions** - Automatically track when you run `claude` in any project
+2. **Get Notified** - Hybrid notifications when Claude needs your input
+3. **See All Sessions** - Floating window shows all active sessions at a glance
+4. **Resume After Breaks** - Sessions persist across app restarts
+
 ## Prerequisites
 
 Before you begin, ensure you have the following installed on macOS:
@@ -47,22 +57,32 @@ npm run tauri:dev
 
 ## First Run Setup
 
-When you first launch the app, macOS will prompt for permissions:
+When you first launch the app (both development and production), you'll see:
 
-### 1. Notifications Permission
-- **Prompt**: "Tally would like to send you notifications"
-- **Action**: Click **"Allow"**
-- **Why**: Required for WAITING_USER/ERROR alerts (Tauri v2 notification plugin)
+### 1. macOS Permissions
+macOS will prompt for permissions:
+- **Notifications**: "Tally would like to send you notifications" → Click **"Allow"**
+- **Shell Commands**: "Tally would like to run shell commands" → Click **"Allow"**
+- **Automation** (if prompted): Enable Tally for Terminal in System Preferences
 
-### 2. Shell Commands Permission
-- **Prompt**: "Tally would like to run shell commands"
-- **Action**: Click **"Allow"**
-- **Why**: Required for opening IDEs and terminal (Tauri v2 shell plugin)
+### 2. Setup Wizard (To Be Implemented)
+The app will show a welcome screen:
+- **"Welcome to Tally! Let's set up shell integration"**
+- **Button**: "Install CLI Tools"
+- **What it does**: 
+  - Creates `~/.tally/bin/` directory
+  - Installs wrapper scripts
+  - Adds shell functions to `~/.zshrc` or `~/.bashrc`
+  - Enables automatic tracking of `claude`, `gemini`, etc.
 
-### 3. Automation Permission (if prompted)
-- **Prompt**: "Tally would like to control Terminal.app"
-- **Action**: Open **System Preferences** → **Privacy & Security** → **Automation** → Enable **Tally** for **Terminal**
-- **Why**: Required for opening terminal tabs in project directories
+> **Current Status**: Setup wizard UI needs implementation. The wrapper script (`tools/tl-wrap.js`) exists but needs automatic installation.
+
+### 3. Ready to Use
+After setup:
+```bash
+cd any-project
+claude                    # Now automatically tracked in Tally!
+```
 
 ## Modern Development Features
 
@@ -100,7 +120,39 @@ tally/
 └── tsconfig.json           # TypeScript 5.7 configuration
 ```
 
-## Testing the Modern Stack
+## Notification System (Hybrid Approach)
+
+Tally uses a hybrid notification system that combines Mac native notifications with visual indicators in the app:
+
+### 1. Mac Native Notifications (✅ Implemented)
+- Uses Tauri v2 notification plugin
+- Appears as standard Mac notification banner (top-right)
+- Triggered on `WAITING_USER` and `ERROR` states
+- Clickable to jump to terminal
+
+### 2. Visual Indicators (🚧 To Implement)
+**In Tally Window:**
+- Task rows pulse amber when `WAITING_USER`
+- Error tasks show red indicator
+- Window title shows "⚠️ Needs Input" when any task waiting
+
+**System Tray:**
+- Icon color reflects aggregate state:
+  - Green: All tasks running normally
+  - Amber: At least one task waiting for user
+  - Red: At least one task in error state
+
+**Implementation Notes:**
+- Visual indicators require only CSS animations (pulsing effect)
+- System tray color change needs state checking logic
+- No new APIs required - uses existing task state
+
+### 3. Why Hybrid Works Best
+- **Mac notifications**: Immediate alert even when Tally is minimized
+- **Visual indicators**: Persistent visibility until you take action
+- **Low effort**: Leverages existing notification system + simple CSS
+
+## Testing the Core Features
 
 ### 1. Basic Functionality Test
 ```bash
@@ -108,39 +160,33 @@ tally/
 npm run tauri:dev
 ```
 
-**Expected Modern Features:**
-- Tauri v2 native window with enhanced performance
-- System tray with Tauri v2 tray plugin
-- React 19 rendering with improved concurrency
+**Expected Features:**
+- Floating window with task list
+- System tray icon
+- Real-time task updates
 
-### 2. Test Modern HTTP Gateway (Axum 0.8)
+### 2. Test HTTP Gateway & Notifications
 ```bash
 export TALLY_TOKEN=devtoken
 
-# Test new Axum 0.8 error handling
+# Test notification trigger
 curl -H "Authorization: Bearer $TALLY_TOKEN" \
      -H "Content-Type: application/json" \
-     -d '{"project":{"name":"test","repoPath":"/tmp"},"task":{"id":"test-1","agent":"claude","title":"Test","state":"WAITING_USER"}}' \
+     -d '{"project":{"name":"test","repoPath":"'$(pwd)'"},"task":{"id":"test-1","agent":"claude","title":"Test","state":"WAITING_USER","details":"Approve? [y/N]"}}' \
      http://127.0.0.1:4317/v1/tasks/upsert
 ```
 
 **Expected Results:**
-- Improved error messages from Axum 0.8
-- Desktop notification via Tauri v2 notification plugin
-- Real-time updates via Tauri v2 event system
+- Mac desktop notification appears
+- Task appears in window with WAITING_USER state
+- Real-time updates in UI
 
-### 3. Test Modern Shell Integration
+### 3. Test Context Jumping
 ```bash
-# Test Tauri v2 shell plugin commands
 # Click any task in the window to trigger:
-# - IDE opening via shell plugin
-# - Terminal automation via shell plugin
+# - IDE opening (Cursor/VS Code with --reuse-window)
+# - Terminal automation (opens Terminal.app at project directory)
 ```
-
-### 4. Test React 19 Features
-- **Enhanced Concurrency**: UI remains responsive during heavy operations
-- **Better Form Handling**: If using form actions
-- **Improved Error Boundaries**: Better error handling and recovery
 
 ## Troubleshooting (Modern Stack)
 
@@ -224,6 +270,43 @@ npm run tauri:dev
 - **Target**: ≤ 150MB idle (improved from previous target)
 - **Vite 7**: Dramatically reduced memory during development
 - **React 19**: Better memory management with concurrent features
+
+## Current Implementation Status
+
+### ✅ What's Working
+- **HTTP Gateway**: All endpoints implemented (upsert, state, done)
+- **Real-time Updates**: Event system for UI updates
+- **Mac Notifications**: Desktop alerts on WAITING_USER/ERROR
+- **Frontend Dashboard**: Search, filtering, keyboard shortcuts
+- **IDE Integration**: Commands to open Cursor/VS Code
+- **Terminal Automation**: AppleScript for Terminal.app
+
+### 🚧 Critical Missing Features
+1. **Persistent Storage**: No JSON file saving (data lost on restart)
+2. **Setup Wizard**: No UI for shell integration setup
+3. **Shell Integration**: Wrapper exists but not auto-installed
+4. **Project Deduplication**: Creates new project for each task
+5. **Visual Indicators**: No pulsing/highlighting for waiting tasks
+
+### 📝 Implementation Priority
+1. **Add JSON persistence** - Save to `~/Library/Application Support/Tally/`
+2. **Build setup wizard UI** - For one-click shell integration
+3. **Fix project deduplication** - Reuse existing projects by path
+4. **Add visual indicators** - CSS for pulsing amber rows
+5. **Complete system tray** - Color changes and menu
+
+## Future Enhancements (Deferred)
+
+These features are moved to future iterations to keep the MVP focused:
+
+- **Project Timers**: Pomodoro-style timeboxing with alerts
+- **GitHub Integration**: Display GitHub URLs and repo info  
+- **Multiple IDE Support**: User preferences for different IDEs per project
+- **Advanced Search**: Complex filtering and project history
+- **Team Features**: Sharing tasks or project status
+- **Cloud Sync**: Backup/restore across machines
+- **Windows/Linux**: Cross-platform support
+- **MCP Integration**: Model Context Protocol server support
 
 ## Configuration Updates
 

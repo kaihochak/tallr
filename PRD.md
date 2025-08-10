@@ -1,15 +1,15 @@
 # PRD.md
 
-# Tally — MVP PRD (Fresh Tauri v2 Implementation)
+# Tally — MVP PRD (Simplified Core Features)
 
 ## One-liner
 A lightweight **floating window hub** that shows the live status of your **AI coding agents/CLIs** across projects, **notifies** you when any is *waiting on you*, and **jumps** you into the right IDE + terminal in one click.
 
-## Goals
+## Core MVP Goals
 1) **Aggregate visibility** of agent tasks across repos.  
-2) **Instant signal** on `WAITING_USER` / `ERROR`.  
+2) **Instant hybrid notifications** on `WAITING_USER` / `ERROR`.  
 3) **One-click jump** to IDE (Cursor/VS Code) + terminal in the repo.  
-4) **Light timeboxing** per project (soft alerts).
+4) **Persistent sessions** that survive app restarts.
 
 ### Non-Goals (MVP)
 - No cloud, accounts, team features, auto-updates.
@@ -21,33 +21,47 @@ A lightweight **floating window hub** that shows the live status of your **AI co
 - Indie/enterprise devs juggling multiple AI CLIs (Claude CLI, Gemini CLI, Codecs, etc.) and tools (Cursor/VS Code).  
 **JTBD:** *When agents run across multiple repos, I need a single place that shows who needs my input and lets me jump back instantly without losing focus.*
 
-## Primary Use Cases & Acceptance
-1. **See status at a glance**  
-   - Panel lists projects/tasks with state + age.  
-   - **Accept:** Updates appear ≤ **2s** after POST.
+## Core Use Cases & Acceptance Criteria
 
-2. **Be alerted when agent needs me**  
-   - System notification on `WAITING_USER` / `ERROR`.  
-   - **Accept:** Clicking notification jumps to repo in IDE and opens/focuses terminal tab at repo.
+### Use Case 1: Track Claude Sessions
+**As a developer**, when I:
+- Open terminal in my project directory  
+- Type `claude` to start a session
+- **Accept:** "my-project - Claude session" appears in Tally window automatically
+- **Accept:** Session state changes (RUNNING → WAITING_USER → DONE) appear in real-time
 
-3. **Jump to context**  
-   - Clicking a row triggers IDE focus/open and terminal tab in repo.  
-   - **Accept:** Succeeds ≥ **95%** in manual test on macOS.
+### Use Case 2: Get Hybrid Notifications  
+**When Claude asks "Approve? [y/N]"**, I want:
+- **Accept:** Mac desktop notification appears immediately
+- **Accept:** Task row in Tally pulses amber until resolved
+- **Accept:** System tray icon changes to amber color
+- **Accept:** Clicking notification jumps to correct terminal
 
-4. **Light timeboxing**  
-   - Start/stop per-project timers with 25/45/60-min alerts.  
-   - **Accept:** Alerts fire while app is running.
+### Use Case 3: See All Sessions at a Glance
+**When working on multiple projects**, I want:
+- **Accept:** Floating window shows all active sessions
+- **Accept:** Visual state indicators (green=running, amber=waiting, red=error)
+- **Accept:** Click any session to jump to that project's terminal + IDE
+- **Accept:** Search/filter by project name or state
 
-5. **Manual quick actions**  
-   - Row actions: Open IDE, Open Terminal, Open GitHub, Mark Resolved, Snooze (10/30/60m).  
-   - **Accept:** Actions execute without error.
+### Use Case 4: Resume After Breaks  
+**When I restart the app or come back later**, I want:
+- **Accept:** Previous sessions are still visible in dashboard
+- **Accept:** Can click on any waiting session to continue where I left off
+- **Accept:** Session history persists across app restarts (JSON file)
 
-## UX (macOS)
-- **System tray icon** color = aggregate state (Green=OK, Amber=Waiting, Red=Error).  
-- **Floating panel:** search/filter (project/state/agent); rows show `[Project] — Task — State — age — (…)`.  
-- **Keyboard:** `⌘K` quick switch; `↑/↓` navigate; `Enter` jump.  
-- **Notifications:** on `WAITING_USER` + `ERROR`, clickable.  
-- Friendly empty state & basic accessibility (focus order, contrast).
+## Setup (One-time Installation)
+1. **Download .dmg → drag to Applications → launch**
+2. **Setup wizard adds shell functions for `claude`, `gemini`, etc.**  
+3. **Accept:** User can immediately type `claude` and see it tracked
+
+## UX (macOS - Simplified)
+- **System tray icon** with color-coded aggregate state (Green=OK, Amber=Waiting, Red=Error)  
+- **Floating panel:** clean task list with search/filter functionality
+- **Task rows:** `[Project] — Agent — State — Age` format with visual indicators
+- **Hybrid notifications:** Mac native + pulsing amber rows for `WAITING_USER`
+- **Keyboard shortcuts:** `⌘K` quick switcher, `↑/↓` navigation, `Enter` to jump
+- **One-click actions:** Click any task to open IDE + terminal at project location
 
 ## State Model & Data
 **States:** `RUNNING`, `WAITING_USER`, `BLOCKED`, `ERROR`, `DONE`, `IDLE`.
@@ -78,18 +92,26 @@ interface AgentTask {
   snoozedUntil?: number;  // epoch ms
 }
 
-interface Timer {
-  projectId: string;
-  isRunning: boolean;
-  startedAt?: number;
-  elapsedMsTotal: number;
-  softLimitMinutes?: number; // 25/45/60
-}
+// Timer interface moved to future enhancements
 ```
 
 ## Integration Interface
 
-### Local HTTP Gateway
+### User Experience (Primary)
+**After one-time setup, users simply:**
+```bash
+cd my-project
+claude              # Automatically tracked
+gemini              # Also works
+```
+
+**Behind the scenes:**
+- Shell functions intercept CLI commands
+- Auto-detect project context from current directory
+- Send tracking data to local HTTP gateway
+- Monitor for approval prompts and notifications
+
+### Local HTTP Gateway (Advanced/Manual)
 - **Bind:** `127.0.0.1:4317`  
 - **Auth:** optional Bearer `TALLY_TOKEN` (also accepts `SWITCHBOARD_TOKEN` for compatibility)  
 - **CT:** `application/json`
@@ -106,9 +128,9 @@ interface Timer {
   "task": {
     "id": "cr-setup-1",
     "agent": "claude",
-    "title": "Set up Supabase auth",
-    "state": "WAITING_USER",
-    "details": "Approve schema migration? [y/N]"
+    "title": "Claude session",
+    "state": "RUNNING",
+    "details": "Interactive chat session"
   }
 }
 ```
@@ -125,10 +147,11 @@ interface Timer {
 
 > Idempotent upserts by `task.id` (+ project identity via `name`/`repoPath`).
 
-### Priority Integrations
-- **Agents:** **Claude CLI** (top), **Gemini CLI**, generic "custom".  
-- **IDEs:** **Cursor → VS Code** (order of focus attempts).  
-- **Terminals:** Terminal.app or iTerm2 (user choice).
+### MVP Integrations (Core Only)
+- **CLI Tools:** **Claude Code** (primary focus), extensible to other AI CLIs
+- **IDEs:** **Cursor** (primary) and **VS Code** (fallback)  
+- **Terminal:** **Terminal.app** (macOS default)
+- **Setup:** One-click shell integration wizard
 
 ## Security & Privacy
 - Localhost-only, optional bearer token.  
@@ -181,9 +204,40 @@ interface Timer {
 - ✅ **Improved DX**: Better error messages, hot reload, debugging
 - ✅ **Future-Proof**: Built on stable, long-term supported versions
 
-## Timeline
-**Delivered:** Modern Tauri v2 implementation with React 19 + Vite 7 + Axum 0.8
+## Implementation Status
 
-**Status:** ✅ **Core infrastructure complete** - HTTP gateway, real-time events, notifications, tray integration all implemented with modern tech stack.
+### ✅ Completed (Tauri v2 + React 19 + Axum 0.8)
+- HTTP gateway with all API endpoints
+- Real-time event system for UI updates  
+- Mac desktop notifications (Tauri v2 plugin)
+- Frontend dashboard with search/filtering
+- Basic IDE integration commands
 
-**Next:** Frontend UI components, testing suite, and integration validation.
+### 🚧 Critical Missing (MVP Blockers)
+1. **Persistent Storage** - JSON file saving to survive restarts
+2. **Setup Wizard UI** - One-click shell integration installation  
+3. **Visual Indicators** - Pulsing amber rows, tray color changes
+4. **Project Deduplication** - Reuse existing projects by path
+5. **Shell Integration** - Auto-install wrapper functions
+
+### 📋 Next Steps (Priority Order)
+1. Add JSON persistence to `~/Library/Application Support/Tally/`
+2. Build setup wizard UI component
+3. Implement visual notification indicators (CSS animations)
+4. Fix project deduplication logic in backend
+5. Complete system tray menu and color states
+
+## Deferred Features (Future Iterations)
+
+These features are intentionally moved to later versions to keep the MVP focused:
+
+- **Project Timers**: Pomodoro-style timeboxing with alerts
+- **GitHub Integration**: Display repo URLs and commit info  
+- **Multiple IDE Support**: User preferences per project
+- **iTerm2 Support**: Beyond just Terminal.app
+- **Advanced Search**: Complex filtering and project history
+- **Team Features**: Sharing tasks or notifications
+- **Cloud Sync**: Cross-device session syncing
+- **Windows/Linux**: Cross-platform support
+- **MCP Integration**: Model Context Protocol server support
+- **Custom Agents**: Beyond just Claude/Gemini CLIs

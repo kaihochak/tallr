@@ -2,20 +2,26 @@
 
 A lightweight **floating window hub** that shows the live status of your **AI coding agents/CLIs** across projects, **notifies** you when any is *waiting on you*, and **jumps** you into the right IDE + terminal in one click.
 
-## Features (MVP)
+## Core MVP Features
 
-- ✅ **Real-time updates**: Tauri events replace polling (≤2s latency)
-- ✅ **Desktop notifications**: Get notified on WAITING_USER/ERROR states  
-- ✅ **Jump to context**: Click any task to open IDE (Cursor/VS Code) + Terminal
-- ✅ **Floating window**: Always-on-top option with pin button
-- ✅ **Search & filter**: Find tasks by project, state, or agent
-- ✅ **System tray**: Icon with tooltip showing aggregate state
-- ✅ **Timers**: Project timeboxing (25/45/60 min) with live countdown
-- ✅ **Keyboard shortcuts**: ⌘K quick switcher, arrow navigation
-- 🚧 **Row actions**: Additional quick actions - coming soon
+- ✅ **Automatic Session Tracking**: Just type `claude` - it's automatically tracked
+- ✅ **Hybrid Notifications**: Mac desktop alerts + visual indicators when input needed
+- ✅ **Session Dashboard**: See all active sessions at a glance with real-time updates
+- ✅ **One-Click Resume**: Click any session to jump back to IDE + terminal
+- 🚧 **Persistent Sessions**: Sessions survive app restarts (JSON storage - to implement)
+- ✅ **Search & Filter**: Find sessions by project name or state
+- ✅ **Keyboard Shortcuts**: ⌘K quick switcher, arrow navigation
+- 🚧 **Visual State Indicators**: Pulsing amber rows, color-coded tray icon (to implement)
 
-## Quick Start (Development)
+## Quick Start
 
+### For Users (Production) 
+1. **Download**: Get `Tally.dmg` from releases
+2. **Install**: Drag `Tally.app` to Applications folder  
+3. **Setup**: Launch Tally → Click "Install CLI Tools" → Done!
+4. **Use**: `cd your-project && claude` (works just like before, now tracked!)
+
+### For Development
 ```bash
 # macOS only, requires: Node 20.19+, Rust + Cargo, Xcode Command Line Tools
 cd tally
@@ -25,7 +31,7 @@ npm install
 npm run tauri:dev
 ```
 
-> First run: Authorize **Notifications** and **Automation** when macOS prompts.
+> **Setup Note**: The "Install CLI Tools" wizard is not yet implemented. The shell wrapper (`tools/tl-wrap.js`) exists but needs UI for automatic installation.
 
 📖 **For detailed setup instructions, troubleshooting, and development workflows, see [DEVELOPMENT.md](./DEVELOPMENT.md)**
 
@@ -37,28 +43,50 @@ npm run tauri:dev
 - **Desktop**: macOS native with system tray and notifications
 - **Requirements**: Node.js 20.19+, Rust latest stable
 
-## Testing the Gateway
+## Core Use Cases
 
-### Basic test
+### 1. Track Claude Sessions Automatically
 ```bash
-export TALLY_TOKEN=devtoken
+# Just use Claude normally - now it's automatically tracked!
+cd my-project
+claude                    # Session appears in Tally dashboard
 
-# Create a task in WAITING_USER state
-./tools/examples/post-waiting.sh
-
-# Mark task as done
-./tools/examples/complete-task.sh
+# Shows: "my-project - Claude session" with live state updates
 ```
 
-### Using the wrapper with Claude CLI
+### 2. Get Notified When Input Needed
+```bash
+# When Claude asks "Approve? [y/N]":
+# ✅ Mac desktop notification appears
+# ✅ Task row pulses amber in Tally window (to be implemented)
+# ✅ System tray icon changes color (to be implemented)
+# ✅ Click notification or task to jump back
+```
+
+### 3. Resume Sessions After Breaks
+```bash
+# After restarting Tally or coming back later:
+# ✅ Previous sessions still visible (needs persistent storage)
+# ✅ Click any waiting session to continue where you left off
+```
+
+### Testing During Development
+```bash
+# Test with example scripts to verify functionality
+./tools/examples/test-waiting-user.sh   # Triggers notification
+./tools/examples/test-error.sh          # Shows error state
+./tools/examples/test-success.sh        # Successful completion
+```
+
+### Manual API Testing (Advanced)
 ```bash
 export TALLY_TOKEN=devtoken
-export TL_PROJECT="my-project"
-export TL_REPO="/Users/you/dev/my-project"
-export TL_AGENT="claude"
-export TL_TITLE="Implement feature X"
 
-node tools/tl-wrap.js claude --help  # Replace with your actual Claude command
+# Create a task manually
+curl -H "Authorization: Bearer $TALLY_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"project":{"name":"test","repoPath":"'$(pwd)'"},"task":{"id":"test-1","agent":"manual","title":"Testing","state":"RUNNING"}}' \
+     http://127.0.0.1:4317/v1/tasks/upsert
 ```
 
 ## API Reference
@@ -126,22 +154,54 @@ node tools/tl-wrap.js claude --help  # Replace with your actual Claude command
 - **Vite 7**: Rolldown bundler for 100x memory reduction
 - **Capabilities**: Tauri v2 security model replacing allowlist
 
-## Smoke Test Checklist
+## MVP Implementation Status
 
-- [ ] Launch app, see floating window and system tray icon
-- [ ] Run `post-waiting.sh` - see desktop notification
-- [ ] Click notification or task row - opens IDE + Terminal
-- [ ] Search for task by project name or state
-- [ ] Pin window with 📌 button - stays on top
-- [ ] Run `complete-task.sh` - task shows as DONE
-- [ ] Check system tray tooltip reflects state
+### ✅ What's Working
+- HTTP gateway with all API endpoints (upsert, state, done)
+- Real-time UI updates via Tauri v2 events
+- Mac desktop notifications on WAITING_USER/ERROR
+- Frontend dashboard with search/filtering
+- IDE integration (opens Cursor/VS Code)
+- Terminal automation (opens Terminal.app at project)
+- System tray icon (basic implementation)
+
+### 🚧 Critical Missing Features
+1. **JSON Persistence**: Sessions lost on app restart - needs save/load to `~/Library/Application Support/Tally/`
+2. **Setup Wizard**: No UI for shell integration - wrapper exists but needs auto-installation
+3. **Visual Indicators**: No pulsing rows or tray color changes for waiting tasks
+4. **Project Deduplication**: Creates duplicate projects instead of reusing existing ones
+
+### 📋 Next Implementation Priority
+1. Add persistent storage (JSON file)
+2. Build setup wizard UI
+3. Add visual notification indicators (CSS animations)
+4. Fix project deduplication logic
+
+### Smoke Test Checklist
+- [ ] Launch app → see floating window and system tray icon
+- [ ] Run `./tools/examples/test-waiting-user.sh` → see desktop notification
+- [ ] Click notification or task row → opens IDE + Terminal at project
+- [ ] Search for tasks by project name or state
+- [ ] Sessions persist after app restart (needs implementation)
+
+## Future Features (Deferred)
+
+These features are intentionally moved to future iterations to keep the MVP focused:
+
+- **Project Timers**: Pomodoro-style timeboxing with alerts
+- **GitHub Integration**: Display repo URLs and commit info
+- **Multiple IDE Support**: Per-project IDE preferences  
+- **iTerm2 Support**: Beyond just Terminal.app
+- **Advanced Search**: Complex filtering and project history
+- **Team Features**: Sharing tasks or notifications
+- **Cross-platform**: Windows/Linux support
 
 ## Development Notes
 
-- State persistence: `~/Library/Application Support/Tally/snapshot.json`
-- Logs: Check Tauri dev tools console (Cmd+Option+I)
-- Icons: Place in `src-tauri/icons/` (32x32 PNG with transparency)
-- Hot reload: Both frontend (React 19) and backend (Rust) support live updates
+- **Persistence**: Will save to `~/Library/Application Support/Tally/snapshot.json`
+- **Logs**: Check Tauri dev tools console (`Cmd+Option+I`)
+- **Hot Reload**: Both React 19 frontend and Rust backend support live updates
+- **Testing**: Use `tools/examples/` scripts to test different states
 
 ## License
 
