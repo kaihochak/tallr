@@ -13,8 +13,10 @@
     "windows": [
       {
         "title": "Tally",
-        "width": 460,
+        "width": 480,
         "height": 640,
+        "minWidth": 400,
+        "minHeight": 500,
         "resizable": true,
         "visible": true
       }
@@ -37,6 +39,9 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "resources": [
+      "../tools/tally"
     ]
   },
   "plugins": {

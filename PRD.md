@@ -26,7 +26,7 @@ A lightweight **floating window hub** that shows the live status of your **AI co
 ### Use Case 1: Track Claude Sessions
 **As a developer**, when I:
 - Open terminal in my project directory  
-- Type `claude` to start a session
+- Type `tally claude` to start a tracked session
 - **Accept:** "my-project - Claude session" appears in Tally window automatically
 - **Accept:** Session state changes (RUNNING → WAITING_USER → DONE) appear in real-time
 
@@ -50,10 +50,10 @@ A lightweight **floating window hub** that shows the live status of your **AI co
 - **Accept:** Can click on any waiting session to continue where I left off
 - **Accept:** Session history persists across app restarts (JSON file)
 
-## Setup (One-time Installation)
+## Setup (Simplified Installation)
 1. **Download .dmg → drag to Applications → launch**
-2. **Setup wizard adds shell functions for `claude`, `gemini`, etc.**  
-3. **Accept:** User can immediately type `claude` and see it tracked
+2. **Add `tally` to PATH** (or use full path to wrapper)
+3. **Accept:** User can run `tally claude` and see it tracked
 
 ## UX (macOS - Simplified)
 - **System tray icon** with color-coded aggregate state (Green=OK, Amber=Waiting, Red=Error)  
@@ -98,15 +98,15 @@ interface AgentTask {
 ## Integration Interface
 
 ### User Experience (Primary)
-**After one-time setup, users simply:**
+**Simple manual wrapper approach:**
 ```bash
 cd my-project
-claude              # Automatically tracked
-gemini              # Also works
+tally claude        # Tracked Claude session
+tally gemini        # Tracked Gemini session
 ```
 
 **Behind the scenes:**
-- Shell functions intercept CLI commands
+- Wrapper script monitors CLI output
 - Auto-detect project context from current directory
 - Send tracking data to local HTTP gateway
 - Monitor for approval prompts and notifications
@@ -215,22 +215,23 @@ gemini              # Also works
 
 ### 🚧 Critical Missing (MVP Blockers)
 1. **Persistent Storage** - JSON file saving to survive restarts
-2. **Setup Wizard UI** - One-click shell integration installation  
+2. **CLI Entry Point** - Need `tally` command wrapper
 3. **Visual Indicators** - Pulsing amber rows, tray color changes
 4. **Project Deduplication** - Reuse existing projects by path
-5. **Shell Integration** - Auto-install wrapper functions
+5. **Timer Cleanup** - Remove over-implemented timer features
 
 ### 📋 Next Steps (Priority Order)
 1. Add JSON persistence to `~/Library/Application Support/Tally/`
-2. Build setup wizard UI component
-3. Implement visual notification indicators (CSS animations)
-4. Fix project deduplication logic in backend
-5. Complete system tray menu and color states
+2. Create simple `tally` CLI entry point
+3. Remove timer system from codebase
+4. Implement visual notification indicators (CSS animations)
+5. Fix project deduplication logic in backend
 
 ## Deferred Features (Future Iterations)
 
 These features are intentionally moved to later versions to keep the MVP focused:
 
+- **Shell Integration**: Automatic shell function installation (complex setup)
 - **Project Timers**: Pomodoro-style timeboxing with alerts
 - **GitHub Integration**: Display repo URLs and commit info  
 - **Multiple IDE Support**: User preferences per project

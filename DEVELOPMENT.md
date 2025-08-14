@@ -59,30 +59,69 @@ npm run tauri:dev
 
 When you first launch the app (both development and production), you'll see:
 
-### 1. macOS Permissions
+### 1. Setup Wizard
+On first launch, Tally shows a setup wizard:
+- **Install CLI Tools Button**: Click to automatically install the `tally` command
+- **Permission Check**: App checks if it has write access to `/usr/local/bin`
+- **Manual Fallback**: If automatic installation fails, copy the manual command:
+  ```bash
+  sudo ln -s /Applications/Tally.app/Contents/MacOS/tally /usr/local/bin/tally
+  ```
+- **Skip Option**: You can skip setup and install later
+
+### 2. macOS Permissions
 macOS will prompt for permissions:
 - **Notifications**: "Tally would like to send you notifications" → Click **"Allow"**
 - **Shell Commands**: "Tally would like to run shell commands" → Click **"Allow"**
 - **Automation** (if prompted): Enable Tally for Terminal in System Preferences
 
-### 2. Setup Wizard (To Be Implemented)
-The app will show a welcome screen:
-- **"Welcome to Tally! Let's set up shell integration"**
-- **Button**: "Install CLI Tools"
-- **What it does**: 
-  - Creates `~/.tally/bin/` directory
-  - Installs wrapper scripts
-  - Adds shell functions to `~/.zshrc` or `~/.bashrc`
-  - Enables automatic tracking of `claude`, `gemini`, etc.
+### 3. Testing the Tally CLI Wrapper
 
-> **Current Status**: Setup wizard UI needs implementation. The wrapper script (`tools/tl-wrap.js`) exists but needs automatic installation.
+After launching Tally app, you can test session tracking:
 
-### 3. Ready to Use
-After setup:
+**Step 1: Start Tally app**
 ```bash
-cd any-project
-claude                    # Now automatically tracked in Tally!
+npm run tauri:dev
+# Wait for app window to appear and HTTP gateway to start on :4317
 ```
+
+**Step 2: Install the CLI tools (if not done in setup wizard)**
+```bash
+# Option A: Use the setup wizard in the app
+# Click "Install CLI Tools" button
+
+# Option B: Manual installation
+sudo ln -s /Applications/Tally.app/Contents/MacOS/tally /usr/local/bin/tally
+
+# Option C: For development testing, use the local wrapper
+cd /Users/kai/Development/tally
+./tools/tally claude --help              # Test basic command pass-through
+```
+
+**Step 3: Use the tally CLI wrapper**
+```bash
+# After installation, from any directory:
+tally claude                              # Start a Claude session
+tally claude --help                       # Test basic command pass-through
+tally echo "Approve? [y/N]"              # Test waiting user detection
+tally sh -c "echo 'Error: failed' && exit 1"  # Test error detection
+```
+
+**Step 3: Environment variables (optional)**
+```bash
+export TALLY_TOKEN=devtoken     # Optional authentication
+export TL_IDE=cursor           # Preferred IDE (cursor or vscode)
+./tools/tally claude
+```
+
+**What You Should See:**
+1. Task appears in Tally window immediately when command starts
+2. Mac notification appears when "Approve? [y/N]" is detected
+3. Task state changes to WAITING_USER in the dashboard
+4. Task state changes to ERROR if command fails
+5. Click task row to jump to IDE + Terminal at project location
+
+> **Why manual wrapper?** Eliminates complex shell setup while keeping all core functionality. Users just run `tally claude` instead of `claude`.
 
 ## Modern Development Features
 
@@ -274,31 +313,33 @@ npm run tauri:dev
 ## Current Implementation Status
 
 ### ✅ What's Working
+- **Setup Wizard**: Button-first CLI installation with permission checking
 - **HTTP Gateway**: All endpoints implemented (upsert, state, done)
 - **Real-time Updates**: Event system for UI updates
 - **Mac Notifications**: Desktop alerts on WAITING_USER/ERROR
 - **Frontend Dashboard**: Search, filtering, keyboard shortcuts
 - **IDE Integration**: Commands to open Cursor/VS Code
 - **Terminal Automation**: AppleScript for Terminal.app
+- **CLI Wrapper**: Simple `tally` command entry point created
 
 ### 🚧 Critical Missing Features
 1. **Persistent Storage**: No JSON file saving (data lost on restart)
-2. **Setup Wizard**: No UI for shell integration setup
-3. **Shell Integration**: Wrapper exists but not auto-installed
-4. **Project Deduplication**: Creates new project for each task
-5. **Visual Indicators**: No pulsing/highlighting for waiting tasks
+2. **Project Deduplication**: Creates new project for each task
+3. **Visual Indicators**: No pulsing/highlighting for waiting tasks
+4. **Installation Verification**: No test to verify CLI works after installation
 
 ### 📝 Implementation Priority
 1. **Add JSON persistence** - Save to `~/Library/Application Support/Tally/`
-2. **Build setup wizard UI** - For one-click shell integration
-3. **Fix project deduplication** - Reuse existing projects by path
-4. **Add visual indicators** - CSS for pulsing amber rows
+2. **Fix project deduplication** - Reuse existing projects by path
+3. **Add visual indicators** - CSS for pulsing amber rows
+4. **Installation verification** - Test CLI works after setup
 5. **Complete system tray** - Color changes and menu
 
 ## Future Enhancements (Deferred)
 
 These features are moved to future iterations to keep the MVP focused:
 
+- **Shell Integration**: Automatic shell function installation (complex setup)
 - **Project Timers**: Pomodoro-style timeboxing with alerts
 - **GitHub Integration**: Display GitHub URLs and repo info  
 - **Multiple IDE Support**: User preferences for different IDEs per project

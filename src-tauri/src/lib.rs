@@ -8,8 +8,8 @@ use axum::{
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc, time::SystemTime};
-use tauri::{AppHandle, Emitter};
+use std::{collections::HashMap, sync::Arc, time::SystemTime, path::Path, fs};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_shell::ShellExt;
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
@@ -88,6 +88,14 @@ struct StateUpdateRequest {
 struct TaskDoneRequest {
     task_id: String,
     details: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SetupStatus {
+    is_first_launch: bool,
+    cli_installed: bool,
+    setup_completed: bool,
 }
 
 // Axum 0.8 handlers with modern path syntax
@@ -202,6 +210,42 @@ async fn mark_task_done(
     }
 }
 
+async fn get_setup_status() -> Json<SetupStatus> {
+    let cli_installed = is_cli_installed();
+    let setup_completed = get_setup_completion_flag();
+    let is_first_launch = !setup_completed;
+
+    Json(SetupStatus {
+        is_first_launch,
+        cli_installed,
+        setup_completed,
+    })
+}
+
+fn is_cli_installed() -> bool {
+    // Check if symlink exists at /usr/local/bin/tally
+    Path::new("/usr/local/bin/tally").exists()
+}
+
+fn get_setup_completion_flag() -> bool {
+    // Check if setup completion file exists
+    get_app_data_dir()
+        .map(|dir| dir.join(".setup_completed").exists())
+        .unwrap_or(false)
+}
+
+fn get_app_data_dir() -> Result<std::path::PathBuf, String> {
+    let home = std::env::var("HOME").map_err(|_| "Unable to find HOME directory")?;
+    Ok(std::path::PathBuf::from(home).join("Library/Application Support/Tally"))
+}
+
+fn mark_setup_completed() -> Result<(), String> {
+    let app_data_dir = get_app_data_dir()?;
+    fs::create_dir_all(&app_data_dir).map_err(|e| format!("Failed to create app data directory: {}", e))?;
+    fs::write(app_data_dir.join(".setup_completed"), "").map_err(|e| format!("Failed to create setup flag: {}", e))?;
+    Ok(())
+}
+
 // Tauri command for opening IDE and terminal
 #[tauri::command]
 async fn open_ide_and_terminal(
@@ -237,6 +281,111 @@ async fn open_ide_and_terminal(
 }
 
 #[tauri::command]
+async fn check_cli_permissions() -> Result<bool, String> {
+    let bin_dir = Path::new("/usr/local/bin");
+    
+    // Check if directory exists and is writable
+    if !bin_dir.exists() {
+        return Ok(false);
+    }
+    
+    // Try to check write permissions
+    let test_file = bin_dir.join(".tally_test_write");
+    match fs::write(&test_file, "test") {
+        Ok(_) => {
+            // Clean up test file
+            let _ = fs::remove_file(&test_file);
+            Ok(true)
+        },
+        Err(_) => Ok(false)
+    }
+}
+
+#[tauri::command]
+async fn install_cli_globally(app: AppHandle) -> Result<(), String> {
+    // Get the path to the CLI binary
+    let cli_source = if cfg!(debug_assertions) {
+        // In development, use the tools directory relative to the project root
+        // The working directory is src-tauri, so we need to go up one level
+        let project_dir = std::env::current_dir()
+            .map_err(|e| format!("Failed to get current dir: {}", e))?
+            .parent()
+            .ok_or("Failed to get parent directory")?
+            .to_path_buf();
+        project_dir.join("tools").join("tally")
+    } else {
+        // In production, use the resource directory
+        let resource_path = app.path().resource_dir().map_err(|e| format!("Failed to get resource path: {}", e))?;
+        resource_path.join("tally")
+    };
+    
+    // Check if CLI binary exists
+    if !cli_source.exists() {
+        return Err(format!("CLI binary not found at: {:?}", cli_source));
+    }
+    
+    // Ensure /usr/local/bin directory exists
+    let bin_dir = Path::new("/usr/local/bin");
+    if !bin_dir.exists() {
+        // Try to create it
+        if let Err(e) = fs::create_dir_all(bin_dir) {
+            return Err(format!("Cannot create /usr/local/bin: {}. Please run: sudo mkdir -p /usr/local/bin", e));
+        }
+    }
+    
+    // Check write permissions
+    let test_file = bin_dir.join(".tally_test_write");
+    if fs::write(&test_file, "test").is_err() {
+        return Err("Permission denied. Please use the manual installation method with sudo.".to_string());
+    }
+    let _ = fs::remove_file(&test_file);
+    
+    // Create symlink at /usr/local/bin/tally
+    let cli_dest = bin_dir.join("tally");
+    
+    // Remove existing symlink if it exists
+    if cli_dest.exists() {
+        if let Err(e) = fs::remove_file(&cli_dest) {
+            return Err(format!("Cannot remove existing CLI: {}. Please run: sudo rm /usr/local/bin/tally", e));
+        }
+    }
+    
+    // Create the symlink
+    std::os::unix::fs::symlink(&cli_source, &cli_dest)
+        .map_err(|e| format!("Failed to create symlink: {}. Please use the manual installation method.", e))?;
+    
+    // Verify the symlink works
+    if !cli_dest.exists() {
+        return Err("Symlink creation failed. Please use the manual installation method.".to_string());
+    }
+    
+    // Mark setup as completed
+    mark_setup_completed()?;
+    
+    println!("Successfully installed CLI from {:?} to {:?}", cli_source, cli_dest);
+    
+    Ok(())
+}
+
+#[tauri::command] 
+async fn get_setup_status_cmd() -> SetupStatus {
+    let cli_installed = is_cli_installed();
+    let setup_completed = get_setup_completion_flag();
+    let is_first_launch = !setup_completed;
+
+    SetupStatus {
+        is_first_launch,
+        cli_installed,
+        setup_completed,
+    }
+}
+
+#[tauri::command]
+async fn mark_setup_completed_cmd() -> Result<(), String> {
+    mark_setup_completed()
+}
+
+#[tauri::command]
 async fn get_tasks() -> AppState {
     APP_STATE.lock().clone()
 }
@@ -266,7 +415,11 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             open_ide_and_terminal,
-            get_tasks
+            get_tasks,
+            install_cli_globally,
+            check_cli_permissions,
+            get_setup_status_cmd,
+            mark_setup_completed_cmd
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -279,6 +432,7 @@ async fn start_http_server(app_handle: AppHandle) {
         .route("/v1/tasks/upsert", post(upsert_task))
         .route("/v1/tasks/state", post(update_task_state))
         .route("/v1/tasks/done", post(mark_task_done))
+        .route("/v1/setup/status", get(get_setup_status))
         .layer(CorsLayer::permissive())
         .with_state(app_handle);
 

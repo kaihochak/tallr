@@ -18,8 +18,7 @@ A lightweight **floating window hub** that shows the live status of your **AI co
 ### For Users (Production) 
 1. **Download**: Get `Tally.dmg` from releases
 2. **Install**: Drag `Tally.app` to Applications folder  
-3. **Setup**: Launch Tally → Click "Install CLI Tools" → Done!
-4. **Use**: `cd your-project && claude` (works just like before, now tracked!)
+3. **Use**: Launch Tally, then run `tally claude` in your projects
 
 ### For Development
 ```bash
@@ -31,7 +30,7 @@ npm install
 npm run tauri:dev
 ```
 
-> **Setup Note**: The "Install CLI Tools" wizard is not yet implemented. The shell wrapper (`tools/tl-wrap.js`) exists but needs UI for automatic installation.
+> **Simplified Approach**: No complex shell setup needed. Just use `tally claude` instead of `claude` to get automatic session tracking.
 
 📖 **For detailed setup instructions, troubleshooting, and development workflows, see [DEVELOPMENT.md](./DEVELOPMENT.md)**
 
@@ -45,11 +44,11 @@ npm run tauri:dev
 
 ## Core Use Cases
 
-### 1. Track Claude Sessions Automatically
+### 1. Track Claude Sessions with Manual Wrapper
 ```bash
-# Just use Claude normally - now it's automatically tracked!
+# Use the tally wrapper to track sessions
 cd my-project
-claude                    # Session appears in Tally dashboard
+tally claude              # Session appears in Tally dashboard
 
 # Shows: "my-project - Claude session" with live state updates
 ```
@@ -167,15 +166,17 @@ curl -H "Authorization: Bearer $TALLY_TOKEN" \
 
 ### 🚧 Critical Missing Features
 1. **JSON Persistence**: Sessions lost on app restart - needs save/load to `~/Library/Application Support/Tally/`
-2. **Setup Wizard**: No UI for shell integration - wrapper exists but needs auto-installation
+2. **CLI Entry Point**: Need simple `tally` command wrapper
 3. **Visual Indicators**: No pulsing rows or tray color changes for waiting tasks
 4. **Project Deduplication**: Creates duplicate projects instead of reusing existing ones
+5. **Timer Cleanup**: Remove over-implemented timer system
 
 ### 📋 Next Implementation Priority
 1. Add persistent storage (JSON file)
-2. Build setup wizard UI
-3. Add visual notification indicators (CSS animations)
-4. Fix project deduplication logic
+2. Create `tally` CLI command entry point
+3. Remove timer system from codebase
+4. Add visual notification indicators (CSS animations)
+5. Fix project deduplication logic
 
 ### Smoke Test Checklist
 - [ ] Launch app → see floating window and system tray icon
@@ -188,6 +189,7 @@ curl -H "Authorization: Bearer $TALLY_TOKEN" \
 
 These features are intentionally moved to future iterations to keep the MVP focused:
 
+- **Shell Integration**: Automatic shell function installation (too complex for MVP)
 - **Project Timers**: Pomodoro-style timeboxing with alerts
 - **GitHub Integration**: Display repo URLs and commit info
 - **Multiple IDE Support**: Per-project IDE preferences  

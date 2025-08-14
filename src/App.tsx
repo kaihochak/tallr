@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import SetupWizard from "./components/SetupWizard";
 import "./App.css";
 
 interface Project {
@@ -31,12 +31,10 @@ interface AppState {
   updatedAt: number;
 }
 
-interface Timer {
-  projectId: string;
-  isRunning: boolean;
-  startedAt?: number;
-  elapsedMsTotal: number;
-  softLimitMinutes?: number;
+interface SetupStatus {
+  isFirstLaunch: boolean;
+  cliInstalled: boolean;
+  setupCompleted: boolean;
 }
 
 function App() {
@@ -44,8 +42,8 @@ function App() {
   const [searchFilter, setSearchFilter] = useState("");
   const [stateFilter, setStateFilter] = useState("all");
   const [selectedTaskIndex, setSelectedTaskIndex] = useState(0);
-  const [timers, setTimers] = useState<Record<string, Timer>>({});
   const [showQuickSwitcher, setShowQuickSwitcher] = useState(false);
+  const [showSetupWizard, setShowSetupWizard] = useState(false);
 
   // Listen for backend updates
   useEffect(() => {
@@ -75,7 +73,7 @@ function App() {
     };
   }, []);
 
-  // Load initial data
+  // Load initial data and setup status
   useEffect(() => {
     const loadTasks = async () => {
       try {
@@ -87,82 +85,22 @@ function App() {
       }
     };
 
+    const loadSetupStatus = async () => {
+      try {
+        const status = await invoke<SetupStatus>("get_setup_status_cmd");
+        setShowSetupWizard(status.isFirstLaunch && !status.setupCompleted);
+      } catch (error) {
+        console.error("Failed to load setup status:", error);
+      }
+    };
+
     loadTasks();
+    loadSetupStatus();
     
     // Poll for updates every 2 seconds
     const interval = setInterval(loadTasks, 2000);
     return () => clearInterval(interval);
   }, []);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Command+K for quick switcher
-      if (e.metaKey && e.key === "k") {
-        e.preventDefault();
-        setShowQuickSwitcher(true);
-      }
-      
-      // Escape to close quick switcher
-      if (e.key === "Escape") {
-        setShowQuickSwitcher(false);
-      }
-      
-      // Arrow navigation
-      if (e.key === "ArrowUp" && !showQuickSwitcher) {
-        e.preventDefault();
-        setSelectedTaskIndex(prev => Math.max(0, prev - 1));
-      }
-      
-      if (e.key === "ArrowDown" && !showQuickSwitcher) {
-        e.preventDefault();
-        setSelectedTaskIndex(prev => Math.min(filteredTasks.length - 1, prev + 1));
-      }
-      
-      // Enter to jump to selected task
-      if (e.key === "Enter" && !showQuickSwitcher && filteredTasks[selectedTaskIndex]) {
-        e.preventDefault();
-        handleJumpToContext(filteredTasks[selectedTaskIndex]);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedTaskIndex, showQuickSwitcher]);
-
-  // Timer management
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTimers(prev => {
-        const updated = { ...prev };
-        let hasChanges = false;
-        
-        Object.values(updated).forEach(timer => {
-          if (timer.isRunning && timer.startedAt) {
-            const elapsed = Date.now() - timer.startedAt + timer.elapsedMsTotal;
-            const minutes = Math.floor(elapsed / 60000);
-            
-            if (timer.softLimitMinutes && minutes >= timer.softLimitMinutes) {
-              // Show timer alert
-              if (Notification.permission === "granted") {
-                const project = Object.values(appState.projects).find(p => p.id === timer.projectId);
-                new Notification(`Timer Alert - ${project?.name || "Project"}`, {
-                  body: `${timer.softLimitMinutes} minutes reached`,
-                  icon: "/tauri.svg"
-                });
-              }
-              timer.softLimitMinutes = undefined; // Prevent repeat alerts
-              hasChanges = true;
-            }
-          }
-        });
-        
-        return hasChanges ? updated : prev;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [appState.projects]);
 
   // Filter tasks based on search and state filters
   const filteredTasks = useMemo(() => {
@@ -201,67 +139,60 @@ function App() {
     }
   }, [appState.projects]);
 
-  // Timer controls
-  const startTimer = useCallback((projectId: string, limitMinutes?: number) => {
-    setTimers(prev => ({
-      ...prev,
-      [projectId]: {
-        projectId,
-        isRunning: true,
-        startedAt: Date.now(),
-        elapsedMsTotal: prev[projectId]?.elapsedMsTotal || 0,
-        softLimitMinutes: limitMinutes
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Command+K for quick switcher
+      if (e.metaKey && e.key === "k") {
+        e.preventDefault();
+        setShowQuickSwitcher(true);
       }
-    }));
-  }, []);
-
-  const stopTimer = useCallback((projectId: string) => {
-    setTimers(prev => {
-      const timer = prev[projectId];
-      if (!timer) return prev;
       
-      return {
-        ...prev,
-        [projectId]: {
-          ...timer,
-          isRunning: false,
-          elapsedMsTotal: timer.startedAt ? Date.now() - timer.startedAt + timer.elapsedMsTotal : timer.elapsedMsTotal,
-          startedAt: undefined
-        }
-      };
-    });
-  }, []);
-
-  const resetTimer = useCallback((projectId: string) => {
-    setTimers(prev => ({
-      ...prev,
-      [projectId]: {
-        projectId,
-        isRunning: false,
-        elapsedMsTotal: 0
+      // Escape to close quick switcher
+      if (e.key === "Escape") {
+        setShowQuickSwitcher(false);
       }
-    }));
-  }, []);
+      
+      // Arrow navigation
+      if (e.key === "ArrowUp" && !showQuickSwitcher) {
+        e.preventDefault();
+        setSelectedTaskIndex(prev => Math.max(0, prev - 1));
+      }
+      
+      if (e.key === "ArrowDown" && !showQuickSwitcher) {
+        e.preventDefault();
+        setSelectedTaskIndex(prev => Math.min(filteredTasks.length - 1, prev + 1));
+      }
+      
+      // Enter to jump to selected task
+      if (e.key === "Enter" && !showQuickSwitcher && filteredTasks[selectedTaskIndex]) {
+        e.preventDefault();
+        handleJumpToContext(filteredTasks[selectedTaskIndex]);
+      }
+    };
 
-  // Format time
-  const formatTime = useCallback((ms: number) => {
-    const minutes = Math.floor(ms / 60000);
-    const seconds = Math.floor((ms % 60000) / 1000);
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-  }, []);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedTaskIndex, showQuickSwitcher, filteredTasks, handleJumpToContext]);
 
-  // Get current timer display
-  const getTimerDisplay = useCallback((projectId: string) => {
-    const timer = timers[projectId];
-    if (!timer) return "0:00";
-    
-    if (timer.isRunning && timer.startedAt) {
-      const elapsed = Date.now() - timer.startedAt + timer.elapsedMsTotal;
-      return formatTime(elapsed);
+  // Setup wizard handlers
+  const handleSetupComplete = useCallback(async () => {
+    try {
+      await invoke("mark_setup_completed_cmd");
+      setShowSetupWizard(false);
+    } catch (error) {
+      console.error("Failed to mark setup complete:", error);
     }
-    
-    return formatTime(timer.elapsedMsTotal);
-  }, [timers, formatTime]);
+  }, []);
+
+  const handleSetupSkip = useCallback(async () => {
+    try {
+      await invoke("mark_setup_completed_cmd");
+      setShowSetupWizard(false);
+    } catch (error) {
+      console.error("Failed to skip setup:", error);
+    }
+  }, []);
 
   // Get aggregate state for tray color
   const aggregateState = useMemo(() => {
@@ -274,6 +205,13 @@ function App() {
 
   return (
     <div className="tally-app">
+      {/* Setup Wizard */}
+      {showSetupWizard && (
+        <SetupWizard 
+          onComplete={handleSetupComplete}
+          onSkip={handleSetupSkip}
+        />
+      )}
       {/* Header */}
       <div className="header">
         <div className="header-left">
@@ -315,17 +253,16 @@ function App() {
           <div className="empty-state">
             <div className="empty-icon">🤖</div>
             <h3>No agent tasks yet</h3>
-            <p>Start an AI coding session and tasks will appear here</p>
+            <p>Run AI commands with the Tally wrapper to track sessions</p>
             <div className="empty-help">
-              <code>export TALLY_TOKEN=devtoken</code><br/>
-              <code>curl -H "Authorization: Bearer $TALLY_TOKEN" ...</code>
+              <code>./tools/tally claude</code><br/>
+              <small>From the tally project directory</small>
             </div>
           </div>
         ) : (
           filteredTasks.map((task, index) => {
             const project = appState.projects[task.projectId];
             const isSelected = index === selectedTaskIndex;
-            const timer = timers[task.projectId];
             const age = Math.floor((Date.now() - task.updatedAt * 1000) / 60000);
             
             return (
@@ -349,34 +286,11 @@ function App() {
                 </div>
 
                 <div className="task-actions" onClick={(e) => e.stopPropagation()}>
-                  {/* Timer */}
-                  <div className="timer">
-                    <span className="timer-display">{getTimerDisplay(task.projectId)}</span>
-                    <div className="timer-controls">
-                      {!timer?.isRunning ? (
-                        <>
-                          <button onClick={() => startTimer(task.projectId, 25)} title="25 min timer">25</button>
-                          <button onClick={() => startTimer(task.projectId, 45)} title="45 min timer">45</button>
-                          <button onClick={() => startTimer(task.projectId, 60)} title="60 min timer">60</button>
-                        </>
-                      ) : (
-                        <button onClick={() => stopTimer(task.projectId)} title="Stop timer">⏹</button>
-                      )}
-                      <button onClick={() => resetTimer(task.projectId)} title="Reset timer">↻</button>
-                    </div>
-                  </div>
-
                   {/* Quick actions */}
                   <div className="quick-actions">
-                    <button title="Open IDE" onClick={() => handleJumpToContext(task)}>💻</button>
-                    {project?.githubUrl && (
-                      <button
-                        title="Open GitHub"
-                        onClick={() => window.open(project.githubUrl, "_blank")}
-                      >
-                        🔗
-                      </button>
-                    )}
+                    <button title="Open IDE & Terminal" onClick={() => handleJumpToContext(task)}>
+                      🚀
+                    </button>
                   </div>
                 </div>
               </div>
