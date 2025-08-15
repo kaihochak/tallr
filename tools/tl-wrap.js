@@ -13,7 +13,7 @@
  *   node tl-wrap.js claude --your-args-here
  */
 
-import { spawn } from 'child_process';
+import pty from 'node-pty';
 import http from 'http';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -165,6 +165,13 @@ function processLine(line) {
   }
 }
 
+// Detect if command should use interactive mode
+function needsInteractiveMode(command, args) {
+  // Interactive AI CLIs that need PTY
+  const interactiveCLIs = ['claude', 'gemini', 'cursor-composer'];
+  return interactiveCLIs.includes(command);
+}
+
 // Main execution
 async function main() {
   const args = process.argv.slice(2);
@@ -178,6 +185,107 @@ async function main() {
   // Create initial task
   await createTask();
 
+  // Choose approach based on command type
+  if (needsInteractiveMode(command, commandArgs)) {
+    await runWithPTY(command, commandArgs);
+  } else {
+    await runWithSpawn(command, commandArgs);
+  }
+}
+
+// PTY approach for interactive CLIs
+async function runWithPTY(command, commandArgs) {
+  // Create PTY process
+  const ptyProcess = pty.spawn(command, commandArgs, {
+    name: 'xterm-color',
+    cols: process.stdout.columns || 80,
+    rows: process.stdout.rows || 30,
+    cwd: process.cwd(),
+    env: process.env
+  });
+
+  let outputBuffer = '';
+
+  // Monitor PTY output
+  ptyProcess.on('data', (data) => {
+    // Display output to user (preserve interactive experience)
+    process.stdout.write(data);
+    
+    // Monitor for notification patterns
+    outputBuffer += data;
+    const lines = outputBuffer.split('\n');
+    outputBuffer = lines.pop() || ''; // Keep incomplete line
+    
+    lines.forEach(processLine);
+  });
+
+  // Forward user input to PTY (if stdin supports raw mode)
+  if (process.stdin.setRawMode && process.stdin.isTTY) {
+    process.stdin.setRawMode(true);
+    process.stdin.on('data', (data) => {
+      ptyProcess.write(data);
+    });
+  }
+
+  // Handle PTY exit
+  ptyProcess.on('exit', async (code, signal) => {
+    // Process any remaining buffered output
+    if (outputBuffer.trim()) processLine(outputBuffer);
+
+    const success = code === 0;
+    const details = success 
+      ? `Interactive session completed successfully` 
+      : `Interactive session ended with code ${code}`;
+
+    if (success && !hasError) {
+      await markTaskDone(details);
+    } else {
+      await updateTaskState('ERROR', details);
+    }
+
+    // Restore terminal
+    if (process.stdin.setRawMode && process.stdin.isTTY) {
+      process.stdin.setRawMode(false);
+    }
+    process.exit(code);
+  });
+
+  // Handle PTY errors
+  ptyProcess.on('error', async (error) => {
+    console.error(`\n[Tally] PTY error:`, error.message);
+    await updateTaskState('ERROR', `PTY error: ${error.message}`);
+    if (process.stdin.setRawMode && process.stdin.isTTY) {
+      process.stdin.setRawMode(false);
+    }
+    process.exit(1);
+  });
+
+  // Handle signals for PTY
+  process.on('SIGINT', async () => {
+    console.log('\n[Tally] Received SIGINT, cleaning up PTY...');
+    ptyProcess.kill('SIGINT');
+    await updateTaskState('BLOCKED', 'Interactive session interrupted by user');
+    if (process.stdin.setRawMode && process.stdin.isTTY) {
+      process.stdin.setRawMode(false);
+    }
+    process.exit(130);
+  });
+
+  process.on('SIGTERM', async () => {
+    console.log('\n[Tally] Received SIGTERM, cleaning up PTY...');
+    ptyProcess.kill('SIGTERM');
+    await updateTaskState('BLOCKED', 'Interactive session terminated');
+    if (process.stdin.setRawMode && process.stdin.isTTY) {
+      process.stdin.setRawMode(false);
+    }
+    process.exit(143);
+  });
+}
+
+// Traditional spawn approach for non-interactive commands
+async function runWithSpawn(command, commandArgs) {
+  const { spawn } = await import('child_process');
+  
   // Spawn the process
   const child = spawn(command, commandArgs, {
     stdio: ['inherit', 'pipe', 'pipe']
