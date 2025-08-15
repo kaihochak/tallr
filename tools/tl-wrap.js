@@ -59,7 +59,7 @@ async function runWithPTY(command, commandArgs) {
     outputBuffer += data;
   });
 
-  // Process state changes silently every 2 seconds
+  // Process state changes silently every 0.5 seconds
   setInterval(() => {
     if (outputBuffer.length > 1000) {
       // Only process recent output to avoid memory issues
@@ -74,7 +74,7 @@ async function runWithPTY(command, commandArgs) {
         stateTracker.changeState('IDLE', 'Claude ready for input', 'high').catch(() => {});
       }
     }
-  }, 2000);
+  }, 500);
 
   // Forward user input to PTY
   if (process.stdin.setRawMode && process.stdin.isTTY) {
