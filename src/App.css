@@ -354,15 +354,40 @@ body {
   color: var(--text-secondary);
 }
 
-.empty-help {
+.usage-examples {
+  display: flex;
+  gap: 24px;
+  margin: 16px 0;
+  justify-content: center;
+}
+
+.usage-example {
+  text-align: left;
+}
+
+.usage-example h4 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.usage-example code {
+  display: block;
   font-family: 'SF Mono', Monaco, monospace;
-  font-size: 11px;
+  font-size: 12px;
   background: var(--bg-secondary);
-  padding: 12px;
-  border-radius: 6px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  margin: 4px 0;
+  color: var(--accent-color);
   border: 1px solid var(--border-light);
+}
+
+.empty-help {
+  font-size: 11px;
   color: var(--text-tertiary);
-  line-height: 1.6;
+  margin-top: 16px;
 }
 
 /* Quick Switcher */

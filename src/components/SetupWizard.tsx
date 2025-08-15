@@ -4,11 +4,9 @@ import './SetupWizard.css';
 
 interface SetupWizardProps {
   onComplete: () => void;
-  onSkip: () => void;
 }
 
-const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete, onSkip }) => {
-  const [installComplete, setInstallComplete] = useState(false);
+const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
   const [installing, setInstalling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showManualInstructions, setShowManualInstructions] = useState(false);
@@ -27,8 +25,8 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete, onSkip }) => {
       
       // Perform installation
       await invoke('install_cli_globally');
-      setInstallComplete(true);
-      setTimeout(() => onComplete(), 2000);
+      // Installation complete - go straight to main app
+      onComplete();
     } catch (err: any) {
       console.error('Installation failed:', err);
       const errorMsg = err.toString().replace('Error: ', '');
@@ -50,44 +48,12 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete, onSkip }) => {
     setTimeout(() => setCopied(false), 2000);
   }, []);
 
-  if (installComplete) {
-    return (
-      <div className="setup-wizard-overlay">
-        <div className="setup-wizard">
-          <div className="wizard-success">
-            <div className="success-icon">✅</div>
-            <h2>CLI Tools Installed!</h2>
-            <p>The <code>tally</code> command has been installed successfully.</p>
-            
-            <div className="usage-example">
-              <h4>Try it out:</h4>
-              <code>cd ~/your-project</code>
-              <code>tally claude</code>
-            </div>
-            
-            <button className="done-button" onClick={onComplete}>
-              Start Using Tally
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="setup-wizard-overlay">
       <div className="setup-wizard">
-        <div className="wizard-header">
-          <div className="wizard-icon">🚀</div>
-          <h2>Welcome to Tally!</h2>
-          <p>Track your AI coding sessions and get notified when they need input.</p>
-        </div>
-
         <div className="install-main">
-          <h3>Install CLI Tools</h3>
-          <p className="install-description">
-            Install the <code>tally</code> command to track AI sessions from any terminal.
-          </p>
+          <h2>Install CLI Tools</h2>
+          <p>Get notified when your AI sessions need input.</p>
           
           <button 
             className="primary-install-button" 
@@ -100,7 +66,7 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete, onSkip }) => {
               </>
             ) : (
               <>
-                <span className="install-icon">🚀</span> Install CLI Tools
+                Install CLI Tools
               </>
             )}
           </button>
@@ -114,10 +80,6 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete, onSkip }) => {
               )}
             </div>
           )}
-          
-          <div className="install-info">
-            <p>This will create a symlink at <code>/usr/local/bin/tally</code></p>
-          </div>
         </div>
 
         <div className="wizard-actions">
@@ -126,9 +88,6 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete, onSkip }) => {
             onClick={() => setShowManualInstructions(!showManualInstructions)}
           >
             {showManualInstructions ? 'Hide' : 'Manual installation'}
-          </button>
-          <button className="skip-button" onClick={onSkip}>
-            Skip for now
           </button>
         </div>
 

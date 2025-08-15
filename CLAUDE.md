@@ -10,12 +10,12 @@ This guide shows how to use **Tally** with **Claude Code CLI**, **Gemini CLI**, 
 1. Download `Tally.dmg` from releases
 2. Drag `Tally.app` to Applications
 3. Launch Tally → Click "Install CLI Tools"
-4. Done! Now just use `claude` normally
+4. Done! Now use `tally claude` to track sessions
 
 ### Developers
 1. Run `npm run tauri:dev` 
 2. Click "Install CLI Tools" in the setup wizard
-3. Test with `claude` in any project
+3. Test with `tally claude` in any project
 
 ---
 
@@ -23,15 +23,15 @@ This guide shows how to use **Tally** with **Claude Code CLI**, **Gemini CLI**, 
 
 ### Natural Workflow
 ```bash
-# Just use Claude like you always do - now it's tracked!
+# Use tally wrapper for automatic tracking
 cd my-project
-claude
+tally claude
 
-# Start chatting normally:
+# Start chatting normally in interactive mode:
 > Help me debug this authentication issue
 > The login form isn't working properly  
 > Can you review this code change?
-> exit
+> /exit
 ```
 
 ### What Tally Adds
@@ -42,15 +42,15 @@ claude
 - **Timers**: Optional project timeboxing with gentle alerts
 
 ### Supported AI Tools
-- **Claude Code**: `claude` (interactive chat)
-- **Gemini CLI**: `gemini` (if installed)
+- **Claude Code**: `tally claude` (interactive chat) ✅ Tested with PTY
+- **Gemini CLI**: `tally gemini` (planned)
 - **Future**: Any CLI tool that uses interactive prompts
 
 ---
 
 ## Behind the Scenes
 
-When you run `claude`, Tally's shell integration:
+When you run `tally claude`, Tally's CLI wrapper:
 1. **Starts tracking**: Creates task "Claude session" for current project
 2. **Monitors output**: Watches for approval prompts, errors
 3. **Sends notifications**: Desktop alerts when Claude needs input
@@ -93,13 +93,13 @@ When you run `claude`, Tally's shell integration:
 Set environment variable before running:
 ```bash
 export TL_PROJECT="My Custom Project Name"
-claude
+tally claude
 ```
 
 ### Different IDEs
 ```bash
 export TL_IDE="code"  # or "cursor", "webstorm"
-claude
+tally claude
 ```
 
 ### Manual Task Creation (for non-CLI tools)
@@ -111,4 +111,8 @@ curl -H "Authorization: Bearer devtoken" \
      http://127.0.0.1:4317/v1/tasks/upsert
 ```
 
-The beauty of Tally is that it gets out of your way - just use your AI tools normally, and gain visibility + notifications automatically!
+The beauty of Tally is that it gets out of your way - just prefix your AI commands with `tally` and gain visibility + notifications automatically!
+
+## Technical Implementation Note
+
+Tally uses PTY (pseudo-terminal) technology to wrap interactive CLI tools like Claude while preserving their full functionality. This ensures you get the complete native experience while adding session tracking and notifications.

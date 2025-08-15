@@ -4,7 +4,7 @@ A lightweight **floating window hub** that shows the live status of your **AI co
 
 ## Core MVP Features
 
-- ✅ **Automatic Session Tracking**: Just type `claude` - it's automatically tracked
+- ✅ **Automatic Session Tracking**: Just type `tally claude` - it's automatically tracked
 - ✅ **Hybrid Notifications**: Mac desktop alerts + visual indicators when input needed
 - ✅ **Session Dashboard**: See all active sessions at a glance with real-time updates
 - ✅ **One-Click Resume**: Click any session to jump back to IDE + terminal
@@ -48,7 +48,8 @@ npm run tauri:dev
 ```bash
 # Use the tally wrapper to track sessions
 cd my-project
-tally claude              # Session appears in Tally dashboard
+tally claude              # Interactive Claude session, automatically tracked
+tally claude "help me debug this"  # Start with initial prompt
 
 # Shows: "my-project - Claude session" with live state updates
 ```
@@ -165,18 +166,16 @@ curl -H "Authorization: Bearer $TALLY_TOKEN" \
 - System tray icon (basic implementation)
 
 ### 🚧 Critical Missing Features
-1. **JSON Persistence**: Sessions lost on app restart - needs save/load to `~/Library/Application Support/Tally/`
-2. **CLI Entry Point**: Need simple `tally` command wrapper
+1. **PTY Implementation**: Current wrapper breaks Claude CLI interactive mode (✅ Solution tested)
+2. **JSON Persistence**: Sessions lost on app restart - needs save/load to `~/Library/Application Support/Tally/`
 3. **Visual Indicators**: No pulsing rows or tray color changes for waiting tasks
 4. **Project Deduplication**: Creates duplicate projects instead of reusing existing ones
-5. **Timer Cleanup**: Remove over-implemented timer system
 
 ### 📋 Next Implementation Priority
-1. Add persistent storage (JSON file)
-2. Create `tally` CLI command entry point
-3. Remove timer system from codebase
-4. Add visual notification indicators (CSS animations)
-5. Fix project deduplication logic
+1. Implement PTY solution in tl-wrap.js (tested and proven to work)
+2. Add persistent storage (JSON file)
+3. Add visual notification indicators (CSS animations)
+4. Fix project deduplication logic
 
 ### Smoke Test Checklist
 - [ ] Launch app → see floating window and system tray icon

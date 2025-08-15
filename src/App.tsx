@@ -185,15 +185,6 @@ function App() {
     }
   }, []);
 
-  const handleSetupSkip = useCallback(async () => {
-    try {
-      await invoke("mark_setup_completed_cmd");
-      setShowSetupWizard(false);
-    } catch (error) {
-      console.error("Failed to skip setup:", error);
-    }
-  }, []);
-
   // Get aggregate state for tray color
   const aggregateState = useMemo(() => {
     const states = Object.values(appState.tasks).map(t => t.state);
@@ -209,7 +200,6 @@ function App() {
       {showSetupWizard && (
         <SetupWizard 
           onComplete={handleSetupComplete}
-          onSkip={handleSetupSkip}
         />
       )}
       {/* Header */}
@@ -251,12 +241,23 @@ function App() {
       <div className="task-list">
         {filteredTasks.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-icon">🤖</div>
-            <h3>No agent tasks yet</h3>
-            <p>Run AI commands with the Tally wrapper to track sessions</p>
+            <div className="empty-icon">🚀</div>
+            <h3>Ready to track your AI sessions!</h3>
+            <p>Use the <code>tally</code> command to wrap any AI tool and get notifications when it needs input.</p>
+            <div className="usage-examples">
+              <div className="usage-example">
+                <h4>Try it out:</h4>
+                <code>cd ~/your-project</code>
+                <code>tally claude</code>
+              </div>
+              <div className="usage-example">
+                <h4>Other AI tools:</h4>
+                <code>tally gemini</code>
+                <code>tally cursor-composer</code>
+              </div>
+            </div>
             <div className="empty-help">
-              <code>./tools/tally claude</code><br/>
-              <small>From the tally project directory</small>
+              <small>Sessions will appear here automatically when you start them</small>
             </div>
           </div>
         ) : (

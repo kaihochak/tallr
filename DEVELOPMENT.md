@@ -47,6 +47,9 @@ npm install
 ```bash
 # Run both frontend and backend together
 npm run tauri:dev
+
+# To test setup wizard again (reset setup completion flag)
+rm -f ~/Library/Application\ Support/Tally/.setup_completed && npm run tauri:dev
 ```
 
 **What this does:**
@@ -67,7 +70,7 @@ On first launch, Tally shows a setup wizard:
   ```bash
   sudo ln -s /Applications/Tally.app/Contents/MacOS/tally /usr/local/bin/tally
   ```
-- **Skip Option**: You can skip setup and install later
+- **No Skip Option**: Installation is required for Tally to function
 
 ### 2. macOS Permissions
 macOS will prompt for permissions:
@@ -101,10 +104,18 @@ cd /Users/kai/Development/tally
 **Step 3: Use the tally CLI wrapper**
 ```bash
 # After installation, from any directory:
-tally claude                              # Start a Claude session
-tally claude --help                       # Test basic command pass-through
-tally echo "Approve? [y/N]"              # Test waiting user detection
-tally sh -c "echo 'Error: failed' && exit 1"  # Test error detection
+tally claude                              # Start interactive Claude session
+tally claude "write a hello world function" # Start with initial prompt
+tally claude --help                       # Show Claude CLI help
+```
+
+**Testing PTY Solution**
+```bash
+# Test the PTY approach (for development)
+node test-pty.js                         # Verify interactive mode works
+
+# Compare with current broken approach:
+./tools/tally claude                     # May show input error (to be fixed)
 ```
 
 **Step 3: Environment variables (optional)**
@@ -323,17 +334,19 @@ npm run tauri:dev
 - **CLI Wrapper**: Simple `tally` command entry point created
 
 ### 🚧 Critical Missing Features
-1. **Persistent Storage**: No JSON file saving (data lost on restart)
-2. **Project Deduplication**: Creates new project for each task
-3. **Visual Indicators**: No pulsing/highlighting for waiting tasks
-4. **Installation Verification**: No test to verify CLI works after installation
+1. **PTY Implementation**: Current wrapper breaks Claude CLI interactive mode
+2. **Persistent Storage**: No JSON file saving (data lost on restart)
+3. **Project Deduplication**: Creates new project for each task
+4. **Visual Indicators**: No pulsing/highlighting for waiting tasks
+5. **Installation Verification**: No test to verify CLI works after installation
 
 ### 📝 Implementation Priority
-1. **Add JSON persistence** - Save to `~/Library/Application Support/Tally/`
-2. **Fix project deduplication** - Reuse existing projects by path
-3. **Add visual indicators** - CSS for pulsing amber rows
-4. **Installation verification** - Test CLI works after setup
-5. **Complete system tray** - Color changes and menu
+1. **Fix CLI wrapper with PTY** - Replace spawn with node-pty for interactive sessions
+2. **Add JSON persistence** - Save to `~/Library/Application Support/Tally/`
+3. **Fix project deduplication** - Reuse existing projects by path
+4. **Add visual indicators** - CSS for pulsing amber rows
+5. **Installation verification** - Test CLI works after setup
+6. **Complete system tray** - Color changes and menu
 
 ## Future Enhancements (Deferred)
 
