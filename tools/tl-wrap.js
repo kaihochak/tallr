@@ -61,18 +61,19 @@ async function runWithPTY(command, commandArgs) {
 
   // Process state changes silently every 0.5 seconds
   setInterval(() => {
-    if (outputBuffer.length > 1000) {
-      // Only process recent output to avoid memory issues
-      const recentOutput = outputBuffer.slice(-1000);
-      
-      // Simple state detection without console output
-      if (recentOutput.includes('esc to interrupt') && recentOutput.includes('tokens')) {
+    if (outputBuffer.length > 0) {
+      // Check current buffer content
+      if (outputBuffer.includes('esc to interrupt') && outputBuffer.includes('tokens')) {
         stateTracker.changeState('WORKING', 'Claude is processing', 'high').catch(() => {});
-      } else if (recentOutput.includes('❯ 1. Yes')) {
+      } else if (outputBuffer.includes('❯ 1. Yes')) {
         stateTracker.changeState('PENDING', 'Claude needs approval', 'high').catch(() => {});
-      } else if (recentOutput.includes('> ') || recentOutput.includes('? for shortcuts')) {
+      } else {
+        // If no active patterns in recent output, assume IDLE
         stateTracker.changeState('IDLE', 'Claude ready for input', 'high').catch(() => {});
       }
+      
+      // Clear buffer so next check only sees new output
+      outputBuffer = '';
     }
   }, 500);
 
