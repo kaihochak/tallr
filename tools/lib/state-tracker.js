@@ -16,6 +16,8 @@ function cleanANSI(text) {
     .replace(/\x1b[()][AB012]/g, '') // Character set sequences
     // Remove control characters but keep printable Unicode
     .replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '')
+    // Remove box-drawing characters
+    .replace(/[│─┌┐└┘├┤┬┴┼╭╮╰╯]/g, '')
     // Clean up whitespace
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
@@ -49,22 +51,20 @@ export class ClaudeStateTracker {
     const cleanLine = cleanANSI(line);
     if (!cleanLine || cleanLine.length < 3) return null;
     
-    // PENDING: Claude is waiting for user input
-    if (cleanLine.includes('❯ 1. Yes')) {
-      return { state: 'PENDING', details: cleanLine, confidence: 'high' };
-    }
-    
-    // WORKING: Claude is actively processing (more specific pattern)
+    // WORKING: Claude is actively processing (check first as most important)
     if (cleanLine.includes('esc to interrupt') && cleanLine.includes('tokens')) {
       return { state: 'WORKING', details: cleanLine, confidence: 'high' };
     }
     
-    // IDLE: When Claude shows prompt or is ready for input
-    if (cleanLine.includes('> ') || cleanLine.includes('⏸ plan mode') || cleanLine.includes('Welcome to Claude')) {
-      return { state: 'IDLE', details: cleanLine, confidence: 'high' };
+    // PENDING: Claude is waiting for user input - check multiple patterns
+    if (cleanLine.includes('❯ 1. Yes') || 
+        cleanLine.includes('Would you like to proceed?') ||
+        cleanLine.includes('Approve?') ||
+        cleanLine.includes('[y/N]')) {
+      return { state: 'PENDING', details: cleanLine, confidence: 'high' };
     }
     
-    // Everything else stays as current state (no change)
+    // Don't return IDLE for every line - only return state changes
     return null;
   }
 

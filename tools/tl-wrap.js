@@ -62,18 +62,18 @@ async function runWithPTY(command, commandArgs) {
   // Process state changes silently every 0.5 seconds
   setInterval(() => {
     if (outputBuffer.length > 0) {
-      // Check current buffer content
-      if (outputBuffer.includes('esc to interrupt') && outputBuffer.includes('tokens')) {
-        stateTracker.changeState('WORKING', 'Claude is processing', 'high').catch(() => {});
-      } else if (outputBuffer.includes('❯ 1. Yes')) {
-        stateTracker.changeState('PENDING', 'Claude needs approval', 'high').catch(() => {});
-      } else {
-        // If no active patterns in recent output, assume IDLE
-        stateTracker.changeState('IDLE', 'Claude ready for input', 'high').catch(() => {});
-      }
+      // Split buffer into lines for proper processing
+      const lines = outputBuffer.split('\n');
       
-      // Clear buffer so next check only sees new output
-      outputBuffer = '';
+      // Keep the last incomplete line in the buffer
+      outputBuffer = lines.pop() || '';
+      
+      // Process each complete line
+      for (const line of lines) {
+        if (line.trim()) {
+          stateTracker.processLine(line).catch(() => {});
+        }
+      }
     }
   }, 500);
 
