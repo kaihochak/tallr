@@ -141,8 +141,8 @@ async fn upsert_task(
     // Emit event to frontend
     let _ = app_handle.emit("tasks-updated", &state.clone());
 
-    // Send notification for WAITING_USER state
-    if req.task.state == "WAITING_USER" {
+    // Send notification for PENDING state
+    if req.task.state == "PENDING" {
         let notification_data = serde_json::json!({
             "title": format!("Tally - {}", req.task.agent),
             "body": req.task.details.unwrap_or_else(|| "Agent is waiting for user input".to_string())
@@ -174,8 +174,8 @@ async fn update_task_state(
         // Emit event to frontend
         let _ = app_handle.emit("tasks-updated", &state.clone());
 
-        // Send notification for WAITING_USER state
-        if req.state == "WAITING_USER" {
+        // Send notification for PENDING state
+        if req.state == "PENDING" {
             let notification_data = serde_json::json!({
                 "title": format!("Tally - {}", agent),
                 "body": req.details.unwrap_or_else(|| "Agent is waiting for user input".to_string())

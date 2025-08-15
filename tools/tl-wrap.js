@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * Tally CLI Wrapper - Monitors CLI output for user prompts
+ * Tally CLI Wrapper
+ * 
+ * Monitors CLI output for user prompts with modular architecture
  * 
  * Usage:
  *   export TALLY_TOKEN=devtoken
@@ -14,12 +16,8 @@
  */
 
 import pty from 'node-pty';
-import http from 'http';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { TallyClient } from './lib/http-client.js';
+import { ClaudeStateTracker } from './lib/state-tracker.js';
 
 // Configuration from environment
 const config = {
@@ -32,170 +30,17 @@ const config = {
   ide: process.env.TL_IDE || 'cursor'
 };
 
-// Patterns that indicate the CLI is waiting for user input
-const WAITING_PATTERNS = [
-  /Approve\?\s*\[y\/N\]/i,
-  /requires approval/i,
-  /awaiting confirmation/i,
-  /\[y\/N\]/i,
-  /Press Enter to continue/i,
-  /Continue\?\s*\[y\/n\]/i,
-  /waiting for user/i,
-  /user input required/i,
-  /proceed\?\s*\[y\/n\]/i
-];
-
-const ERROR_PATTERNS = [
-  /error:/i,
-  /failed:/i,
-  /exception/i,
-  /traceback/i,
-  /\berror\b/i
-];
-
 // Generate unique task ID
 const taskId = `${config.agent}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-let isWaitingForUser = false;
-let hasError = false;
+// Initialize components
+const client = new TallyClient(config);
+const stateTracker = new ClaudeStateTracker(client, taskId, false); // Disable debug
 
-// HTTP request helper
-function makeRequest(method, path, data) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(path, config.gateway);
-    const options = {
-      hostname: url.hostname,
-      port: url.port,
-      path: url.pathname,
-      method: method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.token}`
-      }
-    };
-
-    const req = http.request(options, (res) => {
-      let body = '';
-      res.on('data', (chunk) => body += chunk);
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          resolve(body);
-        } else {
-          reject(new Error(`HTTP ${res.statusCode}: ${body}`));
-        }
-      });
-    });
-
-    req.on('error', reject);
-    
-    if (data) {
-      req.write(JSON.stringify(data));
-    }
-    
-    req.end();
-  });
-}
-
-// Create initial task
-async function createTask() {
-  try {
-    await makeRequest('POST', '/v1/tasks/upsert', {
-      project: {
-        name: config.project,
-        repoPath: config.repo,
-        preferredIDE: config.ide
-      },
-      task: {
-        id: taskId,
-        agent: config.agent,
-        title: config.title,
-        state: 'RUNNING'
-      }
-    });
-    console.log(`[Tally] Created task ${taskId} for ${config.project}`);
-  } catch (error) {
-    console.error(`[Tally] Failed to create task:`, error.message);
-  }
-}
-
-// Update task state
-async function updateTaskState(state, details) {
-  try {
-    await makeRequest('POST', '/v1/tasks/state', {
-      taskId: taskId,
-      state: state,
-      details: details
-    });
-    console.log(`[Tally] Task ${taskId} → ${state}`);
-  } catch (error) {
-    console.error(`[Tally] Failed to update task:`, error.message);
-  }
-}
-
-// Mark task as done
-async function markTaskDone(details) {
-  try {
-    await makeRequest('POST', '/v1/tasks/done', {
-      taskId: taskId,
-      details: details
-    });
-    console.log(`[Tally] Task ${taskId} completed`);
-  } catch (error) {
-    console.error(`[Tally] Failed to mark task done:`, error.message);
-  }
-}
-
-// Process output line
-function processLine(line) {
-  const trimmed = line.trim();
-  if (!trimmed) return;
-
-  // Check for waiting patterns
-  const isWaiting = WAITING_PATTERNS.some(pattern => pattern.test(trimmed));
-  if (isWaiting && !isWaitingForUser) {
-    isWaitingForUser = true;
-    updateTaskState('WAITING_USER', trimmed);
-  }
-
-  // Check for error patterns
-  const isError = ERROR_PATTERNS.some(pattern => pattern.test(trimmed));
-  if (isError && !hasError) {
-    hasError = true;
-    updateTaskState('ERROR', trimmed);
-  }
-}
-
-// Detect if command should use interactive mode
-function needsInteractiveMode(command, args) {
-  // Interactive AI CLIs that need PTY
-  const interactiveCLIs = ['claude', 'gemini', 'cursor-composer'];
-  return interactiveCLIs.includes(command);
-}
-
-// Main execution
-async function main() {
-  const args = process.argv.slice(2);
-  if (args.length === 0) {
-    console.error('Usage: node tl-wrap.js <command> [args...]');
-    process.exit(1);
-  }
-
-  const [command, ...commandArgs] = args;
-
-  // Create initial task
-  await createTask();
-
-  // Choose approach based on command type
-  if (needsInteractiveMode(command, commandArgs)) {
-    await runWithPTY(command, commandArgs);
-  } else {
-    await runWithSpawn(command, commandArgs);
-  }
-}
-
-// PTY approach for interactive CLIs
+/**
+ * PTY approach for interactive CLIs - minimal passthrough
+ */
 async function runWithPTY(command, commandArgs) {
-  // Create PTY process
   const ptyProcess = pty.spawn(command, commandArgs, {
     name: 'xterm-color',
     cols: process.stdout.columns || 80,
@@ -206,20 +51,32 @@ async function runWithPTY(command, commandArgs) {
 
   let outputBuffer = '';
 
-  // Monitor PTY output
+  // Simple passthrough - no processing, no interference
   ptyProcess.on('data', (data) => {
-    // Display output to user (preserve interactive experience)
     process.stdout.write(data);
     
-    // Monitor for notification patterns
+    // Silently collect output for state detection
     outputBuffer += data;
-    const lines = outputBuffer.split('\n');
-    outputBuffer = lines.pop() || ''; // Keep incomplete line
-    
-    lines.forEach(processLine);
   });
 
-  // Forward user input to PTY (if stdin supports raw mode)
+  // Process state changes silently every 2 seconds
+  setInterval(() => {
+    if (outputBuffer.length > 1000) {
+      // Only process recent output to avoid memory issues
+      const recentOutput = outputBuffer.slice(-1000);
+      
+      // Simple state detection without console output
+      if (recentOutput.includes('esc to interrupt') && recentOutput.includes('tokens')) {
+        stateTracker.changeState('WORKING', 'Claude is processing', 'high').catch(() => {});
+      } else if (recentOutput.includes('❯ 1. Yes')) {
+        stateTracker.changeState('PENDING', 'Claude needs approval', 'high').catch(() => {});
+      } else if (recentOutput.includes('> ') || recentOutput.includes('? for shortcuts')) {
+        stateTracker.changeState('IDLE', 'Claude ready for input', 'high').catch(() => {});
+      }
+    }
+  }, 2000);
+
+  // Forward user input to PTY
   if (process.stdin.setRawMode && process.stdin.isTTY) {
     process.stdin.setRawMode(true);
     process.stdin.on('data', (data) => {
@@ -229,21 +86,17 @@ async function runWithPTY(command, commandArgs) {
 
   // Handle PTY exit
   ptyProcess.on('exit', async (code, signal) => {
-    // Process any remaining buffered output
-    if (outputBuffer.trim()) processLine(outputBuffer);
-
     const success = code === 0;
     const details = success 
-      ? `Interactive session completed successfully` 
-      : `Interactive session ended with code ${code}`;
+      ? `Claude session completed successfully` 
+      : `Claude session ended with code ${code}`;
 
-    if (success && !hasError) {
-      await markTaskDone(details);
+    if (success) {
+      await client.markTaskDone(taskId, details);
     } else {
-      await updateTaskState('ERROR', details);
+      await client.updateTaskState(taskId, 'IDLE', details);
     }
 
-    // Restore terminal
     if (process.stdin.setRawMode && process.stdin.isTTY) {
       process.stdin.setRawMode(false);
     }
@@ -253,45 +106,38 @@ async function runWithPTY(command, commandArgs) {
   // Handle PTY errors
   ptyProcess.on('error', async (error) => {
     console.error(`\n[Tally] PTY error:`, error.message);
-    await updateTaskState('ERROR', `PTY error: ${error.message}`);
+    await client.updateTaskState(taskId, 'IDLE', `PTY error: ${error.message}`);
     if (process.stdin.setRawMode && process.stdin.isTTY) {
       process.stdin.setRawMode(false);
     }
     process.exit(1);
   });
 
-  // Handle signals for PTY
-  process.on('SIGINT', async () => {
-    console.log('\n[Tally] Received SIGINT, cleaning up PTY...');
-    ptyProcess.kill('SIGINT');
-    await updateTaskState('BLOCKED', 'Interactive session interrupted by user');
+  // Handle signals
+  const cleanup = async (signal, exitCode) => {
+    console.log(`\n[Tally] Received ${signal}, cleaning up PTY...`);
+    ptyProcess.kill(signal);
+    await client.updateTaskState(taskId, 'IDLE', `Interactive session ${signal.toLowerCase()}`);
     if (process.stdin.setRawMode && process.stdin.isTTY) {
       process.stdin.setRawMode(false);
     }
-    process.exit(130);
-  });
+    process.exit(exitCode);
+  };
 
-  process.on('SIGTERM', async () => {
-    console.log('\n[Tally] Received SIGTERM, cleaning up PTY...');
-    ptyProcess.kill('SIGTERM');
-    await updateTaskState('BLOCKED', 'Interactive session terminated');
-    if (process.stdin.setRawMode && process.stdin.isTTY) {
-      process.stdin.setRawMode(false);
-    }
-    process.exit(143);
-  });
+  process.on('SIGINT', () => cleanup('SIGINT', 130));
+  process.on('SIGTERM', () => cleanup('SIGTERM', 143));
 }
 
-// Traditional spawn approach for non-interactive commands
+/**
+ * Traditional spawn approach for non-interactive commands
+ */
 async function runWithSpawn(command, commandArgs) {
   const { spawn } = await import('child_process');
   
-  // Spawn the process
   const child = spawn(command, commandArgs, {
     stdio: ['inherit', 'pipe', 'pipe']
   });
 
-  // Buffer for incomplete lines
   let stdoutBuffer = '';
   let stderrBuffer = '';
 
@@ -302,9 +148,9 @@ async function runWithSpawn(command, commandArgs) {
     
     stdoutBuffer += text;
     const lines = stdoutBuffer.split('\n');
-    stdoutBuffer = lines.pop() || ''; // Keep incomplete line
+    stdoutBuffer = lines.pop() || '';
     
-    lines.forEach(processLine);
+    lines.forEach(line => stateTracker.processLine(line));
   });
 
   // Process stderr
@@ -314,26 +160,27 @@ async function runWithSpawn(command, commandArgs) {
     
     stderrBuffer += text;
     const lines = stderrBuffer.split('\n');
-    stderrBuffer = lines.pop() || ''; // Keep incomplete line
+    stderrBuffer = lines.pop() || '';
     
-    lines.forEach(processLine);
+    lines.forEach(line => stateTracker.processLine(line));
   });
 
   // Handle process completion
   child.on('close', async (code) => {
-    // Process any remaining buffered output
-    if (stdoutBuffer.trim()) processLine(stdoutBuffer);
-    if (stderrBuffer.trim()) processLine(stderrBuffer);
+    if (stdoutBuffer.trim()) await stateTracker.processLine(stdoutBuffer);
+    if (stderrBuffer.trim()) await stateTracker.processLine(stderrBuffer);
 
+    const summary = stateTracker.getStateSummary();
     const success = code === 0;
     const details = success 
       ? `Command completed successfully` 
       : `Command failed with exit code ${code}`;
 
-    if (success && !hasError) {
-      await markTaskDone(details);
+
+    if (success) {
+      await client.markTaskDone(taskId, details);
     } else {
-      await updateTaskState('ERROR', details);
+      await client.updateTaskState(taskId, 'IDLE', details);
     }
 
     process.exit(code);
@@ -342,24 +189,47 @@ async function runWithSpawn(command, commandArgs) {
   // Handle process errors
   child.on('error', async (error) => {
     console.error(`[Tally] Process error:`, error.message);
-    await updateTaskState('ERROR', `Process error: ${error.message}`);
+    await client.updateTaskState(taskId, 'IDLE', `Process error: ${error.message}`);
     process.exit(1);
   });
 
   // Handle signals
-  process.on('SIGINT', async () => {
-    console.log('\n[Tally] Received SIGINT, cleaning up...');
-    child.kill('SIGINT');
-    await updateTaskState('BLOCKED', 'Process interrupted by user');
-    process.exit(130);
-  });
+  const cleanup = async (signal, exitCode) => {
+    console.log(`\n[Tally] Received ${signal}, cleaning up...`);
+    child.kill(signal);
+    await client.updateTaskState(taskId, 'BLOCKED', `Process ${signal.toLowerCase()}`);
+    process.exit(exitCode);
+  };
 
-  process.on('SIGTERM', async () => {
-    console.log('\n[Tally] Received SIGTERM, cleaning up...');
-    child.kill('SIGTERM');
-    await updateTaskState('BLOCKED', 'Process terminated');
-    process.exit(143);
-  });
+  process.on('SIGINT', () => cleanup('SIGINT', 130));
+  process.on('SIGTERM', () => cleanup('SIGTERM', 143));
+}
+
+/**
+ * Main execution
+ */
+async function main() {
+  const args = process.argv.slice(2);
+  if (args.length === 0) {
+    console.error('Usage: node tl-wrap.js <command> [args...]');
+    process.exit(1);
+  }
+
+  const [command, ...commandArgs] = args;
+
+  // Create initial task
+  await client.createTask(taskId);
+  
+  // Initialize state tracking
+  stateTracker.syncInitialState();
+
+  // Choose approach based on command type
+  const interactiveCLIs = ['claude', 'gemini', 'cursor-composer'];
+  if (interactiveCLIs.includes(command)) {
+    await runWithPTY(command, commandArgs);
+  } else {
+    await runWithSpawn(command, commandArgs);
+  }
 }
 
 // Run if called directly
@@ -370,4 +240,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-export { makeRequest, processLine, WAITING_PATTERNS, ERROR_PATTERNS };
+// Export for testing
+export { 
+  config,
+  client,
+  stateTracker,
+  runWithPTY,
+  runWithSpawn
+};

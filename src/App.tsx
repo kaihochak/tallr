@@ -114,10 +114,10 @@ function App() {
       
       return matchesSearch && matchesState;
     }).sort((a, b) => {
-      // Sort by state priority (WAITING_USER, ERROR, RUNNING, others)
-      const statePriority = { WAITING_USER: 0, ERROR: 1, RUNNING: 2, BLOCKED: 3, DONE: 4, IDLE: 5 };
-      const aPriority = statePriority[a.state as keyof typeof statePriority] ?? 6;
-      const bPriority = statePriority[b.state as keyof typeof statePriority] ?? 6;
+      // Sort by state priority (PENDING, WORKING, IDLE)
+      const statePriority = { PENDING: 0, WORKING: 1, IDLE: 2 };
+      const aPriority = statePriority[a.state as keyof typeof statePriority] ?? 3;
+      const bPriority = statePriority[b.state as keyof typeof statePriority] ?? 3;
       
       if (aPriority !== bPriority) return aPriority - bPriority;
       return b.updatedAt - a.updatedAt; // Most recent first
@@ -188,9 +188,8 @@ function App() {
   // Get aggregate state for tray color
   const aggregateState = useMemo(() => {
     const states = Object.values(appState.tasks).map(t => t.state);
-    if (states.includes("ERROR")) return "error";
-    if (states.includes("WAITING_USER")) return "waiting";
-    if (states.includes("RUNNING")) return "running";
+    if (states.includes("PENDING")) return "pending";
+    if (states.includes("WORKING")) return "working";
     return "idle";
   }, [appState.tasks]);
 
@@ -228,11 +227,8 @@ function App() {
           className="state-filter"
         >
           <option value="all">All States</option>
-          <option value="WAITING_USER">Waiting</option>
-          <option value="RUNNING">Running</option>
-          <option value="ERROR">Error</option>
-          <option value="BLOCKED">Blocked</option>
-          <option value="DONE">Done</option>
+          <option value="PENDING">Pending</option>
+          <option value="WORKING">Working</option>
           <option value="IDLE">Idle</option>
         </select>
       </div>

@@ -28,10 +28,10 @@ A lightweight **floating window hub** that shows the live status of your **AI co
 - Open terminal in my project directory  
 - Type `tally claude` to start a tracked session
 - **Accept:** "my-project - Claude session" appears in Tally window automatically
-- **Accept:** Session state changes (RUNNING → WAITING_USER → DONE) appear in real-time
+- **Accept:** Session state changes (WORKING → PENDING → IDLE) appear in real-time
 
 ### Use Case 2: Get Hybrid Notifications  
-**When Claude asks "Approve? [y/N]"**, I want:
+**When Claude shows "❯ 1. Yes" (PENDING state)**, I want:
 - **Accept:** Mac desktop notification appears immediately
 - **Accept:** Task row in Tally pulses amber until resolved
 - **Accept:** System tray icon changes to amber color
@@ -64,7 +64,10 @@ A lightweight **floating window hub** that shows the live status of your **AI co
 - **One-click actions:** Click any task to open IDE + terminal at project location
 
 ## State Model & Data
-**States:** `RUNNING`, `WAITING_USER`, `BLOCKED`, `ERROR`, `DONE`, `IDLE`.
+**Simplified 3-State Model:** `WORKING`, `PENDING`, `IDLE`.
+- **WORKING**: Claude is actively processing (pattern: "esc to interrupt")
+- **PENDING**: Claude is waiting for user input (pattern: "❯ 1. Yes") 
+- **IDLE**: Everything else (default state)
 
 ```ts
 type IDE = 'cursor' | 'vscode' | 'webstorm' | 'other';
@@ -84,7 +87,7 @@ interface AgentTask {
   projectId: string;
   agent: 'claude'|'gemini'|'codecs'|'custom';
   title: string;
-  state: 'RUNNING'|'WAITING_USER'|'BLOCKED'|'ERROR'|'DONE'|'IDLE';
+  state: 'WORKING'|'PENDING'|'IDLE';
   details?: string;       // last significant line
   lastEventAt: number;
   createdAt: number;
