@@ -206,26 +206,71 @@ tally gemini        # Tracked Gemini session
 
 ## Implementation Status
 
-### ✅ Completed (Tauri v2 + React 19 + Axum 0.8)
-- HTTP gateway with all API endpoints
-- Real-time event system for UI updates  
-- Mac desktop notifications (Tauri v2 plugin)
-- Frontend dashboard with search/filtering
-- Basic IDE integration commands
+### 🧪 MVP Features Requiring Testing (Priority Ranked)
+
+**PRIORITY 1: Core Session Tracking**
+- ✅ **P1.1 CLI Installation** - Setup wizard installs `tally` command correctly
+- ✅ **P1.2 Interactive Claude Sessions** - PTY wrapper preserves full Claude CLI functionality  
+- ✅ **P1.3 Session Creation** - Auto-creates tasks when `tally claude` runs
+- 🧪 **P1.4 State Tracking** - Tracks state changes (RUNNING → WAITING_USER → ERROR → DONE)
+
+**PRIORITY 2: Notification System**
+- 🧪 **P2.1 Pattern Detection** - Detects "Approve? [y/N]" and error patterns in output
+- 🧪 **P2.2 Mac Notifications** - Desktop alerts appear on WAITING_USER/ERROR states
+- 🧪 **P2.3 Real-time Updates** - Dashboard updates immediately when state changes
+
+**PRIORITY 3: Dashboard & Navigation**
+- 🧪 **P3.1 Task Display** - Shows all active sessions with correct information
+- 🧪 **P3.2 Search & Filtering** - Can filter by project name, state, agent type
+- 🧪 **P3.3 Jump to Context** - Opens correct IDE + terminal at project location
+- 🧪 **P3.4 Keyboard Shortcuts** - Cmd+K quick switcher, arrow navigation work
+
+**PRIORITY 4: Backend & Integration**
+- 🧪 **P4.1 HTTP Gateway** - All `/v1/tasks/*` endpoints work correctly
+- 🧪 **P4.2 IDE Integration** - Opens Cursor/VS Code + Terminal.app successfully
+- 🧪 **P4.3 AppleScript Automation** - Terminal automation functions properly
+- 🧪 **P4.4 Empty State** - Shows usage examples when no sessions active
 
 ### 🚧 Critical Missing (MVP Blockers)
-1. **Persistent Storage** - JSON file saving to survive restarts
-2. **CLI Entry Point** - Need `tally` command wrapper
-3. **Visual Indicators** - Pulsing amber rows, tray color changes
-4. **Project Deduplication** - Reuse existing projects by path
-5. **Timer Cleanup** - Remove over-implemented timer features
+**Data Persistence**
+- ❌ **Persistent Storage** - Sessions lost on app restart (need JSON file persistence)
+- ❌ **Project Deduplication** - Creates new project for each task instead of reusing
+- ❌ **Session History** - No historical view of completed sessions
 
-### 📋 Next Steps (Priority Order)
-1. Add JSON persistence to `~/Library/Application Support/Tally/`
-2. Create simple `tally` CLI entry point
-3. Remove timer system from codebase
-4. Implement visual notification indicators (CSS animations)
-5. Fix project deduplication logic in backend
+**Visual Polish**
+- ❌ **Visual Indicators** - No pulsing amber rows for waiting tasks
+- ❌ **System Tray Integration** - Tray icon exists but no color changes based on state
+- ❌ **Loading States** - No visual feedback during operations
+
+**User Experience**
+- ❌ **Settings/Preferences** - No configuration options for users
+- ❌ **In-app Help** - No documentation or help system
+- ❌ **Error Recovery** - No graceful handling of app crashes or network issues
+
+### ❓ Needs Testing
+- **Session Resumption** - Can users continue interrupted sessions?
+- **Multiple Projects** - How well does it handle many concurrent sessions?
+- **Performance** - Memory/CPU usage under load
+
+### 🎯 Use Case Testing Status
+1. **Track Claude Sessions** - 🧪 **NEEDS TESTING** (P1.1-P1.4)
+2. **Get Hybrid Notifications** - 🧪 **NEEDS TESTING** (P2.1-P2.3)
+3. **See All Sessions at a Glance** - 🧪 **NEEDS TESTING** (P3.1-P3.4)
+4. **Resume After Breaks** - ❌ **NOT IMPLEMENTED** (missing persistence)
+
+### 📊 Testing Summary
+- **🧪 NEEDS TESTING (15 features)**: Systematic testing required for all MVP features
+- **❌ NOT IMPLEMENTED (8 features)**: Missing features need development
+- **🎯 TESTING PLAN**: Start with P1 (Core Session Tracking), then P2, P3, P4
+
+**Current Status**: **MVP Features Built, Testing Required** - Need systematic validation of all functionality before declaring MVP complete.
+
+### 📋 Next Steps (Updated Priority Order)
+1. **Add JSON persistence** - Save to `~/Library/Application Support/Tally/sessions.json`
+2. **Fix project deduplication** - Reuse existing projects by path
+3. **Add visual indicators** - CSS animations for pulsing amber rows
+4. **System tray colors** - Change tray icon based on aggregate state
+5. **Basic settings panel** - User preferences for notifications/IDE
 
 ## Deferred Features (Future Iterations)
 
