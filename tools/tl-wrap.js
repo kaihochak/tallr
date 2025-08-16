@@ -49,33 +49,60 @@ async function runWithPTY(command, commandArgs) {
     env: process.env
   });
 
-  let outputBuffer = '';
+  let monitoringBuffer = '';
+  let recentOutput = ''; // Rolling buffer for recent output to send to Tally
+  let currentLine = '';  // Current line being built for state tracking
+  const MAX_OUTPUT_SIZE = 3000; // Keep last 3000 chars for UI display
 
-  // Simple passthrough - no processing, no interference
+  // Real-time character processing - preserve terminal control flow
   ptyProcess.on('data', (data) => {
+    // Immediate passthrough for display - preserves all terminal control sequences
     process.stdout.write(data);
     
-    // Silently collect output for state detection
-    outputBuffer += data;
-  });
-
-  // Process state changes silently every 0.5 seconds
-  setInterval(() => {
-    if (outputBuffer.length > 0) {
-      // Split buffer into lines for proper processing
-      const lines = outputBuffer.split('\n');
-      
-      // Keep the last incomplete line in the buffer
-      outputBuffer = lines.pop() || '';
-      
-      // Process each complete line
-      for (const line of lines) {
-        if (line.trim()) {
-          stateTracker.processLine(line).catch(() => {});
-        }
-      }
+    // Maintain rolling buffer of recent output for context
+    recentOutput += data;
+    if (recentOutput.length > MAX_OUTPUT_SIZE * 2) {
+      recentOutput = recentOutput.slice(-MAX_OUTPUT_SIZE);
     }
-  }, 500);
+    
+    // Process characters in real-time for state detection
+    for (let i = 0; i < data.length; i++) {
+      const char = data[i];
+      const charCode = char.charCodeAt(0);
+      
+      // Handle control characters that affect line state
+      if (charCode === 13) { // Carriage return (\r) - line reset
+        currentLine = '';
+        monitoringBuffer = '';
+      } else if (charCode === 10) { // Line feed (\n) - line complete
+        if (currentLine.trim()) {
+          // Process complete line immediately
+          stateTracker.processLine(currentLine, recentOutput).catch(() => {});
+        }
+        currentLine = '';
+        monitoringBuffer = '';
+      } else if (charCode === 27) { // ESC - start of ANSI sequence
+        // Skip ANSI escape sequences for state detection but keep building line
+        let j = i + 1;
+        if (j < data.length && data[j] === '[') {
+          // CSI sequence - skip until we hit the final character
+          j++;
+          while (j < data.length) {
+            const escChar = data.charCodeAt(j);
+            if ((escChar >= 64 && escChar <= 126)) { // Final character range
+              break;
+            }
+            j++;
+          }
+          i = j; // Skip the entire sequence
+        }
+      } else if (charCode >= 32 && charCode <= 126) { // Printable ASCII
+        currentLine += char;
+        monitoringBuffer += char;
+      }
+      // Ignore other control characters for state detection
+    }
+  });
 
   // Forward user input to PTY
   if (process.stdin.setRawMode && process.stdin.isTTY) {
@@ -166,17 +193,25 @@ async function runWithSpawn(command, commandArgs) {
 
   let stdoutBuffer = '';
   let stderrBuffer = '';
+  let recentOutput = ''; // Rolling buffer for recent output
+  const MAX_OUTPUT_SIZE = 3000;
 
   // Process stdout
   child.stdout.on('data', (data) => {
     const text = data.toString();
     process.stdout.write(text);
     
+    // Maintain rolling buffer
+    recentOutput += text;
+    if (recentOutput.length > MAX_OUTPUT_SIZE * 2) {
+      recentOutput = recentOutput.slice(-MAX_OUTPUT_SIZE);
+    }
+    
     stdoutBuffer += text;
     const lines = stdoutBuffer.split('\n');
     stdoutBuffer = lines.pop() || '';
     
-    lines.forEach(line => stateTracker.processLine(line));
+    lines.forEach(line => stateTracker.processLine(line, recentOutput));
   });
 
   // Process stderr
@@ -184,17 +219,23 @@ async function runWithSpawn(command, commandArgs) {
     const text = data.toString();
     process.stderr.write(text);
     
+    // Include stderr in rolling buffer too
+    recentOutput += text;
+    if (recentOutput.length > MAX_OUTPUT_SIZE * 2) {
+      recentOutput = recentOutput.slice(-MAX_OUTPUT_SIZE);
+    }
+    
     stderrBuffer += text;
     const lines = stderrBuffer.split('\n');
     stderrBuffer = lines.pop() || '';
     
-    lines.forEach(line => stateTracker.processLine(line));
+    lines.forEach(line => stateTracker.processLine(line, recentOutput));
   });
 
   // Handle process completion
   child.on('close', async (code) => {
-    if (stdoutBuffer.trim()) await stateTracker.processLine(stdoutBuffer);
-    if (stderrBuffer.trim()) await stateTracker.processLine(stderrBuffer);
+    if (stdoutBuffer.trim()) await stateTracker.processLine(stdoutBuffer, recentOutput);
+    if (stderrBuffer.trim()) await stateTracker.processLine(stderrBuffer, recentOutput);
 
     const summary = stateTracker.getStateSummary();
     const success = code === 0;

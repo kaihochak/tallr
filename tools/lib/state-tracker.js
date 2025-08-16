@@ -18,9 +18,9 @@ function cleanANSI(text) {
     .replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '')
     // Remove box-drawing characters
     .replace(/[│─┌┐└┘├┤┬┴┼╭╮╰╯]/g, '')
-    // Clean up whitespace
+    // Clean up whitespace - preserve carriage return semantics
     .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
+    // NOTE: Do NOT convert \r to \n - carriage returns are already handled in real-time parsing
     .replace(/\t/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -46,6 +46,8 @@ export class ClaudeStateTracker {
 
   /**
    * Detect Claude state from output line (simplified 3-state system)
+   * Only returns: IDLE, WORKING, PENDING
+   * All error/blocked/done states are mapped to IDLE in changeState()
    */
   detectClaudeState(line, context) {
     const cleanLine = cleanANSI(line);
@@ -74,6 +76,11 @@ export class ClaudeStateTracker {
    * Update state with change tracking and retry logic
    */
   async changeState(newState, details, confidence = 'medium') {
+    // Map ERROR/BLOCKED states to IDLE as per simplified state system
+    if (newState === 'ERROR' || newState === 'BLOCKED' || newState === 'DONE') {
+      newState = 'IDLE';
+    }
+    
     if (newState === this.currentState) {
       return;
     }
@@ -126,9 +133,12 @@ export class ClaudeStateTracker {
   /**
    * Process output line with Claude-specific detection
    */
-  async processLine(line) {
+  async processLine(line, recentOutput = '') {
     const trimmed = line.trim();
     if (!trimmed) return;
+    
+    // Store recent output for context
+    this.lastRecentOutput = recentOutput;
     
     // Add to context history
     this.outputContext.recentLines.push(trimmed);
@@ -140,7 +150,9 @@ export class ClaudeStateTracker {
     try {
       const detection = this.detectClaudeState(trimmed, this.outputContext);
       if (detection) {
-        await this.changeState(detection.state, detection.details, detection.confidence);
+        // Include cleaned recent output in the details (last 2000 chars)
+        const cleanedOutput = recentOutput ? cleanANSI(recentOutput.slice(-2000)) : detection.details;
+        await this.changeState(detection.state, cleanedOutput, detection.confidence);
       }
     } catch (error) {
       // Log errors in debug mode but prevent display interference

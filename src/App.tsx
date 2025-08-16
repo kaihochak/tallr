@@ -1,21 +1,18 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { 
   Search, 
   Filter, 
   Activity, 
-  Rocket, 
-  Clock, 
-  Terminal,
   Server,
   RefreshCw,
-  ChevronRight,
-  HelpCircle,
-  Code,
-  Sparkles
+  Pin
 } from "lucide-react";
 import SetupWizard from "./components/SetupWizard";
+import TaskRow from "./components/TaskRow";
+import EmptyState from "./components/EmptyState";
+import { useAppState } from "./hooks/useAppState";
 import "./App.css";
 
 interface Project {
@@ -37,6 +34,8 @@ interface Task {
   details?: string;
   createdAt: number;
   updatedAt: number;
+  completedAt?: number; // When task was marked as done
+  isRemoving?: boolean; // UI state for countdown removal
 }
 
 interface AppState {
@@ -52,56 +51,17 @@ interface SetupStatus {
 }
 
 function App() {
-  const [appState, setAppState] = useState<AppState>({ projects: {}, tasks: {}, updatedAt: 0 });
+  const { appState, isLoading, removingTasks, taskCountdowns } = useAppState();
   const [searchFilter, setSearchFilter] = useState("");
   const [stateFilter, setStateFilter] = useState("all");
   const [selectedTaskIndex, setSelectedTaskIndex] = useState(0);
   const [showQuickSwitcher, setShowQuickSwitcher] = useState(false);
   const [showSetupWizard, setShowSetupWizard] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [alwaysOnTop, setAlwaysOnTop] = useState(false);
 
-  // Listen for backend updates
+  // Load setup status and initialize always-on-top
   useEffect(() => {
-    const unlisten = listen<AppState>("tasks-updated", (event) => {
-      setAppState(event.payload);
-    });
-
-    return () => {
-      unlisten.then(fn => fn());
-    };
-  }, []);
-
-  // Listen for notifications
-  useEffect(() => {
-    const unlisten = listen<{title: string, body: string}>("show-notification", (event) => {
-      // Show browser notification as fallback
-      if (Notification.permission === "granted") {
-        new Notification(event.payload.title, {
-          body: event.payload.body,
-          icon: "/tauri.svg"
-        });
-      }
-    });
-
-    return () => {
-      unlisten.then(fn => fn());
-    };
-  }, []);
-
-  // Load initial data and setup status
-  useEffect(() => {
-    const loadTasks = async () => {
-      try {
-        const response = await fetch("http://127.0.0.1:4317/v1/state");
-        const data = await response.json();
-        setAppState(data);
-        setIsLoading(false);
-      } catch (error) {
-        console.error("Failed to load tasks:", error);
-        setIsLoading(false);
-      }
-    };
-
     const loadSetupStatus = async () => {
       try {
         const status = await invoke<SetupStatus>("get_setup_status_cmd");
@@ -111,13 +71,33 @@ function App() {
       }
     };
 
-    loadTasks();
+    const initAlwaysOnTop = async () => {
+      try {
+        const window = getCurrentWindow();
+        const isOnTop = await window.isAlwaysOnTop();
+        setAlwaysOnTop(isOnTop);
+      } catch (error) {
+        console.error("Failed to get always-on-top status:", error);
+      }
+    };
+
     loadSetupStatus();
-    
-    // Poll for updates every 2 seconds
-    const interval = setInterval(loadTasks, 2000);
-    return () => clearInterval(interval);
+    initAlwaysOnTop();
   }, []);
+
+  // Toggle always-on-top
+  const toggleAlwaysOnTop = useCallback(async () => {
+    console.log("Toggle always-on-top clicked, current state:", alwaysOnTop);
+    try {
+      const window = getCurrentWindow();
+      const newState = !alwaysOnTop;
+      await window.setAlwaysOnTop(newState);
+      setAlwaysOnTop(newState);
+      console.log("Always-on-top set to:", newState);
+    } catch (error) {
+      console.error("Failed to toggle always-on-top:", error);
+    }
+  }, [alwaysOnTop]);
 
   // Filter tasks based on search and state filters
   const filteredTasks = useMemo(() => {
@@ -131,7 +111,14 @@ function App() {
       
       return matchesSearch && matchesState;
     }).sort((a, b) => {
-      // Sort by state priority (PENDING, WORKING, IDLE)
+      // Completed tasks with countdown should appear at the end
+      const aCompleted = taskCountdowns[a.id] !== undefined;
+      const bCompleted = taskCountdowns[b.id] !== undefined;
+      
+      if (aCompleted && !bCompleted) return 1;
+      if (!aCompleted && bCompleted) return -1;
+      
+      // For non-completed tasks, sort by state priority (PENDING, WORKING, IDLE)
       const statePriority = { PENDING: 0, WORKING: 1, IDLE: 2 };
       const aPriority = statePriority[a.state as keyof typeof statePriority] ?? 3;
       const bPriority = statePriority[b.state as keyof typeof statePriority] ?? 3;
@@ -139,7 +126,7 @@ function App() {
       if (aPriority !== bPriority) return aPriority - bPriority;
       return b.updatedAt - a.updatedAt; // Most recent first
     });
-  }, [appState, searchFilter, stateFilter]);
+  }, [appState, searchFilter, stateFilter, taskCountdowns]);
 
   // Handle jump to context
   const handleJumpToContext = useCallback(async (task: Task) => {
@@ -159,6 +146,12 @@ function App() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Command+Shift+T for always-on-top toggle
+      if (e.metaKey && e.shiftKey && e.key.toLowerCase() === "t") {
+        e.preventDefault();
+        toggleAlwaysOnTop();
+      }
+      
       // Command+K for quick switcher
       if (e.metaKey && e.key === "k") {
         e.preventDefault();
@@ -190,7 +183,7 @@ function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedTaskIndex, showQuickSwitcher, filteredTasks, handleJumpToContext]);
+  }, [selectedTaskIndex, showQuickSwitcher, filteredTasks, handleJumpToContext, toggleAlwaysOnTop]);
 
   // Setup wizard handlers
   const handleSetupComplete = useCallback(async () => {
@@ -230,6 +223,14 @@ function App() {
           <div className={`status-indicator ${aggregateState}`}></div>
         </div>
         <div className="header-right">
+          <button
+            className={`pin-toggle no-drag ${alwaysOnTop ? 'active' : ''}`}
+            onClick={toggleAlwaysOnTop}
+            title={alwaysOnTop ? "Disable always on top" : "Enable always on top"}
+            aria-label={alwaysOnTop ? "Disable always on top" : "Enable always on top"}
+          >
+            <Pin className="pin-icon" />
+          </button>
           <span className="task-count">{Object.keys(appState.tasks).length} tasks</span>
         </div>
       </div>
@@ -271,72 +272,27 @@ function App() {
             <div className="skeleton skeleton-task"></div>
           </>
         ) : filteredTasks.length === 0 ? (
-          <div className="empty-state">
-            <Sparkles className="empty-illustration" />
-            <h3>Ready to track your AI sessions!</h3>
-            <p>Use the <code>tally</code> command to wrap any AI tool and get notifications when it needs input.</p>
-            <div className="usage-examples">
-              <div className="usage-example">
-                <h4><Terminal className="example-icon" /> Try it out:</h4>
-                <code>cd ~/your-project</code>
-                <code>tally claude</code>
-              </div>
-              <div className="usage-example">
-                <h4><Code className="example-icon" /> Other AI tools:</h4>
-                <code>tally gemini</code>
-                <code>tally cursor-composer</code>
-              </div>
-            </div>
-            <div className="empty-help">
-              <HelpCircle className="help-icon" />
-              <small>Sessions will appear here automatically when you start them</small>
-            </div>
-          </div>
+          <EmptyState />
         ) : (
           filteredTasks.map((task, index) => {
             const project = appState.projects[task.projectId];
             const isSelected = index === selectedTaskIndex;
-            const age = Math.floor((Date.now() - task.updatedAt * 1000) / 60000);
+            const isExpanded = expandedTasks.has(task.id);
+            const isRemoving = removingTasks.has(task.id);
+            const countdown = taskCountdowns[task.id];
             
             return (
-              <div
+              <TaskRow
                 key={task.id}
-                className={`task-row ${isSelected ? "selected" : ""} state-${task.state.toLowerCase()}`}
-                onClick={() => handleJumpToContext(task)}
-              >
-                <div className="task-main">
-                  <div className="task-header">
-                    <span className="project-name">{project?.name || "Unknown"}</span>
-                    <ChevronRight style={{ width: 16, height: 16, opacity: 0.5 }} />
-                    <span className="task-title">{task.title}</span>
-                    <span className={`task-state ${task.state.toLowerCase()}`}>
-                      {task.state}
-                    </span>
-                    <span className="task-age">
-                      <Clock className="clock-icon" />
-                      {age}m ago
-                    </span>
-                  </div>
-                  
-                  <div className="task-details">
-                    <span className="agent">
-                      <Terminal className="agent-icon" />
-                      {task.agent}
-                    </span>
-                    {task.details && <span className="details">{task.details}</span>}
-                  </div>
-                </div>
-
-                <div className="task-actions" onClick={(e) => e.stopPropagation()}>
-                  <button 
-                    className="action-button"
-                    title="Open IDE & Terminal" 
-                    onClick={() => handleJumpToContext(task)}
-                  >
-                    <Rocket className="action-button-icon" />
-                  </button>
-                </div>
-              </div>
+                task={task}
+                project={project}
+                isSelected={isSelected}
+                isExpanded={isExpanded}
+                isRemoving={isRemoving}
+                countdown={countdown}
+                expandedTasks={expandedTasks}
+                setExpandedTasks={setExpandedTasks}
+              />
             );
           })
         )}
@@ -376,6 +332,9 @@ function App() {
         <div className="footer-help">
           <span>
             <span className="key-hint">⌘K</span> Quick switch
+          </span>
+          <span>
+            <span className="key-hint">⌘⇧T</span> Pin window
           </span>
           <span>
             <span className="key-hint">↑↓</span> Navigate
