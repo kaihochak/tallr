@@ -4,47 +4,71 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--bg-overlay);
+  backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 2000;
+  animation: fadeIn var(--transition-fast) ease-out;
 }
 
 .setup-wizard {
-  background: var(--bg-primary);
-  border-radius: 12px;
-  padding: 32px;
-  max-width: 500px;
+  background: var(--bg-card);
+  border-radius: 20px;
+  padding: 40px;
+  max-width: 520px;
   width: 90%;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--border-primary);
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--border-secondary);
+  animation: slideInUp var(--transition-base) ease-out;
+  position: relative;
+}
+
+.setup-wizard::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  right: -1px;
+  bottom: -1px;
+  background: linear-gradient(135deg, var(--accent-primary), var(--status-purple));
+  border-radius: 20px;
+  opacity: 0.1;
+  z-index: -1;
 }
 
 .wizard-header {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 32px;
 }
 
 .wizard-icon {
-  font-size: 40px;
-  margin-bottom: 12px;
+  font-size: 48px;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, var(--accent-primary), var(--status-purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: inline-block;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .wizard-header h2 {
-  margin: 0 0 8px 0;
+  margin: 0 0 12px 0;
   color: var(--text-primary);
-  font-size: 24px;
-  font-weight: 600;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
 }
 
 .wizard-header p {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 14px;
-  line-height: 1.4;
+  font-size: 16px;
+  line-height: 1.5;
 }
 
 .install-main {
@@ -52,39 +76,56 @@
   margin-bottom: 32px;
 }
 
-.install-main h3 {
-  margin: 0 0 12px 0;
+.install-main h2 {
+  margin: 0 0 16px 0;
+  font-size: 24px;
+  font-weight: 600;
   color: var(--text-primary);
-  font-size: 18px;
-  font-weight: 500;
 }
 
-.install-description {
+.install-main p {
   margin: 0 0 24px 0;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .primary-install-button {
-  background: var(--accent-color);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover));
   color: white;
   border: none;
-  border-radius: 8px;
-  padding: 16px 32px;
+  border-radius: 12px;
+  padding: 16px 40px;
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-base);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-md);
+  position: relative;
+  overflow: hidden;
+}
+
+.primary-install-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
 }
 
 .primary-install-button:hover:not(:disabled) {
-  background: var(--accent-hover);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+  box-shadow: var(--shadow-lg), 0 10px 40px rgba(99, 102, 241, 0.3);
+}
+
+.primary-install-button:hover:not(:disabled)::before {
+  left: 100%;
 }
 
 .primary-install-button:active:not(:disabled) {
@@ -98,7 +139,8 @@
 }
 
 .install-icon {
-  font-size: 20px;
+  width: 20px;
+  height: 20px;
 }
 
 .spinner {
@@ -110,93 +152,20 @@
   to { transform: rotate(360deg); }
 }
 
-.install-info {
-  margin-top: 12px;
-}
-
-.install-info p {
-  margin: 0;
-  color: var(--text-tertiary);
-  font-size: 12px;
-}
-
-.install-button {
-  background: var(--accent-color);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  padding: 12px 24px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  margin-bottom: 8px;
-}
-
-.install-button:hover:not(:disabled) {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
-}
-
-.install-button:disabled {
-  background: var(--text-tertiary);
-  cursor: not-allowed;
-}
-
-.command-box {
-  display: flex;
-  align-items: center;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-secondary);
-  border-radius: 6px;
-  padding: 12px;
-  margin-bottom: 8px;
-  font-family: 'SF Mono', 'Monaco', monospace;
-  font-size: 12px;
-  color: var(--text-primary);
-}
-
-.command-box code {
-  flex: 1;
-  background: none;
-  padding: 0;
-  margin: 0;
-}
-
-.copy-button {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 16px;
-  padding: 4px;
-  margin-left: 8px;
-  border-radius: 4px;
-  transition: background 0.2s;
-}
-
-.copy-button:hover {
-  background: var(--bg-hover);
-}
-
-.install-options p {
-  margin: 0;
-  color: var(--text-tertiary);
-  font-size: 12px;
-}
-
 .install-error {
-  background: rgba(255, 59, 48, 0.1);
-  border: 1px solid rgba(255, 59, 48, 0.3);
-  border-radius: 6px;
-  padding: 12px;
-  margin-bottom: 16px;
+  background: var(--status-error-bg);
+  border: 1px solid var(--status-error);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  animation: slideInUp var(--transition-base) ease-out;
 }
 
 .install-error p {
   margin: 0 0 8px 0;
-  color: #ff3b30;
-  font-size: 13px;
+  color: var(--status-error);
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .install-error p:last-child {
@@ -205,80 +174,210 @@
 
 .error-message {
   font-family: 'SF Mono', 'Monaco', monospace;
-  font-size: 12px;
+  font-size: 13px;
   word-break: break-all;
+  background: rgba(0, 0, 0, 0.1);
+  padding: 8px;
+  border-radius: 6px;
+  margin-top: 8px;
 }
 
 .wizard-actions {
   display: flex;
   gap: 12px;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border-secondary);
+  padding-top: 24px;
+  border-top: 1px solid var(--border-primary);
 }
 
 .alternatives-button {
   background: none;
   border: none;
-  color: var(--accent-color);
+  color: var(--accent-primary);
   cursor: pointer;
   font-size: 14px;
-  text-decoration: underline;
-  transition: all 0.2s;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all var(--transition-base);
+  padding: 8px 16px;
+  border-radius: 8px;
 }
 
 .alternatives-button:hover {
-  color: var(--accent-hover);
-}
-
-.skip-button, .done-button {
-  border: none;
-  border-radius: 6px;
-  padding: 10px 20px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.skip-button {
-  background: none;
-  color: var(--text-secondary);
-}
-
-.skip-button:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.done-button {
-  background: var(--accent-color);
-  color: white;
-}
-
-.done-button:hover:not(:disabled) {
-  background: var(--accent-hover);
-}
-
-.done-button:disabled {
-  background: var(--text-tertiary);
-  cursor: not-allowed;
+  background: var(--accent-primary-light);
+  color: var(--accent-primary-hover);
 }
 
 .manual-panel {
   margin-top: 24px;
-  padding: 20px;
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  border: 1px solid var(--border-secondary);
-  animation: slideDown 0.3s ease;
+  padding: 24px;
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  border: 1px solid var(--border-primary);
+  animation: slideInUp var(--transition-base) ease-out;
 }
 
-@keyframes slideDown {
+.manual-panel h4 {
+  margin: 0 0 16px 0;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.manual-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--accent-primary);
+}
+
+.manual-panel p {
+  margin: 0 0 12px 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.command-box {
+  display: flex;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border-secondary);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 12px;
+  font-family: 'SF Mono', 'Monaco', monospace;
+  font-size: 13px;
+  color: var(--accent-primary);
+  transition: all var(--transition-base);
+}
+
+.command-box:hover {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-primary-light);
+}
+
+.command-box code {
+  flex: 1;
+  background: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  user-select: all;
+}
+
+.copy-button {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 18px;
+  padding: 6px 10px;
+  margin-left: 12px;
+  border-radius: 6px;
+  transition: all var(--transition-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copy-button:hover {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: white;
+  transform: scale(1.05);
+}
+
+.copy-button:active {
+  transform: scale(0.95);
+}
+
+.manual-note {
+  margin-top: 16px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-style: italic;
+  border-left: 3px solid var(--accent-primary);
+}
+
+.wizard-success {
+  text-align: center;
+  animation: fadeIn var(--transition-slow) ease-in;
+}
+
+.success-icon {
+  font-size: 56px;
+  margin-bottom: 20px;
+  color: var(--status-success);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.wizard-success h3 {
+  margin: 0 0 16px 0;
+  color: var(--text-primary);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.wizard-success > p {
+  margin: 0 0 28px 0;
+  color: var(--text-secondary);
+  font-size: 16px;
+}
+
+.usage-example {
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border-primary);
+  transition: all var(--transition-base);
+}
+
+.usage-example:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--accent-primary);
+}
+
+.usage-example h4 {
+  margin: 0 0 14px 0;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.usage-example code {
+  display: block;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin: 6px 0;
+  font-family: 'SF Mono', 'Monaco', monospace;
+  font-size: 13px;
+  color: var(--accent-primary);
+  transition: all var(--transition-base);
+}
+
+.usage-example code:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-primary);
+}
+
+/* Animations */
+@keyframes slideInUp {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
@@ -286,84 +385,66 @@
   }
 }
 
-.manual-panel h4 {
-  margin: 0 0 12px 0;
-  color: var(--text-primary);
-  font-size: 14px;
-  font-weight: 500;
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
-.manual-panel p {
-  margin: 0 0 12px 0;
-  color: var(--text-secondary);
-  font-size: 13px;
-}
-
-.manual-note {
-  margin-top: 12px;
-  color: var(--text-tertiary);
-  font-size: 12px;
-  font-style: italic;
-}
-
-.wizard-success {
-  text-align: center;
-}
-
-.success-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-.wizard-success h3 {
-  margin: 0 0 12px 0;
-  color: var(--text-primary);
-  font-size: 20px;
-}
-
-.wizard-success > p {
-  margin: 0 0 24px 0;
-  color: var(--text-secondary);
-}
-
-.usage-example {
-  background: var(--bg-secondary);
-  border-radius: 6px;
-  padding: 16px;
-  margin-bottom: 24px;
-}
-
-.usage-example h4 {
-  margin: 0 0 12px 0;
-  color: var(--text-primary);
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.usage-example code {
-  display: block;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-secondary);
-  border-radius: 4px;
-  padding: 8px 12px;
-  margin: 4px 0;
-  font-family: 'SF Mono', 'Monaco', monospace;
-  font-size: 12px;
-  color: var(--accent-color);
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 /* Dark mode adjustments */
 @media (prefers-color-scheme: dark) {
-  .setup-wizard-overlay {
-    background: rgba(0, 0, 0, 0.8);
+  .setup-wizard::before {
+    opacity: 0.05;
+  }
+  
+  .primary-install-button {
+    background: linear-gradient(135deg, var(--accent-primary), var(--status-purple));
   }
   
   .install-error {
-    background: rgba(255, 69, 58, 0.15);
-    border-color: rgba(255, 69, 58, 0.4);
+    background: rgba(248, 113, 113, 0.1);
+    border-color: rgba(248, 113, 113, 0.3);
   }
   
-  .install-error p {
-    color: #ff453a;
+  .command-box {
+    background: var(--bg-secondary);
+  }
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .setup-wizard {
+    padding: 28px;
+    max-width: 95%;
+  }
+  
+  .wizard-header h2 {
+    font-size: 24px;
+  }
+  
+  .primary-install-button {
+    padding: 14px 32px;
+    font-size: 15px;
+  }
+  
+  .manual-panel {
+    padding: 20px;
+  }
+  
+  .command-box {
+    font-size: 12px;
+    padding: 12px;
   }
 }

@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { Download, Terminal, Copy, Check, AlertCircle } from 'lucide-react';
 import './SetupWizard.css';
 
 interface SetupWizardProps {
@@ -62,18 +63,18 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
           >
             {installing ? (
               <>
-                <span className="spinner">⏳</span> Installing...
+                <Download className="install-icon spinner" /> Installing...
               </>
             ) : (
               <>
-                Install CLI Tools
+                <Download className="install-icon" /> Install CLI Tools
               </>
             )}
           </button>
           
           {error && (
             <div className="install-error">
-              <p><strong>Installation failed:</strong></p>
+              <p><AlertCircle style={{ width: 16, height: 16, display: 'inline', marginRight: 4 }} /><strong>Installation failed:</strong></p>
               <p className="error-message">{error}</p>
               {showManualInstructions && (
                 <p>Please try the manual installation method below.</p>
@@ -94,12 +95,12 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
         {/* Manual installation instructions */}
         {showManualInstructions && (
           <div className="manual-panel">
-            <h4>Manual Installation</h4>
+            <h4><Terminal className="manual-icon" /> Manual Installation</h4>
             <p>Run this command in Terminal:</p>
             <div className="command-box">
               <code>sudo ln -s /Applications/Tally.app/Contents/MacOS/tally /usr/local/bin/tally</code>
               <button className="copy-button" onClick={handleCopyCommand}>
-                {copied ? '✓' : '📋'}
+                {copied ? <Check /> : <Copy />}
               </button>
             </div>
             <p className="manual-note">

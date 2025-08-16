@@ -23,12 +23,13 @@ A lightweight **floating window hub** that shows the live status of your **AI co
 
 ## Core Use Cases & Acceptance Criteria
 
-### Use Case 1: Track Claude Sessions
+### Use Case 1: Track Claude Sessions (Transparent)
 **As a developer**, when I:
 - Open terminal in my project directory  
-- Type `tally claude` to start a tracked session
+- Type `claude` (my normal workflow - no prefix needed)
 - **Accept:** "my-project - Claude session" appears in Tally window automatically
 - **Accept:** Session state changes (WORKING → PENDING → IDLE) appear in real-time
+- **Accept:** Zero workflow change required - all existing `claude` commands automatically tracked
 
 ### Use Case 2: Get Hybrid Notifications  
 **When Claude shows "❯ 1. Yes" (PENDING state)**, I want:
@@ -50,10 +51,11 @@ A lightweight **floating window hub** that shows the live status of your **AI co
 - **Accept:** Can click on any waiting session to continue where I left off
 - **Accept:** Session history persists across app restarts (JSON file)
 
-## Setup (Simplified Installation)
+## Setup (PATH Shim Installation)
 1. **Download .dmg → drag to Applications → launch**
-2. **Add `tally` to PATH** (or use full path to wrapper)
-3. **Accept:** User can run `tally claude` and see it tracked
+2. **Click "Install CLI Tools"** in setup wizard (creates PATH shims)
+3. **Accept:** User can run `claude` normally and see it tracked automatically
+4. **Accept:** No workflow change - all existing scripts and commands work transparently
 
 ## UX (macOS - Simplified)
 - **System tray icon** with color-coded aggregate state (Green=OK, Amber=Waiting, Red=Error)  
@@ -100,19 +102,26 @@ interface AgentTask {
 
 ## Integration Interface
 
-### User Experience (Primary)
-**Simple manual wrapper approach:**
+### User Experience (Transparent PATH Shims)
+**Zero-friction usage (user keeps existing workflow):**
 ```bash
 cd my-project
-tally claude        # Tracked Claude session
-tally gemini        # Tracked Gemini session
+claude --help       # Automatically tracked via PATH shim
+claude              # Interactive session tracked transparently
+gemini "write code" # Also tracked via PATH shim
 ```
 
 **Behind the scenes:**
-- Wrapper script monitors CLI output
+- PATH shim intercepts `claude`/`gemini` commands before real binary
+- PTY proxy preserves full interactive functionality
 - Auto-detect project context from current directory
 - Send tracking data to local HTTP gateway
 - Monitor for approval prompts and notifications
+
+**Fallback option (manual):**
+```bash
+tally claude        # Still works for users who prefer explicit tracking
+```
 
 ### Local HTTP Gateway (Advanced/Manual)
 - **Bind:** `127.0.0.1:4317`  
@@ -235,6 +244,12 @@ tally gemini        # Tracked Gemini session
 - 🧪 **P4.4 Empty State** - Shows usage examples when no sessions active
 
 ### 🚧 Critical Missing (MVP Blockers)
+**PATH Shim Integration (Core Value)**
+- ❌ **PATH Shims for claude/gemini** - Users must remember to type `tally claude` instead of just `claude`
+- ❌ **Transparent Interception** - Missing automatic session capture without workflow change
+- ❌ **Enhanced State Detection** - Current pattern-only detection could be improved with throughput analysis
+- ❌ **Installer Doctor** - No validation of PATH order or alias conflicts
+
 **Data Persistence**
 - ❌ **Persistent Storage** - Sessions lost on app restart (need JSON file persistence)
 - ❌ **Project Deduplication** - Creates new project for each task instead of reusing
@@ -269,17 +284,20 @@ tally gemini        # Tracked Gemini session
 **Current Status**: **MVP Features Built, Testing Required** - Need systematic validation of all functionality before declaring MVP complete.
 
 ### 📋 Next Steps (Updated Priority Order)
-1. **Add JSON persistence** - Save to `~/Library/Application Support/Tally/sessions.json`
-2. **Fix project deduplication** - Reuse existing projects by path
-3. **Add visual indicators** - CSS animations for pulsing amber rows
-4. **System tray colors** - Change tray icon based on aggregate state
-5. **Basic settings panel** - User preferences for notifications/IDE
+1. **Implement PATH shims** - Create `~/.local/bin/claude` shim that intercepts commands transparently
+2. **Enhanced state detection** - Add throughput-based detection with adapters.yaml configuration
+3. **Add JSON persistence** - Save to `~/Library/Application Support/Tally/sessions.json`
+4. **Fix project deduplication** - Reuse existing projects by path
+5. **Add visual indicators** - CSS animations for pulsing amber rows
+6. **System tray colors** - Change tray icon based on aggregate state
+7. **Installer doctor** - Validate PATH order, detect aliases, verify shim placement
 
 ## Deferred Features (Future Iterations)
 
 These features are intentionally moved to later versions to keep the MVP focused:
 
-- **Shell Integration**: Automatic shell function installation (complex setup)
+- **IDE Agent Integration**: VS Code/Cursor extensions for in-editor agent tracking (complex APIs)
+- **OSC Sentinel Markers**: Cooperative CLI integration for perfect state detection
 - **Project Timers**: Pomodoro-style timeboxing with alerts
 - **GitHub Integration**: Display repo URLs and commit info  
 - **Multiple IDE Support**: User preferences per project

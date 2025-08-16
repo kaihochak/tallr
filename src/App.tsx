@@ -1,6 +1,20 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { 
+  Search, 
+  Filter, 
+  Activity, 
+  Rocket, 
+  Clock, 
+  Terminal,
+  Server,
+  RefreshCw,
+  ChevronRight,
+  HelpCircle,
+  Code,
+  Sparkles
+} from "lucide-react";
 import SetupWizard from "./components/SetupWizard";
 import "./App.css";
 
@@ -44,6 +58,7 @@ function App() {
   const [selectedTaskIndex, setSelectedTaskIndex] = useState(0);
   const [showQuickSwitcher, setShowQuickSwitcher] = useState(false);
   const [showSetupWizard, setShowSetupWizard] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Listen for backend updates
   useEffect(() => {
@@ -80,8 +95,10 @@ function App() {
         const response = await fetch("http://127.0.0.1:4317/v1/state");
         const data = await response.json();
         setAppState(data);
+        setIsLoading(false);
       } catch (error) {
         console.error("Failed to load tasks:", error);
+        setIsLoading(false);
       }
     };
 
@@ -193,6 +210,7 @@ function App() {
     return "idle";
   }, [appState.tasks]);
 
+
   return (
     <div className="tally-app">
       {/* Setup Wizard */}
@@ -201,11 +219,15 @@ function App() {
           onComplete={handleSetupComplete}
         />
       )}
+      
       {/* Header */}
       <div className="header">
         <div className="header-left">
+          <div className="logo-container">
+            <Activity className="logo-icon" />
+            <h1>Tally</h1>
+          </div>
           <div className={`status-indicator ${aggregateState}`}></div>
-          <h1>Tally</h1>
         </div>
         <div className="header-right">
           <span className="task-count">{Object.keys(appState.tasks).length} tasks</span>
@@ -214,45 +236,59 @@ function App() {
 
       {/* Filters */}
       <div className="filters">
-        <input
-          type="text"
-          placeholder="Search projects, tasks, agents... (⌘K)"
-          value={searchFilter}
-          onChange={(e) => setSearchFilter(e.target.value)}
-          className="search-input"
-        />
-        <select
-          value={stateFilter}
-          onChange={(e) => setStateFilter(e.target.value)}
-          className="state-filter"
-        >
-          <option value="all">All States</option>
-          <option value="PENDING">Pending</option>
-          <option value="WORKING">Working</option>
-          <option value="IDLE">Idle</option>
-        </select>
+        <div className="search-wrapper">
+          <Search className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search projects, tasks, agents... (⌘K)"
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            className="search-input"
+          />
+        </div>
+        <div className="filter-wrapper">
+          <Filter className="filter-icon" />
+          <select
+            value={stateFilter}
+            onChange={(e) => setStateFilter(e.target.value)}
+            className="state-filter"
+          >
+            <option value="all">All States</option>
+            <option value="PENDING">Pending</option>
+            <option value="WORKING">Working</option>
+            <option value="IDLE">Idle</option>
+          </select>
+        </div>
       </div>
 
       {/* Task List */}
       <div className="task-list">
-        {filteredTasks.length === 0 ? (
+        {isLoading ? (
+          // Loading skeletons
+          <>
+            <div className="skeleton skeleton-task"></div>
+            <div className="skeleton skeleton-task"></div>
+            <div className="skeleton skeleton-task"></div>
+          </>
+        ) : filteredTasks.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-icon">🚀</div>
+            <Sparkles className="empty-illustration" />
             <h3>Ready to track your AI sessions!</h3>
             <p>Use the <code>tally</code> command to wrap any AI tool and get notifications when it needs input.</p>
             <div className="usage-examples">
               <div className="usage-example">
-                <h4>Try it out:</h4>
+                <h4><Terminal className="example-icon" /> Try it out:</h4>
                 <code>cd ~/your-project</code>
                 <code>tally claude</code>
               </div>
               <div className="usage-example">
-                <h4>Other AI tools:</h4>
+                <h4><Code className="example-icon" /> Other AI tools:</h4>
                 <code>tally gemini</code>
                 <code>tally cursor-composer</code>
               </div>
             </div>
             <div className="empty-help">
+              <HelpCircle className="help-icon" />
               <small>Sessions will appear here automatically when you start them</small>
             </div>
           </div>
@@ -271,24 +307,34 @@ function App() {
                 <div className="task-main">
                   <div className="task-header">
                     <span className="project-name">{project?.name || "Unknown"}</span>
+                    <ChevronRight style={{ width: 16, height: 16, opacity: 0.5 }} />
                     <span className="task-title">{task.title}</span>
-                    <span className={`task-state ${task.state.toLowerCase()}`}>{task.state}</span>
-                    <span className="task-age">{age}m ago</span>
+                    <span className={`task-state ${task.state.toLowerCase()}`}>
+                      {task.state}
+                    </span>
+                    <span className="task-age">
+                      <Clock className="clock-icon" />
+                      {age}m ago
+                    </span>
                   </div>
                   
                   <div className="task-details">
-                    <span className="agent">{task.agent}</span>
+                    <span className="agent">
+                      <Terminal className="agent-icon" />
+                      {task.agent}
+                    </span>
                     {task.details && <span className="details">{task.details}</span>}
                   </div>
                 </div>
 
                 <div className="task-actions" onClick={(e) => e.stopPropagation()}>
-                  {/* Quick actions */}
-                  <div className="quick-actions">
-                    <button title="Open IDE & Terminal" onClick={() => handleJumpToContext(task)}>
-                      🚀
-                    </button>
-                  </div>
+                  <button 
+                    className="action-button"
+                    title="Open IDE & Terminal" 
+                    onClick={() => handleJumpToContext(task)}
+                  >
+                    <Rocket className="action-button-icon" />
+                  </button>
                 </div>
               </div>
             );
@@ -318,11 +364,25 @@ function App() {
       {/* Footer */}
       <div className="footer">
         <div className="footer-stats">
-          <span>Gateway: http://127.0.0.1:4317</span>
-          <span>Updated: {new Date(appState.updatedAt * 1000).toLocaleTimeString()}</span>
+          <span className="footer-stat">
+            <Server className="footer-icon" />
+            Gateway: 127.0.0.1:4317
+          </span>
+          <span className="footer-stat">
+            <RefreshCw className="footer-icon" />
+            {new Date(appState.updatedAt * 1000).toLocaleTimeString()}
+          </span>
         </div>
         <div className="footer-help">
-          <span>⌘K Quick switch • ↑↓ Navigate • ⏎ Jump</span>
+          <span>
+            <span className="key-hint">⌘K</span> Quick switch
+          </span>
+          <span>
+            <span className="key-hint">↑↓</span> Navigate
+          </span>
+          <span>
+            <span className="key-hint">⏎</span> Jump
+          </span>
         </div>
       </div>
     </div>

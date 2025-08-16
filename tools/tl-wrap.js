@@ -104,25 +104,50 @@ async function runWithPTY(command, commandArgs) {
     process.exit(code);
   });
 
-  // Handle PTY errors
+  // Handle PTY errors with better recovery
   ptyProcess.on('error', async (error) => {
     console.error(`\n[Tally] PTY error:`, error.message);
-    await client.updateTaskState(taskId, 'IDLE', `PTY error: ${error.message}`);
-    if (process.stdin.setRawMode && process.stdin.isTTY) {
-      process.stdin.setRawMode(false);
+    
+    // Attempt graceful cleanup
+    try {
+      // Restore terminal mode first
+      if (process.stdin.setRawMode && process.stdin.isTTY) {
+        process.stdin.setRawMode(false);
+      }
+      
+      // Update task state with error details
+      await client.updateTaskState(taskId, 'ERROR', `PTY error: ${error.message}`);
+    } catch (cleanupError) {
+      console.error(`[Tally] Cleanup error:`, cleanupError.message);
     }
-    process.exit(1);
+    
+    // Exit with appropriate code based on error type
+    const exitCode = error.code === 'ENOENT' ? 127 : 1;
+    process.exit(exitCode);
   });
 
-  // Handle signals
+  // Handle signals with robust cleanup
   const cleanup = async (signal, exitCode) => {
     console.log(`\n[Tally] Received ${signal}, cleaning up PTY...`);
-    ptyProcess.kill(signal);
-    await client.updateTaskState(taskId, 'IDLE', `Interactive session ${signal.toLowerCase()}`);
-    if (process.stdin.setRawMode && process.stdin.isTTY) {
-      process.stdin.setRawMode(false);
+    
+    try {
+      // Kill PTY process if still running
+      if (ptyProcess && !ptyProcess.killed) {
+        ptyProcess.kill(signal);
+      }
+      
+      // Restore terminal mode
+      if (process.stdin.setRawMode && process.stdin.isTTY) {
+        process.stdin.setRawMode(false);
+      }
+      
+      // Update task state
+      await client.updateTaskState(taskId, 'CANCELLED', `Interactive session ${signal.toLowerCase()}`);
+    } catch (cleanupError) {
+      console.error(`[Tally] Cleanup error:`, cleanupError.message);
+    } finally {
+      process.exit(exitCode);
     }
-    process.exit(exitCode);
   };
 
   process.on('SIGINT', () => cleanup('SIGINT', 130));
@@ -187,19 +212,45 @@ async function runWithSpawn(command, commandArgs) {
     process.exit(code);
   });
 
-  // Handle process errors
+  // Handle process errors with better diagnostics
   child.on('error', async (error) => {
     console.error(`[Tally] Process error:`, error.message);
-    await client.updateTaskState(taskId, 'IDLE', `Process error: ${error.message}`);
-    process.exit(1);
+    
+    try {
+      // Provide better error context
+      let errorDetails = `Process error: ${error.message}`;
+      if (error.code === 'ENOENT') {
+        errorDetails = `Command not found: ${command}. Check if '${command}' is installed and in PATH.`;
+      } else if (error.code === 'EACCES') {
+        errorDetails = `Permission denied: ${command}. Check file permissions.`;
+      }
+      
+      await client.updateTaskState(taskId, 'ERROR', errorDetails);
+    } catch (updateError) {
+      console.error(`[Tally] Failed to update error state:`, updateError.message);
+    }
+    
+    const exitCode = error.code === 'ENOENT' ? 127 : 1;
+    process.exit(exitCode);
   });
 
-  // Handle signals
+  // Handle signals with robust cleanup
   const cleanup = async (signal, exitCode) => {
     console.log(`\n[Tally] Received ${signal}, cleaning up...`);
-    child.kill(signal);
-    await client.updateTaskState(taskId, 'BLOCKED', `Process ${signal.toLowerCase()}`);
-    process.exit(exitCode);
+    
+    try {
+      // Kill child process if still running
+      if (child && !child.killed) {
+        child.kill(signal);
+      }
+      
+      // Update task state
+      await client.updateTaskState(taskId, 'CANCELLED', `Process ${signal.toLowerCase()}`);
+    } catch (cleanupError) {
+      console.error(`[Tally] Cleanup error:`, cleanupError.message);
+    } finally {
+      process.exit(exitCode);
+    }
   };
 
   process.on('SIGINT', () => cleanup('SIGINT', 130));
@@ -207,36 +258,85 @@ async function runWithSpawn(command, commandArgs) {
 }
 
 /**
- * Main execution
+ * Main execution with robust error handling
  */
 async function main() {
-  const args = process.argv.slice(2);
-  if (args.length === 0) {
-    console.error('Usage: node tl-wrap.js <command> [args...]');
+  let taskCreated = false;
+  
+  try {
+    const args = process.argv.slice(2);
+    if (args.length === 0) {
+      console.error('Usage: node tl-wrap.js <command> [args...]');
+      process.exit(1);
+    }
+
+    const [command, ...commandArgs] = args;
+
+    // Create initial task
+    try {
+      await client.createTask(taskId);
+      taskCreated = true;
+    } catch (error) {
+      // Continue even if task creation fails
+      console.error(`[Tally] Warning: Could not create task, continuing without tracking`);
+    }
+    
+    // Initialize state tracking
+    if (taskCreated) {
+      await stateTracker.syncInitialState();
+    }
+
+    // Choose approach based on command type
+    const interactiveCLIs = ['claude', 'gemini', 'cursor-composer'];
+    if (interactiveCLIs.includes(command)) {
+      await runWithPTY(command, commandArgs);
+    } else {
+      await runWithSpawn(command, commandArgs);
+    }
+    
+  } catch (error) {
+    console.error('[Tally] Wrapper error:', error.message);
+    
+    // Try to clean up task state if it was created
+    if (taskCreated) {
+      try {
+        await client.updateTaskState(taskId, 'ERROR', `Wrapper error: ${error.message}`);
+      } catch (cleanupError) {
+        // Ignore cleanup errors
+      }
+    }
+    
     process.exit(1);
   }
-
-  const [command, ...commandArgs] = args;
-
-  // Create initial task
-  await client.createTask(taskId);
-  
-  // Initialize state tracking
-  stateTracker.syncInitialState();
-
-  // Choose approach based on command type
-  const interactiveCLIs = ['claude', 'gemini', 'cursor-composer'];
-  if (interactiveCLIs.includes(command)) {
-    await runWithPTY(command, commandArgs);
-  } else {
-    await runWithSpawn(command, commandArgs);
-  }
 }
+
+/**
+ * Global error handlers for unhandled errors
+ */
+process.on('uncaughtException', async (error) => {
+  console.error('[Tally] Uncaught exception:', error.message);
+  try {
+    await client.updateTaskState(taskId, 'ERROR', `Uncaught exception: ${error.message}`);
+  } catch {
+    // Ignore cleanup errors
+  }
+  process.exit(1);
+});
+
+process.on('unhandledRejection', async (reason, promise) => {
+  console.error('[Tally] Unhandled promise rejection:', reason);
+  try {
+    await client.updateTaskState(taskId, 'ERROR', `Unhandled rejection: ${reason}`);
+  } catch {
+    // Ignore cleanup errors
+  }
+  process.exit(1);
+});
 
 // Run if called directly
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((error) => {
-    console.error('[Tally] Wrapper error:', error);
+    console.error('[Tally] Fatal wrapper error:', error.message);
     process.exit(1);
   });
 }

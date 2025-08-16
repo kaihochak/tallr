@@ -11,9 +11,31 @@ export class TallyClient {
   }
 
   /**
-   * Make HTTP request to Tally backend
+   * Make HTTP request to Tally backend with retry logic
    */
-  makeRequest(method, path, data) {
+  async makeRequest(method, path, data, retries = 3) {
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        return await this._makeRequestSingle(method, path, data);
+      } catch (error) {
+        const isLastAttempt = attempt === retries - 1;
+        const isRetriableError = this._isRetriableError(error);
+        
+        if (isLastAttempt || !isRetriableError) {
+          throw error;
+        }
+        
+        // Wait before retry (exponential backoff: 200ms, 400ms, 800ms)
+        const delay = 200 * Math.pow(2, attempt);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  /**
+   * Single HTTP request attempt
+   */
+  _makeRequestSingle(method, path, data) {
     return new Promise((resolve, reject) => {
       const url = new URL(path, this.config.gateway);
       const options = {
@@ -21,6 +43,7 @@ export class TallyClient {
         port: url.port,
         path: url.pathname,
         method: method,
+        timeout: 5000, // 5 second timeout
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.config.token}`
@@ -39,7 +62,23 @@ export class TallyClient {
         });
       });
 
-      req.on('error', reject);
+      req.on('error', (error) => {
+        // Add more context to connection errors
+        if (error.code === 'ECONNREFUSED') {
+          reject(new Error(`Cannot connect to Tally backend at ${this.config.gateway}. Is Tally app running?`));
+        } else if (error.code === 'ENOTFOUND') {
+          reject(new Error(`Invalid gateway hostname: ${this.config.gateway}`));
+        } else if (error.code === 'ETIMEDOUT') {
+          reject(new Error(`Request timeout to Tally backend`));
+        } else {
+          reject(error);
+        }
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Request timeout to Tally backend'));
+      });
       
       if (data) {
         req.write(JSON.stringify(data));
@@ -47,6 +86,18 @@ export class TallyClient {
       
       req.end();
     });
+  }
+
+  /**
+   * Check if error is retriable
+   */
+  _isRetriableError(error) {
+    // Retry on network errors, timeouts, and 5xx server errors
+    return error.code === 'ECONNREFUSED' || 
+           error.code === 'ETIMEDOUT' ||
+           error.code === 'ENOTFOUND' ||
+           error.message.includes('timeout') ||
+           (error.message.includes('HTTP 5'));
   }
 
   /**
@@ -70,11 +121,13 @@ export class TallyClient {
       // Task created silently
     } catch (error) {
       console.error(`[Tally] Failed to create task:`, error.message);
+      // Don't fail the entire CLI session if task creation fails
+      console.error(`[Tally] Continuing without tracking...`);
     }
   }
 
   /**
-   * Update task state
+   * Update task state with better error handling
    */
   async updateTaskState(taskId, state, details) {
     try {
@@ -85,7 +138,14 @@ export class TallyClient {
       });
       // State updated silently
     } catch (error) {
-      console.error(`[Tally] Failed to update task:`, error.message);
+      // Only log connection errors once to avoid spam
+      if (!this._lastErrorLogged || Date.now() - this._lastErrorLogged > 30000) {
+        console.error(`[Tally] Failed to update task state to ${state}:`, error.message);
+        this._lastErrorLogged = Date.now();
+      }
+      
+      // Re-throw for retry logic in state tracker
+      throw error;
     }
   }
 
@@ -101,6 +161,7 @@ export class TallyClient {
       // Task completed silently
     } catch (error) {
       console.error(`[Tally] Failed to mark task done:`, error.message);
+      // Still consider the CLI session successful even if we can't mark it done
     }
   }
 }

@@ -52,7 +52,7 @@ export class ClaudeStateTracker {
     if (!cleanLine || cleanLine.length < 3) return null;
     
     // WORKING: Claude is actively processing (check first as most important)
-    if (cleanLine.includes('esc to interrupt') && cleanLine.includes('tokens')) {
+    if (cleanLine.includes('esc to interrupt')) {
       return { state: 'WORKING', details: cleanLine, confidence: 'high' };
     }
     
@@ -71,7 +71,7 @@ export class ClaudeStateTracker {
   // State mapping removed - using Claude states directly
 
   /**
-   * Update state with change tracking
+   * Update state with change tracking and retry logic
    */
   async changeState(newState, details, confidence = 'medium') {
     if (newState === this.currentState) {
@@ -98,8 +98,29 @@ export class ClaudeStateTracker {
     // Use Claude states directly - no mapping needed
     // console.log(`[Tally] Claude: ${previousState} → ${newState}`);
     
-    // Update Tally backend with Claude state directly
-    await this.client.updateTaskState(this.taskId, newState, details);
+    // Update Tally backend with retry logic
+    const maxRetries = 3;
+    let retries = 0;
+    
+    while (retries < maxRetries) {
+      try {
+        await this.client.updateTaskState(this.taskId, newState, details);
+        // Clear any pending state change on success
+        this.pendingStateChange = null;
+        break;
+      } catch (error) {
+        retries++;
+        if (retries >= maxRetries) {
+          if (this.enableDebug) {
+            console.error(`[Tally Debug] Failed to update state after ${maxRetries} retries:`, error.message);
+          }
+          throw error; // Re-throw after max retries
+        }
+        
+        // Wait before retry (exponential backoff: 100ms, 200ms, 400ms)
+        await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, retries - 1)));
+      }
+    }
   }
 
   /**
@@ -115,14 +136,23 @@ export class ClaudeStateTracker {
       this.outputContext.recentLines.shift();
     }
     
-    // State detection with error handling to prevent display interference
+    // State detection with improved error handling
     try {
       const detection = this.detectClaudeState(trimmed, this.outputContext);
       if (detection) {
         await this.changeState(detection.state, detection.details, detection.confidence);
       }
     } catch (error) {
-      // Silently catch any errors to prevent display interference
+      // Log errors in debug mode but prevent display interference
+      if (this.enableDebug) {
+        console.error(`[Tally Debug] State detection error:`, error.message);
+      }
+      
+      // If state change fails repeatedly, fall back to IDLE to prevent stuck states
+      if (error.message.includes('network') || error.message.includes('ECONNREFUSED')) {
+        // Network error - defer state change for retry
+        this.pendingStateChange = { trimmed, detection: this.detectClaudeState(trimmed, this.outputContext) };
+      }
     }
   }
 
