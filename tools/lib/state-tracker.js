@@ -42,6 +42,18 @@ export class ClaudeStateTracker {
       recentLines: [],
       maxHistoryLines: 50
     };
+    
+    // Debug data collection
+    this.debugData = {
+      currentBuffer: '',
+      cleanedBuffer: '',
+      lastPatternTests: [],
+      confidence: 'N/A',
+      isActive: true
+    };
+    
+    // Start debug data updates
+    this.startDebugUpdates();
   }
 
   /**
@@ -53,8 +65,72 @@ export class ClaudeStateTracker {
     const cleanLine = cleanANSI(line);
     if (!cleanLine || cleanLine.length < 3) return null;
     
+    // Define patterns for debug tracking
+    const patterns = [
+      {
+        pattern: '❯\\s*\\d+\\.\\s+',
+        regex: /❯\s*\d+\.\s+/,
+        description: 'Claude numbered prompt detection',
+        expectedState: 'PENDING'
+      },
+      {
+        pattern: '❯ 1\\. Yes',
+        regex: /❯ 1\. Yes/,
+        description: 'Claude Yes/No prompt detection',
+        expectedState: 'PENDING'
+      },
+      {
+        pattern: 'Would you like to proceed\\?',
+        regex: /Would you like to proceed\?/,
+        description: 'Proceed confirmation detection',
+        expectedState: 'PENDING'
+      },
+      {
+        pattern: 'Approve\\?',
+        regex: /Approve\?/,
+        description: 'Approval prompt detection',
+        expectedState: 'PENDING'
+      },
+      {
+        pattern: '\\[y/N\\]',
+        regex: /\[y\/N\]/,
+        description: 'Y/N choice detection',
+        expectedState: 'PENDING'
+      },
+      {
+        pattern: 'esc to interrupt',
+        regex: /esc to interrupt/i,
+        description: 'Working state detection',
+        expectedState: 'WORKING'
+      },
+      {
+        pattern: 'working\\.\\.\\.',
+        regex: /working\.\.\./i,
+        description: 'Working indicator detection',
+        expectedState: 'WORKING'
+      },
+      {
+        pattern: 'error|failed|exception',
+        regex: /error|failed|exception/i,
+        description: 'Error detection',
+        expectedState: 'ERROR'
+      }
+    ];
+    
+    // Test all patterns and collect debug data
+    const patternTests = patterns.map(p => ({
+      pattern: p.pattern,
+      description: p.description,
+      matches: p.regex.test(cleanLine),
+      expectedState: p.expectedState
+    }));
+    
+    // Update debug data
+    this.debugData.lastPatternTests = patternTests;
+    
     // WORKING: Claude is actively processing (check first as most important)
     if (cleanLine.includes('esc to interrupt')) {
+      this.debugData.confidence = 'high';
       return { state: 'WORKING', details: cleanLine, confidence: 'high' };
     }
     
@@ -63,10 +139,12 @@ export class ClaudeStateTracker {
         cleanLine.includes('Would you like to proceed?') ||
         cleanLine.includes('Approve?') ||
         cleanLine.includes('[y/N]')) {
+      this.debugData.confidence = 'high';
       return { state: 'PENDING', details: cleanLine, confidence: 'high' };
     }
     
     // Don't return IDLE for every line - only return state changes
+    this.debugData.confidence = 'low';
     return null;
   }
 
@@ -131,6 +209,22 @@ export class ClaudeStateTracker {
   }
 
   /**
+   * Update debug buffer data (called on every data chunk)
+   */
+  updateDebugBuffer(recentOutput) {
+    // Update debug buffer data immediately
+    this.debugData.currentBuffer = recentOutput.slice(-3000); // Keep last 3000 chars
+    this.debugData.cleanedBuffer = cleanANSI(this.debugData.currentBuffer);
+    this.lastRecentOutput = recentOutput;
+    
+    // Run pattern detection on the cleaned buffer for debug purposes
+    // This won't change state, just updates pattern test results
+    if (this.debugData.cleanedBuffer) {
+      this.detectClaudeState(this.debugData.cleanedBuffer, this.outputContext);
+    }
+  }
+
+  /**
    * Process output line with Claude-specific detection
    */
   async processLine(line, recentOutput = '') {
@@ -169,6 +263,28 @@ export class ClaudeStateTracker {
   }
 
   /**
+   * Get debug data for debugging UI
+   */
+  getDebugData() {
+    return {
+      currentBuffer: this.debugData.currentBuffer,
+      cleanedBuffer: this.debugData.cleanedBuffer,
+      patternTests: this.debugData.lastPatternTests,
+      currentState: this.currentState,
+      confidence: this.debugData.confidence,
+      detectionHistory: this.stateHistory.slice(-10).map(entry => ({
+        timestamp: Math.floor(entry.timestamp / 1000), // Convert to seconds
+        from: entry.from,
+        to: entry.to,
+        details: entry.details,
+        confidence: entry.confidence
+      })),
+      taskId: this.taskId,
+      isActive: this.debugData.isActive
+    };
+  }
+
+  /**
    * Get state summary for session end
    */
   getStateSummary() {
@@ -177,6 +293,42 @@ export class ClaudeStateTracker {
       finalState: this.currentState,
       history: this.stateHistory
     };
+  }
+
+  /**
+   * Start periodic debug data updates
+   */
+  startDebugUpdates() {
+    // Send debug data every 1 second when active
+    this.debugInterval = setInterval(async () => {
+      if (this.debugData.isActive) {
+        try {
+          await this.client.updateDebugData(this.getDebugData());
+        } catch (error) {
+          // Silently ignore debug update errors
+        }
+      }
+    }, 1000);
+  }
+
+  /**
+   * Stop debug data updates
+   */
+  stopDebugUpdates() {
+    if (this.debugInterval) {
+      clearInterval(this.debugInterval);
+      this.debugInterval = null;
+    }
+    
+    // Mark as inactive
+    this.debugData.isActive = false;
+    
+    // Send final update
+    try {
+      this.client.updateDebugData(this.getDebugData());
+    } catch (error) {
+      // Silently ignore
+    }
   }
 
   /**

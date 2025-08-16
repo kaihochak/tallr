@@ -9,7 +9,8 @@ use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc, time::SystemTime, path::Path, fs};
-use tauri::{AppHandle, Emitter, Manager, menu::{MenuBuilder, MenuItemBuilder}, tray::{TrayIconBuilder, TrayIconEvent}};
+use image::GenericImageView;
+use tauri::{AppHandle, Emitter, Manager, menu::{MenuBuilder, MenuItemBuilder}, tray::TrayIconBuilder};
 use tauri_plugin_shell::ShellExt;
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
@@ -40,6 +41,7 @@ struct TaskIn {
 struct AppState {
     projects: HashMap<String, Project>,
     tasks: HashMap<String, Task>,
+    debug_data: Option<DebugData>,
     updated_at: i64,
 }
 
@@ -66,6 +68,7 @@ struct Task {
     details: Option<String>,
     created_at: i64,
     updated_at: i64,
+    pinned: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -92,10 +95,61 @@ struct TaskDoneRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct TaskDeleteRequest {
+    task_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TaskPinRequest {
+    task_id: String,
+    pinned: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SetupStatus {
     is_first_launch: bool,
     cli_installed: bool,
     setup_completed: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DebugData {
+    current_buffer: String,
+    cleaned_buffer: String,
+    pattern_tests: Vec<PatternTest>,
+    current_state: String,
+    confidence: String,
+    detection_history: Vec<DetectionHistoryEntry>,
+    task_id: String,
+    is_active: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PatternTest {
+    pattern: String,
+    description: String,
+    matches: bool,
+    expected_state: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DetectionHistoryEntry {
+    timestamp: i64,
+    from: String,
+    to: String,
+    details: String,
+    confidence: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DebugUpdateRequest {
+    debug_data: DebugData,
 }
 
 // Axum 0.8 handlers with modern path syntax
@@ -135,7 +189,8 @@ async fn upsert_task(
             new_id
         });
 
-    // Create or update task
+    // Create or update task (preserve existing pinned status if task exists)
+    let existing_pinned = state.tasks.get(&req.task.id).map(|t| t.pinned).unwrap_or(false);
     let task = Task {
         id: req.task.id.clone(),
         project_id,
@@ -145,6 +200,7 @@ async fn upsert_task(
         details: req.task.details.clone(),
         created_at: now,
         updated_at: now,
+        pinned: existing_pinned,
     };
     state.tasks.insert(req.task.id.clone(), task.clone());
     state.updated_at = now;
@@ -164,6 +220,11 @@ async fn upsert_task(
     // Update tray menu
     drop(state); // Release the lock before calling update_tray_menu
     update_tray_menu(&app_handle);
+
+    // Save state to disk
+    if let Err(e) = save_app_state() {
+        eprintln!("Failed to save app state: {}", e);
+    }
 
     Ok(Json(()))
 }
@@ -202,6 +263,11 @@ async fn update_task_state(
         drop(state); // Release the lock before calling update_tray_menu
         update_tray_menu(&app_handle);
 
+        // Save state to disk
+        if let Err(e) = save_app_state() {
+            eprintln!("Failed to save app state: {}", e);
+        }
+
         Ok(Json(()))
     } else {
         Err(StatusCode::NOT_FOUND)
@@ -227,6 +293,67 @@ async fn mark_task_done(
         drop(state); // Release the lock before calling update_tray_menu
         update_tray_menu(&app_handle);
 
+        // Save state to disk
+        if let Err(e) = save_app_state() {
+            eprintln!("Failed to save app state: {}", e);
+        }
+
+        Ok(Json(()))
+    } else {
+        Err(StatusCode::NOT_FOUND)
+    }
+}
+
+async fn delete_task(
+    AxumState(app_handle): AxumState<AppHandle>,
+    Json(req): Json<TaskDeleteRequest>,
+) -> Result<Json<()>, StatusCode> {
+    let mut state = APP_STATE.lock();
+    
+    if state.tasks.remove(&req.task_id).is_some() {
+        state.updated_at = current_timestamp();
+
+        // Emit event to frontend
+        let _ = app_handle.emit("tasks-updated", &state.clone());
+        
+        // Update tray menu
+        drop(state); // Release the lock before calling update_tray_menu
+        update_tray_menu(&app_handle);
+
+        // Save state to disk
+        if let Err(e) = save_app_state() {
+            eprintln!("Failed to save app state: {}", e);
+        }
+
+        Ok(Json(()))
+    } else {
+        Err(StatusCode::NOT_FOUND)
+    }
+}
+
+async fn toggle_task_pin(
+    AxumState(app_handle): AxumState<AppHandle>,
+    Json(req): Json<TaskPinRequest>,
+) -> Result<Json<()>, StatusCode> {
+    let mut state = APP_STATE.lock();
+    
+    if let Some(task) = state.tasks.get_mut(&req.task_id) {
+        task.pinned = req.pinned;
+        task.updated_at = current_timestamp();
+        state.updated_at = current_timestamp();
+
+        // Emit event to frontend
+        let _ = app_handle.emit("tasks-updated", &state.clone());
+        
+        // Update tray menu
+        drop(state); // Release the lock before calling update_tray_menu
+        update_tray_menu(&app_handle);
+
+        // Save state to disk
+        if let Err(e) = save_app_state() {
+            eprintln!("Failed to save app state: {}", e);
+        }
+
         Ok(Json(()))
     } else {
         Err(StatusCode::NOT_FOUND)
@@ -243,6 +370,90 @@ async fn get_setup_status() -> Json<SetupStatus> {
         cli_installed,
         setup_completed,
     })
+}
+
+async fn get_debug_patterns() -> Json<DebugData> {
+    let state = APP_STATE.lock();
+    
+    // Return stored debug data if available
+    if let Some(debug_data) = &state.debug_data {
+        return Json(debug_data.clone());
+    }
+    
+    drop(state);
+    
+    // Return default data when no CLI session is active
+    let default_patterns = vec![
+        PatternTest {
+            pattern: "❯\\s*\\d+\\.\\s+".to_string(),
+            description: "Claude numbered prompt detection".to_string(),
+            matches: false,
+            expected_state: "PENDING".to_string(),
+        },
+        PatternTest {
+            pattern: "❯ 1\\. Yes".to_string(),
+            description: "Claude Yes/No prompt detection".to_string(),
+            matches: false,
+            expected_state: "PENDING".to_string(),
+        },
+        PatternTest {
+            pattern: "Would you like to proceed\\?".to_string(),
+            description: "Proceed confirmation detection".to_string(),
+            matches: false,
+            expected_state: "PENDING".to_string(),
+        },
+        PatternTest {
+            pattern: "Approve\\?".to_string(),
+            description: "Approval prompt detection".to_string(),
+            matches: false,
+            expected_state: "PENDING".to_string(),
+        },
+        PatternTest {
+            pattern: "\\[y/N\\]".to_string(),
+            description: "Y/N choice detection".to_string(),
+            matches: false,
+            expected_state: "PENDING".to_string(),
+        },
+        PatternTest {
+            pattern: "esc to interrupt".to_string(),
+            description: "Working state detection".to_string(),
+            matches: false,
+            expected_state: "WORKING".to_string(),
+        },
+        PatternTest {
+            pattern: "working\\.\\.\\.".to_string(),
+            description: "Working indicator detection".to_string(),
+            matches: false,
+            expected_state: "WORKING".to_string(),
+        },
+        PatternTest {
+            pattern: "error|failed|exception".to_string(),
+            description: "Error detection".to_string(),
+            matches: false,
+            expected_state: "ERROR".to_string(),
+        },
+    ];
+
+    Json(DebugData {
+        current_buffer: "No active CLI session".to_string(),
+        cleaned_buffer: "No active CLI session".to_string(),
+        pattern_tests: default_patterns,
+        current_state: "IDLE".to_string(),
+        confidence: "N/A".to_string(),
+        detection_history: vec![],
+        task_id: "no-active-task".to_string(),
+        is_active: false,
+    })
+}
+
+async fn update_debug_data(
+    Json(req): Json<DebugUpdateRequest>,
+) -> Result<Json<()>, StatusCode> {
+    let mut state = APP_STATE.lock();
+    state.debug_data = Some(req.debug_data);
+    state.updated_at = current_timestamp();
+    
+    Ok(Json(()))
 }
 
 fn is_cli_installed() -> bool {
@@ -267,6 +478,56 @@ fn mark_setup_completed() -> Result<(), String> {
     fs::create_dir_all(&app_data_dir).map_err(|e| format!("Failed to create app data directory: {}", e))?;
     fs::write(app_data_dir.join(".setup_completed"), "").map_err(|e| format!("Failed to create setup flag: {}", e))?;
     Ok(())
+}
+
+fn get_sessions_file_path() -> Result<std::path::PathBuf, String> {
+    let app_data_dir = get_app_data_dir()?;
+    Ok(app_data_dir.join("sessions.json"))
+}
+
+fn save_app_state() -> Result<(), String> {
+    let state = APP_STATE.lock().clone();
+    let app_data_dir = get_app_data_dir()?;
+    
+    // Ensure directory exists
+    fs::create_dir_all(&app_data_dir)
+        .map_err(|e| format!("Failed to create app data directory: {}", e))?;
+    
+    let sessions_file = get_sessions_file_path()?;
+    let state_json = serde_json::to_string_pretty(&state)
+        .map_err(|e| format!("Failed to serialize app state: {}", e))?;
+    
+    fs::write(&sessions_file, state_json)
+        .map_err(|e| format!("Failed to write sessions file: {}", e))?;
+    
+    Ok(())
+}
+
+fn load_app_state() -> Result<AppState, String> {
+    let sessions_file = get_sessions_file_path()?;
+    
+    if !sessions_file.exists() {
+        println!("No sessions file found, starting fresh");
+        return Ok(AppState::default());
+    }
+    
+    let state_content = fs::read_to_string(&sessions_file)
+        .map_err(|e| format!("Failed to read sessions file: {}", e))?;
+    
+    if state_content.trim().is_empty() {
+        println!("Sessions file is empty, starting fresh");
+        return Ok(AppState::default());
+    }
+    
+    let state: AppState = serde_json::from_str(&state_content)
+        .map_err(|e| {
+            // If JSON parsing fails, backup the corrupted file and start fresh
+            let backup_path = sessions_file.with_extension("json.backup");
+            let _ = fs::rename(&sessions_file, &backup_path);
+            format!("Failed to parse sessions file (backed up as {:?}): {}", backup_path, e)
+        })?;
+    
+    Ok(state)
 }
 
 // Helper function to get IDE command with proper arguments
@@ -539,24 +800,15 @@ fn setup_tray_icon(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // Build initial tray menu
     let tray_menu = build_tray_menu(&app_handle)?;
     
+    // Get initial icon based on current state
+    let initial_state = get_aggregate_state();
+    let tray_icon = load_tray_icon(initial_state);
+    
     // Create tray icon
     let tray = TrayIconBuilder::new()
         .menu(&tray_menu)
-        .icon(app.default_window_icon().unwrap().clone())
-        .on_tray_icon_event(move |tray, event| {
-            let app_handle = tray.app_handle();
-            match event {
-                TrayIconEvent::Click { button, .. } => {
-                    if button == tauri::tray::MouseButton::Left {
-                        handle_tray_left_click(&app_handle);
-                    }
-                }
-                TrayIconEvent::DoubleClick { .. } => {
-                    handle_tray_left_click(&app_handle);
-                }
-                _ => {}
-            }
-        })
+        .icon(tray_icon)
+        // No tray icon click handling needed - menu appears on left click automatically
         .on_menu_event(move |app, event| {
             handle_tray_menu_event(app, &event.id().0);
         })
@@ -624,16 +876,6 @@ fn build_tray_menu(app_handle: &AppHandle) -> Result<tauri::menu::Menu<tauri::Wr
     Ok(menu_builder.build()?)
 }
 
-fn handle_tray_left_click(app_handle: &AppHandle) {
-    if let Some(window) = app_handle.get_webview_window("main") {
-        if window.is_visible().unwrap_or(false) {
-            let _ = window.hide();
-        } else {
-            let _ = window.show();
-            let _ = window.set_focus();
-        }
-    }
-}
 
 fn handle_tray_menu_event(app_handle: &AppHandle, menu_id: &str) {
     match menu_id {
@@ -687,14 +929,37 @@ fn get_aggregate_state() -> &'static str {
     }
 }
 
+// Include tray icon bytes at compile time
+const TRAY_ICON_DEFAULT: &[u8] = include_bytes!("../icons/tray/tray-default.png");
+const TRAY_ICON_WORKING: &[u8] = include_bytes!("../icons/tray/tray-working.png");
+const TRAY_ICON_PENDING: &[u8] = include_bytes!("../icons/tray/tray-pending.png");
+const TRAY_ICON_ERROR: &[u8] = include_bytes!("../icons/tray/tray-error.png");
+
 // Function to get icon path based on state
 fn get_tray_icon_path(state: &str) -> &'static str {
     match state {
-        "pending" => "icons/32x32.png", // TODO: Replace with amber icon
-        "error" => "icons/32x32.png",   // TODO: Replace with red icon  
-        "working" => "icons/32x32.png", // TODO: Replace with green icon
-        _ => "icons/32x32.png",         // Default gray icon
+        "pending" => "icons/tray/tray-pending.png", // Amber/orange for waiting
+        "error" => "icons/tray/tray-error.png",     // Red for errors
+        "working" => "icons/tray/tray-working.png", // Green for active
+        _ => "icons/tray/tray-default.png",         // Default gray/neutral
     }
+}
+
+// Function to load tray icon based on state
+fn load_tray_icon(state: &str) -> tauri::image::Image<'static> {
+    let icon_bytes = match state {
+        "pending" => TRAY_ICON_PENDING,
+        "error" => TRAY_ICON_ERROR,
+        "working" => TRAY_ICON_WORKING,
+        _ => TRAY_ICON_DEFAULT,
+    };
+    
+    // Create image from bytes
+    let image = image::load_from_memory(icon_bytes).expect("Failed to load tray icon");
+    let rgba = image.to_rgba8();
+    let (width, height) = image.dimensions();
+    
+    tauri::image::Image::new_owned(rgba.into_raw(), width, height)
 }
 
 // Function to update tray menu and icon when app state changes
@@ -709,15 +974,13 @@ fn update_tray_menu(app_handle: &AppHandle) {
         let aggregate_state = get_aggregate_state();
         let icon_path = get_tray_icon_path(aggregate_state);
         
-        // Note: For now using the same icon, but this is where we'd load different colored icons
-        // When colored icons are available, replace with:
-        // if let Ok(icon) = tauri::image::Image::from_path(icon_path) {
-        //     let _ = tray.set_icon(Some(icon));
-        // }
+        // Load and set the appropriate icon
+        let icon = load_tray_icon(aggregate_state);
+        let _ = tray.set_icon(Some(icon));
         
-        // For development/testing, we could log the state change
+        // For development/testing, log the state change
         if aggregate_state != "idle" {
-            println!("Tray icon should be {} (using {})", aggregate_state, icon_path);
+            println!("Tray icon updated to {} (using {})", aggregate_state, icon_path);
         }
     }
 }
@@ -730,6 +993,22 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let app_handle = app.handle().clone();
+            
+            // Load persisted state on startup (with robust error handling)
+            match load_app_state() {
+                Ok(loaded_state) => {
+                    *APP_STATE.lock() = loaded_state;
+                    let state = APP_STATE.lock();
+                    println!("✓ Loaded persisted sessions: {} projects, {} tasks", 
+                             state.projects.len(), 
+                             state.tasks.len());
+                },
+                Err(e) => {
+                    println!("⚠ Failed to load persisted sessions: {}", e);
+                    println!("✓ Starting with fresh state");
+                    // APP_STATE is already initialized with default empty state
+                }
+            }
             
             // Initialize tray icon with menu
             setup_tray_icon(app)?;
@@ -762,7 +1041,11 @@ async fn start_http_server(app_handle: AppHandle) {
         .route("/v1/tasks/upsert", post(upsert_task))
         .route("/v1/tasks/state", post(update_task_state))
         .route("/v1/tasks/done", post(mark_task_done))
+        .route("/v1/tasks/delete", post(delete_task))
+        .route("/v1/tasks/pin", post(toggle_task_pin))
         .route("/v1/setup/status", get(get_setup_status))
+        .route("/v1/debug/patterns", get(get_debug_patterns))
+        .route("/v1/debug/update", post(update_debug_data))
         .layer(CorsLayer::permissive())
         .with_state(app_handle);
 

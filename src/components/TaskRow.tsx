@@ -1,30 +1,17 @@
-import { useCallback } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { 
   ChevronDown,
   ChevronUp,
   Clock,
-  Terminal,
+  Trash2,
+  MoreHorizontal,
   ExternalLink,
-  Code
+  Bug,
+  Pin,
+  PinOff
 } from "lucide-react";
-
-// Icon mapping for agents and IDEs
-const agentIcons = {
-  claude: Terminal, // Will be replaced with actual Claude icon
-  cursor: Terminal,
-  gemini: Terminal,
-  default: Terminal
-};
-
-const ideIcons = {
-  cursor: Code,
-  code: Code,
-  vscode: Code,
-  windsurf: Code,
-  webstorm: Code,
-  default: Code
-};
+import { Badge } from "./Badge";
 
 interface Project {
   id: string;
@@ -46,7 +33,7 @@ interface Task {
   createdAt: number;
   updatedAt: number;
   completedAt?: number;
-  isRemoving?: boolean;
+  pinned: boolean;
 }
 
 interface TaskRowProps {
@@ -54,10 +41,12 @@ interface TaskRowProps {
   project: Project | undefined;
   isSelected: boolean;
   isExpanded: boolean;
-  isRemoving: boolean;
-  countdown?: number;
   expandedTasks: Set<string>;
   setExpandedTasks: React.Dispatch<React.SetStateAction<Set<string>>>;
+  onDeleteTask: (taskId: string) => Promise<void>;
+  onJumpToContext: (taskId: string) => Promise<void>;
+  onShowDebug: (taskId: string) => void;
+  onTogglePin: (taskId: string, pinned: boolean) => Promise<void>;
 }
 
 export default function TaskRow({
@@ -65,25 +54,38 @@ export default function TaskRow({
   project,
   isSelected,
   isExpanded,
-  isRemoving,
-  countdown,
-  setExpandedTasks
+  expandedTasks,
+  setExpandedTasks,
+  onDeleteTask,
+  onJumpToContext,
+  onShowDebug,
+  onTogglePin
 }: TaskRowProps) {
   const age = Math.floor((Date.now() - task.updatedAt * 1000) / 60000);
-  const isCompleted = countdown !== undefined;
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const handleJumpToContext = useCallback(async () => {
-    if (!project || isCompleted) return;
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
 
-    try {
-      await invoke("open_ide_and_terminal", {
-        projectPath: project.repoPath,
-        ide: project.preferredIde
-      });
-    } catch (error) {
-      console.error("Failed to open IDE and terminal:", error);
+    if (showDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [project, isCompleted]);
+  }, [showDropdown]);
+
+  // Updated to use the passed-in callback
+  const handleJumpToContext = useCallback(async () => {
+    if (!project) return;
+    await onJumpToContext(task.id);
+  }, [task.id, onJumpToContext, project]);
 
   const toggleTaskExpanded = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -98,9 +100,65 @@ export default function TaskRow({
     });
   }, [task.id, setExpandedTasks]);
 
+  const handleDeleteTask = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (confirm(`Delete session "${task.agent}" in ${project?.name || "Unknown"}?`)) {
+      try {
+        await onDeleteTask(task.id);
+      } catch (error) {
+        console.error("Failed to delete task:", error);
+        alert("Failed to delete session. Please try again.");
+      }
+    }
+  }, [task.id, task.agent, project?.name, onDeleteTask]);
+
+  const handleToggleDropdown = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (!showDropdown && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 4, // 4px gap below button
+        right: window.innerWidth - rect.right // Align right edge with button
+      });
+    }
+    
+    setShowDropdown(prev => !prev);
+  }, [showDropdown]);
+
+  const handleDropdownAction = useCallback(async (action: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowDropdown(false);
+
+    try {
+      switch (action) {
+        case 'jump':
+          await onJumpToContext(task.id);
+          break;
+        case 'debug':
+          onShowDebug(task.id);
+          break;
+        case 'pin':
+          await onTogglePin(task.id, !task.pinned);
+          break;
+        case 'delete':
+          if (confirm(`Delete session "${task.agent}" in ${project?.name || "Unknown"}?`)) {
+            await onDeleteTask(task.id);
+          }
+          break;
+      }
+    } catch (error) {
+      console.error(`Failed to ${action} task:`, error);
+      alert(`Failed to ${action} session. Please try again.`);
+    }
+  }, [task.id, task.agent, task.pinned, project?.name, onJumpToContext, onShowDebug, onTogglePin, onDeleteTask]);
+
   return (
     <div
-      className={`task-row ${isSelected ? "selected" : ""} state-${task.state.toLowerCase()} ${isExpanded ? "expanded" : ""} ${isRemoving ? "removing" : ""} ${isCompleted ? "completed" : ""}`}
+      className={`task-row ${isSelected ? "selected" : ""} state-${task.state.toLowerCase()} ${isExpanded ? "expanded" : ""}`}
+      onClick={handleJumpToContext}
+      style={{ cursor: 'pointer' }}
     >
       {/* Row 1: Project Name */}
       <div className="task-project-row">
@@ -110,13 +168,11 @@ export default function TaskRow({
       {/* Row 2: Metadata */}
       <div className="task-metadata-row">
         <div className="metadata-info">
-          <Terminal className="agent-icon" />
-          <span className="agent-name">{task.agent}</span>
+          <Badge type="agent" name={task.agent} />
           {project?.preferredIde && (
             <>
               <span className="metadata-separator">·</span>
-              <Code className="ide-icon" />
-              <span className="ide-name">{project.preferredIde}</span>
+              <Badge type="ide" name={project.preferredIde} />
             </>
           )}
           <span className="metadata-separator">·</span>
@@ -127,27 +183,71 @@ export default function TaskRow({
 
       {/* Row 2: Status Badge */}
       <div className="task-status-badge">
-        {isCompleted ? (
-          <span className="task-state completed">
-            ✅ Done - {countdown}s
-          </span>
-        ) : (
-          <span className={`task-state ${task.state.toLowerCase()}`}>
-            {task.state}
-          </span>
-        )}
+        <span className={`task-state ${task.state.toLowerCase()}`}>
+          {task.state}
+        </span>
       </div>
 
-      {/* Row 1: Action Button */}
+      {/* Task Actions */}
       <div className="task-action" onClick={(e) => e.stopPropagation()}>
-        <button 
-          className="action-button"
-          title="Open IDE & Terminal" 
-          onClick={handleJumpToContext}
-          disabled={isCompleted}
-        >
-          <ExternalLink className="action-button-icon" />
-        </button>
+        {task.details && task.details.length > 100 && (
+          <button 
+            className="expand-button-main"
+            title={isExpanded ? "Show less" : "Show more"} 
+            onClick={toggleTaskExpanded}
+          >
+            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+        )}
+        <div className="dropdown-container" ref={dropdownRef}>
+          <button 
+            ref={buttonRef}
+            className="more-button"
+            title="More actions" 
+            onClick={handleToggleDropdown}
+          >
+            <MoreHorizontal size={16} />
+          </button>
+          {showDropdown && (
+            <div 
+              className="dropdown-menu"
+              style={{
+                top: `${dropdownPosition.top}px`,
+                right: `${dropdownPosition.right}px`
+              }}
+            >
+              <button 
+                className="dropdown-item"
+                onClick={(e) => handleDropdownAction('jump', e)}
+              >
+                <ExternalLink size={14} />
+                Jump to
+              </button>
+              <button 
+                className="dropdown-item"
+                onClick={(e) => handleDropdownAction('debug', e)}
+              >
+                <Bug size={14} />
+                Debug
+              </button>
+              <button 
+                className="dropdown-item"
+                onClick={(e) => handleDropdownAction('pin', e)}
+              >
+                {task.pinned ? <PinOff size={14} /> : <Pin size={14} />}
+                {task.pinned ? 'Unpin' : 'Pin to top'}
+              </button>
+              <div className="dropdown-divider"></div>
+              <button 
+                className="dropdown-item delete-item"
+                onClick={(e) => handleDropdownAction('delete', e)}
+              >
+                <Trash2 size={14} />
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Row 3: Activity (spans full width) */}
@@ -157,15 +257,6 @@ export default function TaskRow({
             <span className={`activity-text ${isExpanded ? "expanded" : "collapsed"}`}>
               {task.details}
             </span>
-            {task.details.length > 100 && (
-              <button 
-                className="expand-toggle"
-                onClick={toggleTaskExpanded}
-                title={isExpanded ? "Show less" : "Show more"}
-              >
-                {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              </button>
-            )}
           </div>
         </div>
       )}

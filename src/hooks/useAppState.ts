@@ -21,7 +21,7 @@ interface Task {
   createdAt: number;
   updatedAt: number;
   completedAt?: number;
-  isRemoving?: boolean;
+  pinned: boolean;
 }
 
 interface AppState {
@@ -37,61 +37,32 @@ export function useAppState() {
     updatedAt: 0 
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [removingTasks, setRemovingTasks] = useState<Set<string>>(new Set());
-  const [taskCountdowns, setTaskCountdowns] = useState<Record<string, number>>({});
 
   // Listen for backend updates
   useEffect(() => {
     const unlisten = listen<AppState>("tasks-updated", (event) => {
       const newState = event.payload;
       
-      // Check for newly completed tasks
-      Object.values(newState.tasks).forEach(task => {
-        const oldTask = appState.tasks[task.id];
-        // If task changed to DONE, IDLE, or any completion state, start removal countdown
-        if (oldTask && oldTask.state !== 'IDLE' && task.state === 'IDLE' && 
-            (task.details?.includes('session completed') || task.details?.includes('done'))) {
+      // Use functional state update to avoid stale closure
+      setAppState(currentState => {
+        // Mark IDLE tasks as completed for time-based filtering
+        Object.values(newState.tasks).forEach(task => {
+          const oldTask = currentState.tasks[task.id];
           
-          // Mark as completed and start countdown
-          task.completedAt = Date.now();
-          setTaskCountdowns(prev => ({...prev, [task.id]: 8})); // 8 second countdown
-          
-          // Start countdown interval
-          const countdown = setInterval(() => {
-            setTaskCountdowns(prev => {
-              const remaining = prev[task.id] - 1;
-              if (remaining <= 0) {
-                clearInterval(countdown);
-                // Remove from UI
-                setRemovingTasks(current => new Set([...current, task.id]));
-                setTimeout(() => {
-                  setAppState(currentState => ({
-                    ...currentState,
-                    tasks: Object.fromEntries(
-                      Object.entries(currentState.tasks).filter(([id]) => id !== task.id)
-                    )
-                  }));
-                  setRemovingTasks(current => {
-                    const newSet = new Set(current);
-                    newSet.delete(task.id);
-                    return newSet;
-                  });
-                }, 300); // Fade out animation time
-                return prev;
-              }
-              return {...prev, [task.id]: remaining};
-            });
-          }, 1000);
-        }
+          // If task changed to IDLE from any other state, mark completion time
+          if (oldTask && oldTask.state !== 'IDLE' && task.state === 'IDLE') {
+            task.completedAt = Date.now();
+          }
+        });
+        
+        return newState;
       });
-      
-      setAppState(newState);
     });
 
     return () => {
       unlisten.then(fn => fn());
     };
-  }, [appState.tasks]);
+  }, []); // Remove dependency to prevent re-creation
 
   // Listen for notifications
   useEffect(() => {
@@ -134,8 +105,6 @@ export function useAppState() {
   return {
     appState,
     setAppState,
-    isLoading,
-    removingTasks,
-    taskCountdowns
+    isLoading
   };
 }

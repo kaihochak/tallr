@@ -19,7 +19,9 @@ import pty from 'node-pty';
 import { TallyClient } from './lib/http-client.js';
 import { ClaudeStateTracker } from './lib/state-tracker.js';
 import { getIdeCommand, promptForIdeCommand } from './lib/settings.js';
+import { debugRegistry } from './lib/debug-registry.js';
 import { execSync } from 'child_process';
+import http from 'http';
 
 // IDE mapping table for apps with integrated terminals
 const IDE_MAPPINGS = {
@@ -107,6 +109,9 @@ const taskId = `${config.agent}-${Date.now()}-${Math.random().toString(36).subst
 const client = new TallyClient(config);
 const stateTracker = new ClaudeStateTracker(client, taskId, false); // Disable debug
 
+// Register state tracker for debug access
+debugRegistry.register(taskId, stateTracker);
+
 /**
  * PTY approach for interactive CLIs - minimal passthrough
  */
@@ -134,6 +139,9 @@ async function runWithPTY(command, commandArgs) {
     if (recentOutput.length > MAX_OUTPUT_SIZE * 2) {
       recentOutput = recentOutput.slice(-MAX_OUTPUT_SIZE);
     }
+    
+    // Update debug buffer immediately on every data chunk
+    stateTracker.updateDebugBuffer(recentOutput);
     
     // Process characters in real-time for state detection
     for (let i = 0; i < data.length; i++) {
@@ -195,6 +203,10 @@ async function runWithPTY(command, commandArgs) {
       await client.updateTaskState(taskId, 'IDLE', details);
     }
 
+    // Cleanup debug registry and stop debug updates
+    debugRegistry.unregister(taskId);
+    stateTracker.stopDebugUpdates();
+
     if (process.stdin.setRawMode && process.stdin.isTTY) {
       process.stdin.setRawMode(false);
     }
@@ -214,6 +226,10 @@ async function runWithPTY(command, commandArgs) {
       
       // Update task state with error details
       await client.updateTaskState(taskId, 'ERROR', `PTY error: ${error.message}`);
+      
+      // Cleanup debug updates
+      debugRegistry.unregister(taskId);
+      stateTracker.stopDebugUpdates();
     } catch (cleanupError) {
       console.error(`[Tally] Cleanup error:`, cleanupError.message);
     }
@@ -319,6 +335,10 @@ async function runWithSpawn(command, commandArgs) {
     } else {
       await client.updateTaskState(taskId, 'IDLE', details);
     }
+
+    // Cleanup debug registry and stop debug updates
+    debugRegistry.unregister(taskId);
+    stateTracker.stopDebugUpdates();
 
     process.exit(code);
   });

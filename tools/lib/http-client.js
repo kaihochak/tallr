@@ -164,4 +164,18 @@ export class TallyClient {
       // Still consider the CLI session successful even if we can't mark it done
     }
   }
+
+  /**
+   * Update debug data for pattern detection debugging
+   */
+  async updateDebugData(debugData) {
+    try {
+      await this.makeRequest('POST', '/v1/debug/update', {
+        debugData: debugData
+      });
+      // Debug data updated silently
+    } catch (error) {
+      // Silently fail debug updates to avoid interfering with CLI operation
+    }
+  }
 }
