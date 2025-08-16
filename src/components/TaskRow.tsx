@@ -63,9 +63,7 @@ export default function TaskRow({
 }: TaskRowProps) {
   const age = Math.floor((Date.now() - task.updatedAt * 1000) / 60000);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -115,17 +113,8 @@ export default function TaskRow({
 
   const handleToggleDropdown = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    
-    if (!showDropdown && buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      setDropdownPosition({
-        top: rect.bottom + 4, // 4px gap below button
-        right: window.innerWidth - rect.right // Align right edge with button
-      });
-    }
-    
     setShowDropdown(prev => !prev);
-  }, [showDropdown]);
+  }, []);
 
   const handleDropdownAction = useCallback(async (action: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -201,7 +190,6 @@ export default function TaskRow({
         )}
         <div className="dropdown-container" ref={dropdownRef}>
           <button 
-            ref={buttonRef}
             className="more-button"
             title="More actions" 
             onClick={handleToggleDropdown}
@@ -209,13 +197,7 @@ export default function TaskRow({
             <MoreHorizontal size={16} />
           </button>
           {showDropdown && (
-            <div 
-              className="dropdown-menu"
-              style={{
-                top: `${dropdownPosition.top}px`,
-                right: `${dropdownPosition.right}px`
-              }}
-            >
+            <div className="dropdown-menu">
               <button 
                 className="dropdown-item"
                 onClick={(e) => handleDropdownAction('jump', e)}

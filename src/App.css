@@ -396,6 +396,18 @@ body {
   transform: scale(1.02);
 }
 
+.task-count.active {
+  background: var(--accent-primary-light);
+  color: var(--accent-primary);
+  border: 1px solid var(--accent-primary);
+}
+
+.task-count.active:hover {
+  background: var(--accent-primary);
+  color: white;
+  transform: scale(1.02);
+}
+
 .header-button {
   display: flex;
   align-items: center;
@@ -508,7 +520,7 @@ body {
   animation: slideInUp var(--transition-slow) ease-out;
   box-shadow: var(--shadow-sm);
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   min-height: 60px;
 }
 
@@ -524,6 +536,12 @@ body {
 }
 
 .task-row:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-secondary);
+}
+
+.task-row.selected {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
   border-color: var(--border-secondary);
@@ -785,14 +803,16 @@ body {
 }
 
 .dropdown-menu {
-  position: fixed;
+  position: absolute;
+  top: 100%;
+  right: 0;
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   z-index: 1000;
   min-width: 140px;
-  overflow: hidden;
+  overflow: visible;
   animation: dropdown-enter 0.1s ease-out;
 }
 
@@ -824,6 +844,14 @@ body {
 
 .dropdown-item:hover {
   background: var(--bg-hover);
+}
+
+.dropdown-item:first-child:hover {
+  border-radius: 8px 8px 0 0;
+}
+
+.dropdown-item:last-child:hover {
+  border-radius: 0 0 8px 8px;
 }
 
 .dropdown-item.delete-item {

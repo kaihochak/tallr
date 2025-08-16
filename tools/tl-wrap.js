@@ -143,42 +143,14 @@ async function runWithPTY(command, commandArgs) {
     // Update debug buffer immediately on every data chunk
     stateTracker.updateDebugBuffer(recentOutput);
     
-    // Process characters in real-time for state detection
-    for (let i = 0; i < data.length; i++) {
-      const char = data[i];
-      const charCode = char.charCodeAt(0);
-      
-      // Handle control characters that affect line state
-      if (charCode === 13) { // Carriage return (\r) - line reset
-        currentLine = '';
-        monitoringBuffer = '';
-      } else if (charCode === 10) { // Line feed (\n) - line complete
-        if (currentLine.trim()) {
-          // Process complete line immediately
-          stateTracker.processLine(currentLine, recentOutput).catch(() => {});
-        }
-        currentLine = '';
-        monitoringBuffer = '';
-      } else if (charCode === 27) { // ESC - start of ANSI sequence
-        // Skip ANSI escape sequences for state detection but keep building line
-        let j = i + 1;
-        if (j < data.length && data[j] === '[') {
-          // CSI sequence - skip until we hit the final character
-          j++;
-          while (j < data.length) {
-            const escChar = data.charCodeAt(j);
-            if ((escChar >= 64 && escChar <= 126)) { // Final character range
-              break;
-            }
-            j++;
-          }
-          i = j; // Skip the entire sequence
-        }
-      } else if (charCode >= 32 && charCode <= 126) { // Printable ASCII
-        currentLine += char;
-        monitoringBuffer += char;
+    // Simplified processing - keep more of the original data
+    const lines = data.toString().split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.trim()) {
+        // Process each line for state detection
+        stateTracker.processLine(line, recentOutput).catch(() => {});
       }
-      // Ignore other control characters for state detection
     }
   });
 

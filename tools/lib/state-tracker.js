@@ -65,7 +65,7 @@ export class ClaudeStateTracker {
     const cleanLine = cleanANSI(line);
     if (!cleanLine || cleanLine.length < 3) return null;
     
-    // Define patterns for debug tracking
+    // Define patterns for debug tracking - improved for real Claude output
     const patterns = [
       {
         pattern: '❯\\s*\\d+\\.\\s+',
@@ -75,25 +75,25 @@ export class ClaudeStateTracker {
       },
       {
         pattern: '❯ 1\\. Yes',
-        regex: /❯ 1\. Yes/,
+        regex: /❯\s*1\.\s*Yes/,
         description: 'Claude Yes/No prompt detection',
         expectedState: 'PENDING'
       },
       {
         pattern: 'Would you like to proceed\\?',
-        regex: /Would you like to proceed\?/,
+        regex: /Would you like to proceed\?/i,
         description: 'Proceed confirmation detection',
         expectedState: 'PENDING'
       },
       {
         pattern: 'Approve\\?',
-        regex: /Approve\?/,
+        regex: /Approve\?/i,
         description: 'Approval prompt detection',
         expectedState: 'PENDING'
       },
       {
-        pattern: '\\[y/N\\]',
-        regex: /\[y\/N\]/,
+        pattern: '\\[y/N\\]|\\[Y/n\\]',
+        regex: /\[(y\/N|Y\/n)\]/,
         description: 'Y/N choice detection',
         expectedState: 'PENDING'
       },
@@ -104,8 +104,8 @@ export class ClaudeStateTracker {
         expectedState: 'WORKING'
       },
       {
-        pattern: 'working\\.\\.\\.',
-        regex: /working\.\.\./i,
+        pattern: 'working\\.\\.\\.|…',
+        regex: /(working\.\.\.)|…/i,
         description: 'Working indicator detection',
         expectedState: 'WORKING'
       },
@@ -114,6 +114,18 @@ export class ClaudeStateTracker {
         regex: /error|failed|exception/i,
         description: 'Error detection',
         expectedState: 'ERROR'
+      },
+      {
+        pattern: 'continue\\?|proceed\\?',
+        regex: /(continue|proceed)\?/i,
+        description: 'General confirmation detection',
+        expectedState: 'PENDING'
+      },
+      {
+        pattern: 'claude.*thinking|analyzing',
+        regex: /(claude.*(thinking|analyzing))|thinking|analyzing/i,
+        description: 'Claude thinking state',
+        expectedState: 'WORKING'
       }
     ];
     
@@ -304,6 +316,12 @@ export class ClaudeStateTracker {
       if (this.debugData.isActive) {
         try {
           await this.client.updateDebugData(this.getDebugData());
+          
+          // Also send periodic state updates with current details to keep UI fresh
+          if (this.lastRecentOutput && this.lastRecentOutput.length > 10) {
+            const cleanedOutput = cleanANSI(this.lastRecentOutput.slice(-1000));
+            await this.client.updateTaskState(this.taskId, this.currentState, cleanedOutput);
+          }
         } catch (error) {
           // Silently ignore debug update errors
         }

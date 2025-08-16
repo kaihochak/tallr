@@ -54,7 +54,7 @@ export default function Header({
         </div>
         <div className={`status-indicator ${aggregateState}`}></div>
         <button 
-          className="task-count no-drag" 
+          className={`task-count no-drag ${showDoneTasks ? 'active' : ''}`}
           onClick={onToggleDoneTasks}
           title={showDoneTasks ? "Show active tasks" : "Show completed tasks"}
           aria-label={showDoneTasks ? "Show active tasks" : "Show completed tasks"}
