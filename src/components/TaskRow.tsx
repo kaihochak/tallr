@@ -1,13 +1,30 @@
 import { useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { 
-  ChevronRight,
   ChevronDown,
   ChevronUp,
   Clock,
   Terminal,
-  Rocket
+  ExternalLink,
+  Code
 } from "lucide-react";
+
+// Icon mapping for agents and IDEs
+const agentIcons = {
+  claude: Terminal, // Will be replaced with actual Claude icon
+  cursor: Terminal,
+  gemini: Terminal,
+  default: Terminal
+};
+
+const ideIcons = {
+  cursor: Code,
+  code: Code,
+  vscode: Code,
+  windsurf: Code,
+  webstorm: Code,
+  default: Code
+};
 
 interface Project {
   id: string;
@@ -50,7 +67,6 @@ export default function TaskRow({
   isExpanded,
   isRemoving,
   countdown,
-  expandedTasks,
   setExpandedTasks
 }: TaskRowProps) {
   const age = Math.floor((Date.now() - task.updatedAt * 1000) / 60000);
@@ -85,62 +101,74 @@ export default function TaskRow({
   return (
     <div
       className={`task-row ${isSelected ? "selected" : ""} state-${task.state.toLowerCase()} ${isExpanded ? "expanded" : ""} ${isRemoving ? "removing" : ""} ${isCompleted ? "completed" : ""}`}
-      onClick={handleJumpToContext}
     >
-      <div className="task-main">
-        <div className="task-header">
-          <span className="project-name">{project?.name || "Unknown"}</span>
-          <ChevronRight style={{ width: 16, height: 16, opacity: 0.5 }} />
-          <span className="task-title">{task.title}</span>
-          {isCompleted ? (
-            <span className="task-state completed">
-              ✅ Done - {countdown}s
-            </span>
-          ) : (
-            <span className={`task-state ${task.state.toLowerCase()}`}>
-              {task.state}
-            </span>
+      {/* Row 1: Project Name */}
+      <div className="task-project-row">
+        <span className="project-name">{project?.name || "Unknown"}</span>
+      </div>
+
+      {/* Row 2: Metadata */}
+      <div className="task-metadata-row">
+        <div className="metadata-info">
+          <Terminal className="agent-icon" />
+          <span className="agent-name">{task.agent}</span>
+          {project?.preferredIde && (
+            <>
+              <span className="metadata-separator">·</span>
+              <Code className="ide-icon" />
+              <span className="ide-name">{project.preferredIde}</span>
+            </>
           )}
-          <span className="task-age">
-            <Clock className="clock-icon" />
-            {age}m ago
-          </span>
-        </div>
-        
-        <div className="task-details">
-          <span className="agent">
-            <Terminal className="agent-icon" />
-            {task.agent}
-          </span>
-          {task.details && (
-            <div className="details-container">
-              <span className={`details ${isExpanded ? "expanded" : "collapsed"}`}>
-                {task.details}
-              </span>
-              {task.details.length > 100 && (
-                <button 
-                  className="expand-button"
-                  onClick={toggleTaskExpanded}
-                  title={isExpanded ? "Show less" : "Show more"}
-                >
-                  {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-              )}
-            </div>
-          )}
+          <span className="metadata-separator">·</span>
+          <Clock className="clock-icon" />
+          <span className="task-age">{age}m ago</span>
         </div>
       </div>
 
-      <div className="task-actions" onClick={(e) => e.stopPropagation()}>
+      {/* Row 2: Status Badge */}
+      <div className="task-status-badge">
+        {isCompleted ? (
+          <span className="task-state completed">
+            ✅ Done - {countdown}s
+          </span>
+        ) : (
+          <span className={`task-state ${task.state.toLowerCase()}`}>
+            {task.state}
+          </span>
+        )}
+      </div>
+
+      {/* Row 1: Action Button */}
+      <div className="task-action" onClick={(e) => e.stopPropagation()}>
         <button 
           className="action-button"
           title="Open IDE & Terminal" 
           onClick={handleJumpToContext}
           disabled={isCompleted}
         >
-          <Rocket className="action-button-icon" />
+          <ExternalLink className="action-button-icon" />
         </button>
       </div>
+
+      {/* Row 3: Activity (spans full width) */}
+      {task.details && (
+        <div className="task-activity-row">
+          <div className="activity-content">
+            <span className={`activity-text ${isExpanded ? "expanded" : "collapsed"}`}>
+              {task.details}
+            </span>
+            {task.details.length > 100 && (
+              <button 
+                className="expand-toggle"
+                onClick={toggleTaskExpanded}
+                title={isExpanded ? "Show less" : "Show more"}
+              >
+                {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

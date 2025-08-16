@@ -48,7 +48,6 @@
   --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
   
   color: var(--text-primary);
-  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
   
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -157,14 +156,6 @@ body {
   }
 }
 
-@keyframes workingRowGlow {
-  0%, 100% {
-    box-shadow: var(--shadow-sm);
-  }
-  50% {
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2), var(--shadow-sm);
-  }
-}
 
 @keyframes pendingPulse {
   0%, 100% {
@@ -179,16 +170,6 @@ body {
   }
 }
 
-@keyframes pendingRowGlow {
-  0%, 100% {
-    box-shadow: var(--shadow-sm);
-    border-color: var(--border-primary);
-  }
-  50% {
-    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.3), var(--shadow-sm);
-    border-color: var(--status-pending);
-  }
-}
 
 @keyframes completedPulse {
   0%, 100% {
@@ -205,7 +186,7 @@ body {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--bg-primary);
+  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
   animation: fadeIn var(--transition-slow) ease-in;
 }
 
@@ -452,11 +433,15 @@ body {
 }
 
 .task-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: 
+    "project action"
+    "metadata status"
+    "activity activity";
+  gap: 8px 16px;
   padding: 16px 20px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   border-radius: 12px;
   background: var(--bg-card);
   border: 1px solid var(--border-light);
@@ -466,6 +451,7 @@ body {
   box-shadow: var(--shadow-sm);
   position: relative;
   overflow: hidden;
+  min-height: 60px;
 }
 
 .task-row::before {
@@ -485,26 +471,10 @@ body {
   border-color: var(--border-secondary);
 }
 
-.task-row.selected {
+.task-row.selected::before {
   background: var(--accent-primary);
-  border-color: var(--accent-primary);
-  color: white;
-  box-shadow: var(--shadow-glow);
-}
-
-.task-row.selected .project-name,
-.task-row.selected .task-title,
-.task-row.selected .task-age,
-.task-row.selected .agent,
-.task-row.selected .details {
-  color: white;
-  opacity: 1;
-}
-
-.task-row.selected .task-age,
-.task-row.selected .agent,
-.task-row.selected .details {
-  opacity: 0.9;
+  width: 6px;
+  box-shadow: 0 0 12px var(--accent-primary);
 }
 
 .task-row.state-pending::before {
@@ -514,9 +484,6 @@ body {
   animation: pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-.task-row.state-pending {
-  animation: pendingRowGlow 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
 
 .task-row.state-working::before {
   background: var(--status-working);
@@ -525,51 +492,76 @@ body {
   box-shadow: 0 0 8px var(--status-working);
 }
 
-.task-row.state-working {
-  border-color: var(--status-working);
-  animation: workingRowGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
 
 .task-row.state-idle::before {
   background: var(--status-idle);
   width: 4px;
 }
 
-.task-main {
-  flex: 1;
+/* Grid Areas */
+.task-project-row {
+  grid-area: project;
   min-width: 0;
 }
 
-.task-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
 .project-name {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-primary);
-  font-size: 15px;
-}
-
-.task-title {
-  font-weight: 500;
-  color: var(--text-secondary);
-  flex: 1;
+  font-size: 16px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.task-metadata-row {
+  grid-area: metadata;
+  min-width: 0;
+}
+
+.metadata-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.metadata-separator {
+  color: var(--text-muted);
+  margin: 0 2px;
+}
+
+.agent-icon,
+.ide-icon,
+.clock-icon {
+  width: 12px;
+  height: 12px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.agent-name,
+.ide-name,
+.task-age {
+  color: var(--text-tertiary);
+}
+
+.task-status-badge {
+  grid-area: status;
+  justify-self: end;
+  align-self: start;
+}
+
 .task-state {
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
   transition: all var(--transition-base);
+  white-space: nowrap;
 }
 
 .task-state.pending { 
@@ -596,8 +588,11 @@ body {
 
 .task-row.completed {
   opacity: 0.8;
-  background: linear-gradient(135deg, #f0fdf4, #f7fee7);
-  border-color: #10b981;
+}
+
+.task-row.completed::before {
+  background: #10b981;
+  width: 4px;
 }
 
 .task-row.removing {
@@ -606,121 +601,66 @@ body {
   transition: all 300ms ease-out;
 }
 
-.task-age {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+
+
+.task-activity-row {
+  grid-area: activity;
+  margin-top: 4px;
 }
 
-.clock-icon {
-  width: 14px;
-  height: 14px;
-}
-
-.task-details {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 13px;
-}
-
-.agent {
-  color: var(--text-secondary);
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 8px;
-  background: var(--bg-tertiary);
-  border-radius: 4px;
-}
-
-.agent-icon {
-  width: 14px;
-  height: 14px;
-}
-
-.details-container {
-  flex: 1;
+.activity-content {
   display: flex;
   align-items: flex-start;
   gap: 8px;
   min-width: 0;
 }
 
-.details {
-  color: var(--text-tertiary);
+.activity-text {
+  color: var(--text-secondary);
   flex: 1;
-  display: block;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+  font-size: 12px;
+  line-height: 1.5;
   word-break: break-word;
-  transition: all 0.2s ease;
+  transition: all var(--transition-base);
 }
 
-.details.collapsed {
+.activity-text.collapsed {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-height: 20px;
+  max-height: 18px;
 }
 
-.details.expanded {
+.activity-text.expanded {
   white-space: pre-wrap;
   overflow: visible;
   max-height: none;
-  line-height: 1.5;
-  padding: 8px 0;
 }
 
-.expand-button {
+.expand-toggle {
   flex-shrink: 0;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-primary);
-  border-radius: 6px;
-  padding: 4px;
+  background: transparent;
+  border: none;
+  padding: 2px;
   cursor: pointer;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   transition: all var(--transition-base);
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 4px;
 }
 
-.expand-button:hover {
+.expand-toggle:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
-  border-color: var(--border-hover);
 }
 
-.task-row.expanded .task-details {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.task-row.expanded .details-container {
-  width: 100%;
-  margin-top: 8px;
-  padding: 12px;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
-  border: 1px solid var(--border-light);
-}
-
-.task-row.expanded .details {
-  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--text-secondary);
-}
-
-.task-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: 16px;
+.task-action {
+  grid-area: action;
+  justify-self: end;
+  align-self: start;
 }
 
 .action-button {
@@ -740,8 +680,20 @@ body {
 .action-button:hover {
   background: var(--accent-primary);
   color: white;
-  transform: scale(1.1);
+  transform: scale(1.05);
   box-shadow: var(--shadow-md);
+}
+
+.action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-button:disabled:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  transform: none;
+  box-shadow: none;
 }
 
 .action-button-icon {
@@ -1015,16 +967,24 @@ body {
   }
   
   .task-row {
-    padding: 12px 16px;
+    padding: 16px;
+    grid-template-columns: 1fr;
+    grid-template-areas: 
+      "project"
+      "action"
+      "metadata"
+      "status"
+      "activity";
+    gap: 8px;
+    align-items: start;
   }
   
-  .task-header {
-    flex-wrap: wrap;
+  .task-status-badge {
+    justify-self: start;
   }
   
-  .task-actions {
-    margin-left: 0;
-    margin-top: 12px;
+  .task-action {
+    justify-self: start;
   }
   
   .footer {

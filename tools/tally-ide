@@ -1,0 +1,87 @@
+#!/usr/bin/env node
+
+/**
+ * Tally IDE Management CLI
+ * Utility for managing IDE mappings and testing detection
+ */
+
+import { listIdeMappings, saveIdeMapping, getIdeCommand, SETTINGS_FILE } from './lib/settings.js';
+import { execSync } from 'child_process';
+
+const command = process.argv[2];
+const args = process.argv.slice(3);
+
+switch (command) {
+  case 'list':
+    console.log('Current IDE mappings:');
+    const mappings = listIdeMappings();
+    if (Object.keys(mappings).length === 0) {
+      console.log('  (no custom mappings)');
+    } else {
+      for (const [app, cmd] of Object.entries(mappings)) {
+        console.log(`  ${app} → ${cmd}`);
+      }
+    }
+    console.log(`\nSettings file: ${SETTINGS_FILE}`);
+    break;
+
+  case 'set':
+    if (args.length !== 2) {
+      console.error('Usage: tally-ide set <app-name> <command>');
+      console.error('Example: tally-ide set "My IDE" myide');
+      process.exit(1);
+    }
+    const [appName, ideCommand] = args;
+    if (saveIdeMapping(appName, ideCommand)) {
+      console.log(`✓ Saved mapping: ${appName} → ${ideCommand}`);
+    } else {
+      console.error('✗ Failed to save mapping');
+      process.exit(1);
+    }
+    break;
+
+  case 'test':
+    console.log('Testing IDE detection...');
+    try {
+      // Test environment variables
+      const envVars = ['VSCODE_INJECTION', 'TERM_PROGRAM'];
+      console.log('\nEnvironment variables:');
+      for (const envVar of envVars) {
+        console.log(`  ${envVar}: ${process.env[envVar] || '(not set)'}`);
+      }
+
+      // Test parent process detection
+      const ppid = process.ppid;
+      console.log(`\nParent process ID: ${ppid}`);
+      if (ppid) {
+        try {
+          const parentName = execSync(`ps -p ${ppid} -o comm=`, { encoding: 'utf8' }).trim();
+          console.log(`Parent process name: ${parentName}`);
+          
+          const command = getIdeCommand(parentName);
+          console.log(`Detected IDE command: ${command || '(none)'}`);
+        } catch (error) {
+          console.log(`Error getting parent process: ${error.message}`);
+        }
+      }
+    } catch (error) {
+      console.error('Detection test failed:', error.message);
+    }
+    break;
+
+  case 'help':
+  default:
+    console.log('Tally IDE Management CLI');
+    console.log('');
+    console.log('Commands:');
+    console.log('  list                    Show current IDE mappings');
+    console.log('  set <app> <command>     Add custom IDE mapping');
+    console.log('  test                    Test IDE detection');
+    console.log('  help                    Show this help');
+    console.log('');
+    console.log('Examples:');
+    console.log('  tally-ide list');
+    console.log('  tally-ide set "New IDE" newide');
+    console.log('  tally-ide test');
+    break;
+}

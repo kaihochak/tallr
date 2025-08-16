@@ -18,6 +18,76 @@
 import pty from 'node-pty';
 import { TallyClient } from './lib/http-client.js';
 import { ClaudeStateTracker } from './lib/state-tracker.js';
+import { getIdeCommand, promptForIdeCommand } from './lib/settings.js';
+import { execSync } from 'child_process';
+
+// IDE mapping table for apps with integrated terminals
+const IDE_MAPPINGS = {
+  'Visual Studio Code': 'code',
+  'Code': 'code',
+  'Cursor': 'cursor', 
+  'Windsurf': 'windsurf',
+  'WebStorm': 'webstorm',
+  'IntelliJ IDEA': 'idea',
+  'PyCharm': 'pycharm',
+  'PhpStorm': 'phpstorm',
+  'RubyMine': 'rubymine',
+  'CLion': 'clion',
+  'GoLand': 'goland',
+  'Rider': 'rider',
+  'Zed': 'zed',
+  'Xcode': 'xcode'
+};
+
+// Helper function to detect current IDE from environment and parent process
+function detectCurrentIDE() {
+  try {
+    // Check environment variables that IDEs set
+    if (process.env.VSCODE_INJECTION === '1' || process.env.TERM_PROGRAM === 'vscode') {
+      return getIdeCommand('Visual Studio Code', 'code');
+    }
+    if (process.env.TERM_PROGRAM === 'cursor') {
+      return getIdeCommand('Cursor', 'cursor');
+    }
+    
+    // Check parent process (works on Unix-like systems)
+    const ppid = process.ppid;
+    if (ppid) {
+      try {
+        const parentName = execSync(`ps -p ${ppid} -o comm=`, { encoding: 'utf8' }).trim();
+        
+        // 1. Check user settings first
+        const userCommand = getIdeCommand(parentName);
+        if (userCommand) {
+          return userCommand;
+        }
+        
+        // 2. Look up in built-in mapping table
+        if (IDE_MAPPINGS[parentName]) {
+          return getIdeCommand(parentName, IDE_MAPPINGS[parentName]);
+        }
+        
+        // 3. Smart fallback: try to match partial names
+        for (const [appName, command] of Object.entries(IDE_MAPPINGS)) {
+          if (parentName.toLowerCase().includes(appName.toLowerCase()) || 
+              appName.toLowerCase().includes(parentName.toLowerCase())) {
+            return getIdeCommand(parentName, command);
+          }
+        }
+        
+        // 4. Unknown IDE: prompt user and use fallback
+        const fallbackCommand = promptForIdeCommand(parentName);
+        return fallbackCommand;
+      } catch {
+        // Ignore ps command errors
+      }
+    }
+  } catch {
+    // Ignore all detection errors
+  }
+  
+  return null; // Let server decide or use default
+}
 
 // Configuration from environment
 const config = {
@@ -27,7 +97,7 @@ const config = {
   repo: process.env.TL_REPO || process.cwd(),
   agent: process.env.TL_AGENT || 'cli',
   title: process.env.TL_TITLE || 'CLI Task',
-  ide: process.env.TL_IDE || 'cursor'
+  ide: process.env.TL_IDE || detectCurrentIDE()
 };
 
 // Generate unique task ID

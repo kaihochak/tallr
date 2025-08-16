@@ -109,7 +109,7 @@ export class TallyClient {
         project: {
           name: this.config.project,
           repoPath: this.config.repo,
-          preferredIDE: this.config.ide
+          preferredIde: this.config.ide
         },
         task: {
           id: taskId,

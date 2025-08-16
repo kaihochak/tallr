@@ -43,10 +43,11 @@ Terminal Session          Desktop App
 - ✅ **Automatic Session Tracking**: Just type `tally claude` - it's automatically tracked
 - ✅ **Hybrid Notifications**: Mac desktop alerts + visual indicators when input needed  
 - ✅ **Session Dashboard**: See all active sessions at a glance with real-time updates
-- ✅ **One-Click Resume**: Click any session to jump back to IDE + terminal
+- ✅ **Always-On-Top Floating Window**: Pin button keeps window visible across all desktop spaces
+- ✅ **Smart IDE Jump**: Click any session to jump back to your actual IDE (auto-detected)
 - ✅ **Expandable Details**: Click to see full Claude output (last 2000 chars)
 - ✅ **Search & Filter**: Find sessions by project name or state
-- ✅ **Keyboard Shortcuts**: ⌘K quick switcher, arrow navigation
+- ✅ **Keyboard Shortcuts**: ⌘K quick switcher, arrow navigation, ⌘⇧T pin toggle
 
 ## Quick Start
 
@@ -85,9 +86,11 @@ tally claude
 ```
 
 ### What Tally Adds
-- **Dashboard**: See "my-project - Claude session" in Tally window
+- **Dashboard**: See "my-project - Claude session" in Tally window with detected IDE
 - **Notifications**: Desktop alert when Claude asks "Approve? [y/N]"
-- **Jump-to-Context**: Click notification → opens VS Code/Cursor + terminal at project
+- **Smart Jump-to-Context**: Click task → opens your actual IDE (VS Code/Cursor/Zed/etc.) based on auto-detection
+- **IDE Detection**: Automatically detects which IDE you're using and shows it in the task row
+- **Always-On-Top**: Pin button keeps window floating above all apps and desktop spaces
 - **History**: Track all your AI sessions across projects
 - **Expandable Output**: Click expand button to see detailed Claude output
 
@@ -95,6 +98,50 @@ tally claude
 - **Claude Code**: `tally claude` (interactive chat) ✅ Full PTY support
 - **Gemini CLI**: `tally gemini` (planned)
 - **Future**: Any CLI tool that uses interactive prompts
+
+## IDE Support
+
+Tally automatically detects which IDE you're using and opens the correct one when you click task rows.
+
+### Supported IDEs (Auto-detected)
+- **VS Code**: `code` command
+- **Cursor**: `cursor` command  
+- **Zed**: `zed` command
+- **WebStorm**: `webstorm` command
+- **JetBrains IDEs**: IntelliJ IDEA, PyCharm, PhpStorm, CLion, GoLand, RubyMine, Rider
+- **Windsurf**: `windsurf` command
+
+### How IDE Detection Works
+1. **Environment Variables**: Checks `TERM_PROGRAM`, `VSCODE_INJECTION` for VS Code/Cursor
+2. **Parent Process**: Uses `ps` to identify which IDE launched the terminal
+3. **Built-in Mapping**: Matches detected IDE names to command-line tools
+4. **User Override**: Custom mappings via `TL_IDE` environment variable or settings file
+
+### IDE Display
+- **Task Rows**: Show detected IDE next to agent info (e.g., "claude • code")
+- **Tooltip**: Hover to see "Opens in VS Code" 
+- **Visual Badge**: Colored badge distinguishes IDE from agent
+
+### Custom IDE Configuration
+```bash
+# Override detection for current session
+export TL_IDE=cursor
+
+# Add permanent custom mapping
+./tools/tally-ide set "My Custom IDE" myide-command
+
+# View all IDE mappings
+./tools/tally-ide list
+
+# Debug detection issues
+./tools/tally-ide test
+```
+
+### Unknown IDEs
+When Tally detects an unknown IDE:
+1. **Smart Guess**: Tries lowercase transformation (e.g., "New IDE" → "newide")
+2. **User Prompt**: Shows helpful message with commands to add custom mapping
+3. **Fallback**: Opens project directory with system default if IDE command fails
 
 ### Behind the Scenes
 
@@ -108,6 +155,7 @@ When you run `tally claude`, Tally's CLI wrapper:
 - **Project name**: From directory name or git repo
 - **Repo path**: Current working directory  
 - **Agent**: "claude", "gemini", etc.
+- **IDE**: VS Code, Cursor, Zed, WebStorm, JetBrains IDEs, Windsurf (from environment & parent process)
 - **State changes**: IDLE → WORKING → PENDING → DONE/ERROR
 
 ## Development
@@ -155,8 +203,13 @@ tally/
 ```bash
 # Environment variables (optional)
 export TALLY_TOKEN=devtoken     # Authentication token
-export TL_IDE=cursor           # Preferred IDE (cursor/code)
+export TL_IDE=cursor           # Override auto-detected IDE (cursor/code/zed/webstorm)
 export TL_PROJECT="Custom Name" # Override project name
+
+# IDE Management (manual mappings)
+./tools/tally-ide list         # View current IDE mappings
+./tools/tally-ide set "My IDE" myide  # Add custom IDE mapping
+./tools/tally-ide test         # Debug IDE detection
 ```
 
 ## API Reference
@@ -174,7 +227,7 @@ export TL_PROJECT="Custom Name" # Override project name
   "project": {
     "name": "course-rater",
     "repoPath": "/Users/you/dev/course-rater",
-    "preferredIDE": "cursor",
+    "preferredIde": "cursor",
     "githubUrl": "https://github.com/you/course-rater"
   },
   "task": {
@@ -252,9 +305,13 @@ cd src-tauri && cargo clean && cargo build
 - Real-time UI updates via Tauri v2 events
 - Mac desktop notifications on PENDING/ERROR states
 - Frontend dashboard with search/filtering and expandable output
-- IDE integration (opens Cursor/VS Code + Terminal.app)
+- Always-on-top floating window with desktop space following
+- **Smart IDE Integration**: Auto-detects and opens VS Code, Cursor, Zed, WebStorm, JetBrains IDEs, Windsurf
+- **IDE Display**: Task rows show detected IDE with tooltip
+- **User IDE Settings**: Custom mappings via `~/.tally/settings.json`
 - PTY-based CLI wrapper preserving full Claude functionality
 - System tray icon with basic functionality
+- Settings persistence (pin state, window position, preferences)
 
 ### 🚧 In Progress
 - **Output Display**: Now shows last 2000 chars of Claude output in expandable cards
@@ -262,10 +319,9 @@ cd src-tauri && cargo clean && cargo build
 - **State Detection**: Fixed "esc to interrupt" pattern matching
 
 ### ❌ Missing Features (Future)
-- **JSON Persistence**: Sessions lost on app restart
+- **Session Persistence**: Task sessions lost on app restart
 - **Visual Indicators**: No pulsing rows or tray color changes
 - **PATH Shims**: Users must remember `tally claude` instead of just `claude`
-- **Project Deduplication**: Creates duplicate projects
 
 ### Architecture Advantages
 This 3-application design allows:

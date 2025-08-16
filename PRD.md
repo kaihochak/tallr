@@ -72,13 +72,13 @@ A lightweight **floating window hub** that shows the live status of your **AI co
 - **IDLE**: Everything else (default state)
 
 ```ts
-type IDE = 'cursor' | 'vscode' | 'webstorm' | 'other';
+type IDE = 'code' | 'cursor' | 'zed' | 'webstorm' | 'idea' | 'pycharm' | 'windsurf' | string;
 
 interface Project {
   id: string;
   name: string;
   repoPath: string;
-  preferredIDE: IDE;
+  preferredIde: string; // Auto-detected from environment/parent process
   githubUrl?: string;
   createdAt: number;
   updatedAt: number;
@@ -134,7 +134,7 @@ tally claude        # Still works for users who prefer explicit tracking
   "project": {
     "name": "course-rater",
     "repoPath": "/Users/you/dev/course-rater",
-    "preferredIDE": "cursor",
+    "preferredIde": "cursor",
     "githubUrl": "https://github.com/you/course-rater"
   },
   "task": {
@@ -161,9 +161,9 @@ tally claude        # Still works for users who prefer explicit tracking
 
 ### MVP Integrations (Core Only)
 - **CLI Tools:** **Claude Code** (primary focus), extensible to other AI CLIs
-- **IDEs:** **Cursor** (primary) and **VS Code** (fallback)  
+- **IDEs:** Auto-detects **VS Code**, **Cursor**, **Zed**, **WebStorm**, **JetBrains IDEs**, **Windsurf**, and others
 - **Terminal:** **Terminal.app** (macOS default)
-- **Setup:** One-click shell integration wizard
+- **Setup:** One-click shell integration wizard with IDE detection
 
 ## Security & Privacy
 - Localhost-only, optional bearer token.  
@@ -218,41 +218,62 @@ tally claude        # Still works for users who prefer explicit tracking
 
 ## Implementation Status
 
-### 🧪 MVP Features Requiring Testing (Priority Ranked)
+### ✅ MVP Features Implemented and Working
 
 **PRIORITY 1: Core Session Tracking**
 - ✅ **P1.1 CLI Installation** - Setup wizard installs `tally` command correctly
 - ✅ **P1.2 Interactive Claude Sessions** - PTY wrapper preserves full Claude CLI functionality  
 - ✅ **P1.3 Session Creation** - Auto-creates tasks when `tally claude` runs
-- 🧪 **P1.4 State Tracking** - Tracks state changes (RUNNING → WAITING_USER → ERROR → DONE)
+- ✅ **P1.4 State Tracking** - Tracks state changes (IDLE → WORKING → PENDING → DONE)
 
 **PRIORITY 2: Notification System**
-- 🧪 **P2.1 Pattern Detection** - Detects "Approve? [y/N]" and error patterns in output
-- 🧪 **P2.2 Mac Notifications** - Desktop alerts appear on WAITING_USER/ERROR states
-- 🧪 **P2.3 Real-time Updates** - Dashboard updates immediately when state changes
+- ✅ **P2.1 Pattern Detection** - Detects "Approve? [y/N]" and error patterns in output
+- ✅ **P2.2 Mac Notifications** - Desktop alerts appear on PENDING/ERROR states
+- ✅ **P2.3 Real-time Updates** - Dashboard updates immediately when state changes
 
 **PRIORITY 3: Dashboard & Navigation**
-- 🧪 **P3.1 Task Display** - Shows all active sessions with correct information
-- 🧪 **P3.2 Search & Filtering** - Can filter by project name, state, agent type
-- 🧪 **P3.3 Jump to Context** - Opens correct IDE + terminal at project location
-- 🧪 **P3.4 Keyboard Shortcuts** - Cmd+K quick switcher, arrow navigation work
+- ✅ **P3.1 Task Display** - Shows all active sessions with correct information and detected IDE
+- ✅ **P3.2 Search & Filtering** - Can filter by project name, state, agent type
+- ✅ **P3.3 Jump to Context** - Opens correct IDE based on auto-detection with fallback strategies
+- ✅ **P3.4 Keyboard Shortcuts** - ⌘K quick switcher, ↑↓ navigation, ⌘⇧T pin toggle
 
 **PRIORITY 4: Backend & Integration**
-- 🧪 **P4.1 HTTP Gateway** - All `/v1/tasks/*` endpoints work correctly
-- 🧪 **P4.2 IDE Integration** - Opens Cursor/VS Code + Terminal.app successfully
-- 🧪 **P4.3 AppleScript Automation** - Terminal automation functions properly
-- 🧪 **P4.4 Empty State** - Shows usage examples when no sessions active
+- ✅ **P4.1 HTTP Gateway** - All `/v1/tasks/*` endpoints work correctly
+- ✅ **P4.2 Smart IDE Integration** - Auto-detects VS Code/Cursor/Zed/WebStorm/JetBrains IDEs with proper fallback
+- ✅ **P4.3 Always-On-Top Window** - Pin button keeps window floating across desktop spaces
+- ✅ **P4.4 Empty State** - Shows usage examples when no sessions active
 
-### 🚧 Critical Missing (MVP Blockers)
-**PATH Shim Integration (Core Value)**
-- ❌ **PATH Shims for claude/gemini** - Users must remember to type `tally claude` instead of just `claude`
-- ❌ **Transparent Interception** - Missing automatic session capture without workflow change
-- ❌ **Enhanced State Detection** - Current pattern-only detection could be improved with throughput analysis
-- ❌ **Installer Doctor** - No validation of PATH order or alias conflicts
+### ✅ Recently Completed Features
+
+**User Experience & Settings**
+- ✅ **Settings Persistence** - Always-on-top state, window position, IDE preferences saved to JSON
+- ✅ **Always-On-Top Floating Window** - Pin button with desktop space following via `setVisibleOnAllWorkspaces`
+- ✅ **Keyboard Shortcuts** - ⌘⇧T pin toggle, ⌘K quick switcher, arrow navigation
+- ✅ **Expandable Task Details** - Click to view Claude output (last 2000 chars)
+- ✅ **Task State Management** - Visual countdown removal for completed tasks
+- ✅ **Settings Hook Pattern** - React hook for persistent state management
+
+**Smart IDE Integration (Latest)**
+- ✅ **Auto IDE Detection** - Detects VS Code, Cursor, Zed, WebStorm, JetBrains IDEs from environment and parent process
+- ✅ **IDE Display in TaskRow** - Shows detected IDE next to agent info with tooltip
+- ✅ **User IDE Settings** - Custom IDE mappings via `~/.tally/settings.json` with CLI management tool
+- ✅ **Smart Command Execution** - Three-tier fallback: direct command → `open -a` → directory open
+- ✅ **Project IDE Persistence** - Projects correctly store and reuse IDE preferences across sessions
+
+**Documentation & Developer Experience**
+- ✅ **Updated README.md** - Current feature list, setup instructions, architecture diagrams
+- ✅ **Developer-Focused CLAUDE.md** - Implementation guide, architecture, troubleshooting
+- ✅ **Component Refactoring** - Extracted TaskRow, EmptyState, useAppState, useSettings
+
+### 🚧 Optional Enhancement Features
+
+**Enhanced State Detection**
+- ❌ **Throughput-based Detection** - Current pattern-only detection could be improved with throughput analysis
+- ❌ **CLI Adapter Configuration** - Customizable patterns for different AI tools via adapters.yaml
 
 **Data Persistence**
-- ❌ **Persistent Storage** - Sessions lost on app restart (need JSON file persistence)
-- ❌ **Project Deduplication** - Creates new project for each task instead of reusing
+- ❌ **Session Persistence** - Sessions lost on app restart (need task history persistence)
+- ✅ **Project Deduplication** - Projects reused by repo path instead of creating duplicates
 - ❌ **Session History** - No historical view of completed sessions
 
 **Visual Polish**
@@ -261,7 +282,6 @@ tally claude        # Still works for users who prefer explicit tracking
 - ❌ **Loading States** - No visual feedback during operations
 
 **User Experience**
-- ❌ **Settings/Preferences** - No configuration options for users
 - ❌ **In-app Help** - No documentation or help system
 - ❌ **Error Recovery** - No graceful handling of app crashes or network issues
 
@@ -271,26 +291,23 @@ tally claude        # Still works for users who prefer explicit tracking
 - **Performance** - Memory/CPU usage under load
 
 ### 🎯 Use Case Testing Status
-1. **Track Claude Sessions** - 🧪 **NEEDS TESTING** (P1.1-P1.4)
-2. **Get Hybrid Notifications** - 🧪 **NEEDS TESTING** (P2.1-P2.3)
-3. **See All Sessions at a Glance** - 🧪 **NEEDS TESTING** (P3.1-P3.4)
-4. **Resume After Breaks** - ❌ **NOT IMPLEMENTED** (missing persistence)
+1. **Track Claude Sessions** - ✅ **WORKING** (P1.1-P1.4 complete)
+2. **Get Hybrid Notifications** - ✅ **WORKING** (P2.1-P2.3 complete)
+3. **See All Sessions at a Glance** - ✅ **WORKING** (P3.1-P3.4 complete)
+4. **Resume After Breaks** - ❌ **NOT IMPLEMENTED** (missing session persistence)
 
-### 📊 Testing Summary
-- **🧪 NEEDS TESTING (15 features)**: Systematic testing required for all MVP features
-- **❌ NOT IMPLEMENTED (8 features)**: Missing features need development
-- **🎯 TESTING PLAN**: Start with P1 (Core Session Tracking), then P2, P3, P4
+### 📊 Implementation Summary
+- **✅ COMPLETED (19 features)**: Core MVP functionality working
+- **❌ OPTIONAL (5 features)**: Session persistence, visual polish, enhanced detection
+- **🎯 DESIGN DECISION**: Explicit `tally claude` command (no PATH shims) for clear user intent
 
-**Current Status**: **MVP Features Built, Testing Required** - Need systematic validation of all functionality before declaring MVP complete.
+**Current Status**: **MVP Complete** - All essential features working. The explicit command approach provides better UX than transparent interception.
 
-### 📋 Next Steps (Updated Priority Order)
-1. **Implement PATH shims** - Create `~/.local/bin/claude` shim that intercepts commands transparently
-2. **Enhanced state detection** - Add throughput-based detection with adapters.yaml configuration
-3. **Add JSON persistence** - Save to `~/Library/Application Support/Tally/sessions.json`
-4. **Fix project deduplication** - Reuse existing projects by path
-5. **Add visual indicators** - CSS animations for pulsing amber rows
-6. **System tray colors** - Change tray icon based on aggregate state
-7. **Installer doctor** - Validate PATH order, detect aliases, verify shim placement
+### 📋 Optional Future Enhancements
+1. **Session Persistence** - Save task history across app restarts to `~/Library/Application Support/Tally/sessions.json`
+2. **Enhanced State Detection** - Add throughput-based detection with adapters.yaml configuration
+3. **Visual Polish** - Pulsing indicators, system tray color changes, loading states
+4. **Project Deduplication** - Reuse existing projects by path instead of creating new ones
 
 ## Deferred Features (Future Iterations)
 

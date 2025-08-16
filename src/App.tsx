@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { 
   Search, 
   Filter, 
@@ -13,17 +12,8 @@ import SetupWizard from "./components/SetupWizard";
 import TaskRow from "./components/TaskRow";
 import EmptyState from "./components/EmptyState";
 import { useAppState } from "./hooks/useAppState";
+import { useSettings } from "./hooks/useSettings";
 import "./App.css";
-
-interface Project {
-  id: string;
-  name: string;
-  repoPath: string;
-  preferredIde: string;
-  githubUrl?: string;
-  createdAt: number;
-  updatedAt: number;
-}
 
 interface Task {
   id: string;
@@ -38,12 +28,6 @@ interface Task {
   isRemoving?: boolean; // UI state for countdown removal
 }
 
-interface AppState {
-  projects: Record<string, Project>;
-  tasks: Record<string, Task>;
-  updatedAt: number;
-}
-
 interface SetupStatus {
   isFirstLaunch: boolean;
   cliInstalled: boolean;
@@ -52,15 +36,15 @@ interface SetupStatus {
 
 function App() {
   const { appState, isLoading, removingTasks, taskCountdowns } = useAppState();
+  const { settings, toggleAlwaysOnTop } = useSettings();
   const [searchFilter, setSearchFilter] = useState("");
   const [stateFilter, setStateFilter] = useState("all");
   const [selectedTaskIndex, setSelectedTaskIndex] = useState(0);
   const [showQuickSwitcher, setShowQuickSwitcher] = useState(false);
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
-  const [alwaysOnTop, setAlwaysOnTop] = useState(false);
 
-  // Load setup status and initialize always-on-top
+  // Load setup status
   useEffect(() => {
     const loadSetupStatus = async () => {
       try {
@@ -71,33 +55,10 @@ function App() {
       }
     };
 
-    const initAlwaysOnTop = async () => {
-      try {
-        const window = getCurrentWindow();
-        const isOnTop = await window.isAlwaysOnTop();
-        setAlwaysOnTop(isOnTop);
-      } catch (error) {
-        console.error("Failed to get always-on-top status:", error);
-      }
-    };
-
     loadSetupStatus();
-    initAlwaysOnTop();
   }, []);
 
-  // Toggle always-on-top
-  const toggleAlwaysOnTop = useCallback(async () => {
-    console.log("Toggle always-on-top clicked, current state:", alwaysOnTop);
-    try {
-      const window = getCurrentWindow();
-      const newState = !alwaysOnTop;
-      await window.setAlwaysOnTop(newState);
-      setAlwaysOnTop(newState);
-      console.log("Always-on-top set to:", newState);
-    } catch (error) {
-      console.error("Failed to toggle always-on-top:", error);
-    }
-  }, [alwaysOnTop]);
+
 
   // Filter tasks based on search and state filters
   const filteredTasks = useMemo(() => {
@@ -224,10 +185,10 @@ function App() {
         </div>
         <div className="header-right">
           <button
-            className={`pin-toggle no-drag ${alwaysOnTop ? 'active' : ''}`}
+            className={`pin-toggle no-drag ${settings.alwaysOnTop ? 'active' : ''}`}
             onClick={toggleAlwaysOnTop}
-            title={alwaysOnTop ? "Disable always on top" : "Enable always on top"}
-            aria-label={alwaysOnTop ? "Disable always on top" : "Enable always on top"}
+            title={settings.alwaysOnTop ? "Disable always on top" : "Enable always on top"}
+            aria-label={settings.alwaysOnTop ? "Disable always on top" : "Enable always on top"}
           >
             <Pin className="pin-icon" />
           </button>
