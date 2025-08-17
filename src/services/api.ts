@@ -25,14 +25,7 @@ export interface TaskStateUpdateRequest {
 
 export interface DebugData {
   cleanedBuffer: string;
-  patternTests: Array<{
-    pattern: string;
-    description: string;
-    matches: boolean;
-    expectedState: string;
-  }>;
   currentState: string;
-  confidence: string;
   detectionHistory: Array<{
     timestamp: number;
     from: string;
@@ -41,7 +34,6 @@ export interface DebugData {
     confidence: string;
   }>;
   taskId: string;
-  isActive: boolean;
 }
 
 // HTTP Client with timeout and error handling

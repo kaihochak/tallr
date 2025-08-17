@@ -37,7 +37,6 @@ function App() {
   const { settings, toggleAlwaysOnTop, toggleTheme } = useSettings();
   const [stateFilter, setStateFilter] = useState("all");
   const [showSetupWizard, setShowSetupWizard] = useState(false);
-  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState<'tasks' | 'debug'>('tasks');
   const [debugTaskId, setDebugTaskId] = useState<string | null>(null);
   const [showDoneTasks, setShowDoneTasks] = useState(false);
@@ -203,11 +202,8 @@ function App() {
       const debugData = await ApiService.getDebugData();
       const simplifiedState = {
         currentState: debugData.currentState,
-        confidence: debugData.confidence,
         taskId: debugData.taskId,
-        isActive: debugData.isActive,
         recentHistory: debugData.detectionHistory.slice(-3),
-        matchingPatterns: debugData.patternTests.filter(p => p.matches).map(p => p.pattern),
         timestamp: new Date().toISOString()
       };
       
@@ -423,15 +419,12 @@ function App() {
           ) : (
             filteredTasks.map((task) => {
               const project = appState.projects[task.projectId];
-              const isExpanded = expandedTasks.has(task.id);
               
               return (
                 <TaskRow
                   key={task.id}
                   task={task}
                   project={project}
-                  isExpanded={isExpanded}
-                  setExpandedTasks={setExpandedTasks}
                   onDeleteTask={handleDeleteTask}
                   onJumpToContext={handleJumpToSpecificTask}
                   onShowDebug={handleShowDebugForTask}
@@ -445,6 +438,7 @@ function App() {
       ) : (
         <DebugPage 
           taskId={debugTaskId}
+          task={debugTaskId ? appState.tasks[debugTaskId] || null : null}
           onBack={() => {
             setDebugTaskId(null);
             setCurrentPage('tasks');

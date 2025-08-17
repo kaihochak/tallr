@@ -88,6 +88,13 @@ struct StateUpdateRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct DetailsUpdateRequest {
+    task_id: String,
+    details: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct TaskDoneRequest {
     task_id: String,
     details: Option<String>,
@@ -117,24 +124,15 @@ struct SetupStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct DebugData {
-    current_buffer: String,
     cleaned_buffer: String,
-    pattern_tests: Vec<PatternTest>,
     current_state: String,
-    confidence: String,
     detection_history: Vec<DetectionHistoryEntry>,
     task_id: String,
-    is_active: bool,
+    pattern_tests: Option<serde_json::Value>,
+    confidence: Option<String>,
+    is_active: Option<bool>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct PatternTest {
-    pattern: String,
-    description: String,
-    matches: bool,
-    expected_state: String,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -177,10 +175,7 @@ async fn upsert_task(
                 id: new_id.clone(),
                 name: req.project.name.clone(),
                 repo_path: req.project.repo_path.clone(),
-                preferred_ide: req.project.preferred_ide.unwrap_or_else(|| {
-                    println!("No IDE preference provided, using empty string");
-                    "".to_string()
-                }),
+                preferred_ide: req.project.preferred_ide.unwrap_or_else(|| "".to_string()),
                 github_url: req.project.github_url,
                 created_at: now,
                 updated_at: now,
@@ -223,7 +218,6 @@ async fn upsert_task(
 
     // Save state to disk
     if let Err(e) = save_app_state() {
-        eprintln!("Failed to save app state: {}", e);
     }
 
     Ok(Json(()))
@@ -265,9 +259,28 @@ async fn update_task_state(
 
         // Save state to disk
         if let Err(e) = save_app_state() {
-            eprintln!("Failed to save app state: {}", e);
-        }
+            }
 
+        Ok(Json(()))
+    } else {
+        Err(StatusCode::NOT_FOUND)
+    }
+}
+
+async fn update_task_details(
+    AxumState(app_handle): AxumState<AppHandle>,
+    Json(req): Json<DetailsUpdateRequest>,
+) -> Result<Json<()>, StatusCode> {
+    let mut state = APP_STATE.lock();
+    
+    if let Some(task) = state.tasks.get_mut(&req.task_id) {
+        task.details = Some(req.details);
+        task.updated_at = current_timestamp();
+        state.updated_at = current_timestamp();
+        
+        // Emit event to frontend for real-time updates
+        let _ = app_handle.emit("tasks-updated", &state.clone());
+        
         Ok(Json(()))
     } else {
         Err(StatusCode::NOT_FOUND)
@@ -295,8 +308,7 @@ async fn mark_task_done(
 
         // Save state to disk
         if let Err(e) = save_app_state() {
-            eprintln!("Failed to save app state: {}", e);
-        }
+            }
 
         Ok(Json(()))
     } else {
@@ -322,8 +334,7 @@ async fn delete_task(
 
         // Save state to disk
         if let Err(e) = save_app_state() {
-            eprintln!("Failed to save app state: {}", e);
-        }
+            }
 
         Ok(Json(()))
     } else {
@@ -351,8 +362,7 @@ async fn toggle_task_pin(
 
         // Save state to disk
         if let Err(e) = save_app_state() {
-            eprintln!("Failed to save app state: {}", e);
-        }
+            }
 
         Ok(Json(()))
     } else {
@@ -451,8 +461,6 @@ fn cleanup_done_sessions(mut state: AppState) -> AppState {
     if removed_count > 0 {
         // Update the state timestamp since we modified it
         state.updated_at = current_timestamp();
-        println!("✓ Cleaned up {} done session(s), {} active session(s) remaining", 
-                 removed_count, cleaned_task_count);
     }
     
     state
@@ -462,7 +470,6 @@ fn load_app_state() -> Result<AppState, String> {
     let sessions_file = get_sessions_file_path()?;
     
     if !sessions_file.exists() {
-        println!("No sessions file found, starting fresh");
         return Ok(AppState::default());
     }
     
@@ -470,7 +477,6 @@ fn load_app_state() -> Result<AppState, String> {
         .map_err(|e| format!("Failed to read sessions file: {}", e))?;
     
     if state_content.trim().is_empty() {
-        println!("Sessions file is empty, starting fresh");
         return Ok(AppState::default());
     }
     
@@ -528,7 +534,6 @@ async fn open_ide_and_terminal(
                 Ok(_) => Ok(()),
                 Err(e) => {
                     // If the IDE command fails, try alternative approaches
-                    println!("IDE command '{}' failed: {}", command, e);
                     
                     // Try with 'open -a' on macOS
                     let open_result = app.shell()
@@ -712,7 +717,6 @@ async fn install_cli_globally(app: AppHandle) -> Result<(), String> {
     // Mark setup as completed
     mark_setup_completed()?;
     
-    println!("Successfully installed CLI from {:?} to {:?}", cli_source, cli_dest);
     
     Ok(())
 }
@@ -946,16 +950,10 @@ pub fn run() {
                     // Save the cleaned state back to disk to persist the cleanup
                     *APP_STATE.lock() = cleaned_state.clone();
                     if let Err(e) = save_app_state() {
-                        eprintln!("⚠ Failed to save cleaned app state: {}", e);
                     }
                     
-                    println!("✓ Loaded persisted sessions: {} projects, {} tasks", 
-                             cleaned_state.projects.len(), 
-                             cleaned_state.tasks.len());
                 },
                 Err(e) => {
-                    println!("⚠ Failed to load persisted sessions: {}", e);
-                    println!("✓ Starting with fresh state");
                     // APP_STATE is already initialized with default empty state
                 }
             }
@@ -990,6 +988,7 @@ async fn start_http_server(app_handle: AppHandle) {
         .route("/v1/state", get(get_state))
         .route("/v1/tasks/upsert", post(upsert_task))
         .route("/v1/tasks/state", post(update_task_state))
+        .route("/v1/tasks/details", post(update_task_details))
         .route("/v1/tasks/done", post(mark_task_done))
         .route("/v1/tasks/delete", post(delete_task))
         .route("/v1/tasks/pin", post(toggle_task_pin))
@@ -1000,7 +999,6 @@ async fn start_http_server(app_handle: AppHandle) {
         .with_state(app_handle);
 
     let listener = TcpListener::bind("127.0.0.1:4317").await.unwrap();
-    println!("Tallor gateway listening on http://127.0.0.1:4317");
     
     axum::serve(listener, app).await.unwrap();
 }

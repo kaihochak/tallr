@@ -30,8 +30,6 @@ export interface AppState {
 export interface TaskRowProps {
   task: Task;
   project: Project | undefined;
-  isExpanded: boolean;
-  setExpandedTasks: React.Dispatch<React.SetStateAction<Set<string>>>;
   onDeleteTask: (taskId: string) => Promise<void>;
   onJumpToContext: (taskId: string) => Promise<void>;
   onShowDebug: (taskId: string) => void;

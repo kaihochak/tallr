@@ -34,8 +34,6 @@ import TaskStateBadge from './TaskStateBadge';
 export default function TaskRow({
   task,
   project,
-  isExpanded,
-  setExpandedTasks,
   onDeleteTask,
   onJumpToContext,
   onShowDebug,
@@ -49,18 +47,6 @@ export default function TaskRow({
     await onJumpToContext(task.id);
   }, [task.id, onJumpToContext, project]);
 
-  const toggleTaskExpanded = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setExpandedTasks(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(task.id)) {
-        newSet.delete(task.id);
-      } else {
-        newSet.add(task.id);
-      }
-      return newSet;
-    });
-  }, [task.id, setExpandedTasks]);
 
   const handleDropdownAction = useCallback(async (action: string) => {
     try {
@@ -166,14 +152,10 @@ export default function TaskRow({
         </div>
       </div>
 
-      {/* Details Row */}
-      {task.details && (
-        <TaskDetail 
-          details={task.details}
-          isExpanded={isExpanded}
-          onToggleExpanded={toggleTaskExpanded}
-        />
-      )}
+      {/* Details Row - Always rendered for consistent height */}
+      <TaskDetail 
+        details={task.details || ''}
+      />
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

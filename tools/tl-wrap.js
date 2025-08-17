@@ -1,12 +1,9 @@
 #!/usr/bin/env node
 
 import pty from 'node-pty';
-import split2 from 'split2';
 import { TallorClient } from './lib/http-client.js';
 import { ClaudeStateTracker } from './lib/state-tracker.js';
 import { getIdeCommand, promptForIdeCommand } from './lib/settings.js';
-import { debugRegistry } from './lib/debug-registry.js';
-import { debug } from './lib/debug.js';
 import { MAX_BUFFER_SIZE } from './lib/claude-patterns.js';
 import { execSync } from 'child_process';
 import http from 'http';
@@ -81,21 +78,8 @@ const config = {
 
 const taskId = `${config.agent}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-const debugEnabled = process.env.TALLOR_DEBUG === 'true' || 
-                    process.env.DEBUG?.includes('tallor') || 
-                    process.env.NODE_ENV === 'development';
-
 const client = new TallorClient(config);
-const stateTracker = new ClaudeStateTracker(client, taskId, debugEnabled);
-
-debugRegistry.register(taskId, stateTracker);
-
-debug.cli('CLI wrapper initialized', {
-  taskId,
-  agent: config.agent,
-  project: config.project,
-  debugEnabled
-});
+const stateTracker = new ClaudeStateTracker(client, taskId, true); // Enable debug mode
 
 function restoreTerminal() {
   if (process.stdin.setRawMode && process.stdin.isTTY) {
@@ -105,7 +89,6 @@ function restoreTerminal() {
 
 async function updateTaskAndCleanup(state, details) {
   stateTracker.stopDebugUpdates();
-  debugRegistry.unregister(taskId);
   await client.updateTaskState(taskId, state, details);
 }
 
@@ -122,30 +105,10 @@ async function runWithPTY(command, commandArgs) {
     env: process.env
   });
 
-  let stableLines = [];
-
-  // Create line splitter stream
-  const lineStream = ptyProcess.pipe(split2());
-  
-  // Just show output to user - don't accumulate noisy data
+  // Single entry point for all PTY data processing
   ptyProcess.on('data', (data) => {
     process.stdout.write(data);
-  });
-
-  // Process complete lines for state detection and stable buffer
-  lineStream.on('data', (line) => {
-    if (line.trim()) {
-      // Add to stable lines buffer (complete lines only)
-      stableLines.push(line);
-      if (stableLines.length > 100) { // Keep last 100 lines
-        stableLines = stableLines.slice(-100);
-      }
-      
-      // Create stable output from complete lines
-      const stableOutput = stableLines.join('\n');
-      
-      stateTracker.processLine(line, stableOutput).catch(() => {});
-    }
+    stateTracker.handlePtyData(data);
   });
 
   if (process.stdin.setRawMode && process.stdin.isTTY) {

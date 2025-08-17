@@ -6,7 +6,7 @@
 
 import stripAnsi from 'strip-ansi';
 
-export const MAX_BUFFER_SIZE = 50000;
+export const MAX_BUFFER_SIZE = 5000;
 
 
 
@@ -32,30 +32,20 @@ export function detectClaudeState(line, recentOutput = '') {
   const cleanLine = stripAnsi(line).trim();
   if (!cleanLine) return null;
   
-  // Test all patterns and collect debug data
+  // Use recent output for both pattern tests AND detection for consistency
+  const recentLines = recentOutput.split('\n').slice(-15).join('\n'); // Last 15 lines
+  
+  // Test all patterns against recent buffer (consistent with detection logic)
   const patternTests = CLAUDE_PATTERNS.map(p => ({
     pattern: p.pattern,
     description: p.description,
-    matches: p.regex.test(cleanLine),
+    matches: p.regex.test(recentLines), // Use same data source as detection
     expectedState: p.expectedState
   }));
   
-  // Check for WORKING patterns in recent context
-  const workingPatterns = CLAUDE_PATTERNS.filter(p => p.expectedState === 'WORKING');
-  const hasWorkingPattern = workingPatterns.some(p => p.regex.test(recentOutput));
-  
-  if (hasWorkingPattern) {
-    return {
-      state: 'WORKING',
-      details: cleanLine,
-      confidence: 'high',
-      patternTests
-    };
-  }
-  
-  // Check for PENDING patterns in recent context
+  // Check for PENDING patterns in current line (these need immediate response)
   const pendingPatterns = CLAUDE_PATTERNS.filter(p => p.expectedState === 'PENDING');
-  const hasPendingPattern = pendingPatterns.some(p => p.regex.test(recentOutput));
+  const hasPendingPattern = pendingPatterns.some(p => p.regex.test(cleanLine));
   
   if (hasPendingPattern) {
     return {
@@ -66,11 +56,23 @@ export function detectClaudeState(line, recentOutput = '') {
     };
   }
   
-  // Default to IDLE when no special patterns found
+  // Check for WORKING patterns in recent output (persistent detection)
+  const workingPatterns = CLAUDE_PATTERNS.filter(p => p.expectedState === 'WORKING');
+  const hasWorkingPattern = workingPatterns.some(p => p.regex.test(recentLines));
+  
+  if (hasWorkingPattern) {
+    return {
+      state: 'WORKING',
+      details: cleanLine,
+      confidence: 'high',
+      patternTests
+    };
+  }
+  
   return {
     state: 'IDLE',
     details: cleanLine,
-    confidence: 'medium',
+    confidence: 'low', // Low confidence for IDLE detection
     patternTests
   };
 }

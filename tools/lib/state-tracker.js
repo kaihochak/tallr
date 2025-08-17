@@ -5,7 +5,6 @@
  */
 
 import { detectClaudeState, MAX_BUFFER_SIZE } from './claude-patterns.js';
-import { debug } from './debug.js';
 import stripAnsi from 'strip-ansi';
 
 export class ClaudeStateTracker {
@@ -19,72 +18,103 @@ export class ClaudeStateTracker {
     this.lastStateChange = Date.now();
     this.stateHistory = [];
     
-    // Context for pattern matching
-    this.outputContext = {
-      recentLines: [],
-      maxHistoryLines: 50
-    };
+    // State persistence tracking
+    this.lastWorkingDetection = 0;
+    this.lastPendingDetection = 0;
+    
+    // Unified buffer for all data
+    this.rawBuffer = '';
+    this.cleanBuffer = '';
+    
+    // Timers
+    this.detailsUpdateTimeout = null;
     
     // Debug data collection
     this.debugData = {
-      cleanedBuffer: '',
       lastPatternTests: [],
       confidence: 'N/A',
       isActive: true
     };
-    
-    // Debounce buffer updates to reduce noise from rapid typing
-    this.debugBufferTimeout = null;
-    
-    // Start debug data updates
-    this.startDebugUpdates();
   }
 
   /**
-   * Wrapper for external pattern detection (simplified 3-state system)
-   * Only returns: IDLE, WORKING, PENDING
-   * All error/blocked/done states are mapped to IDLE in changeState()
+   * Determine if IDLE transition should be accepted based on state persistence
    */
-  detectState(line, context) {
-    const contextBuffer = context.recentLines.slice(-10).join(' ');
-    const recentOutput = this.lastRecentOutput || '';
+  shouldAcceptIdleTransition(idleConfidence) {
+    const now = Date.now();
     
-    // Use external pattern detection with full context
-    const result = detectClaudeState(line, recentOutput);
-    
-    // Always process result since we always return a state
-    
-    // Update debug data if pattern tests are available
-    if (result.patternTests) {
-      this.debugData.lastPatternTests = result.patternTests;
+    // Always accept high-confidence IDLE
+    if (idleConfidence === 'high') {
+      return true;
     }
     
-    // Return state if detected
-    if (result.state) {
-      this.debugData.confidence = result.confidence || 'medium';
-      return { 
-        state: result.state, 
-        details: result.details || line, 
-        confidence: result.confidence || 'medium' 
-      };
+    // If currently in IDLE, accept any IDLE detection (maintain state)
+    if (this.currentState === 'IDLE') {
+      return true;
     }
     
-    // No automatic IDLE fallback - let pattern module handle all decisions
-    // States should persist until explicit evidence of change
-    return null;
+    // For active states (WORKING/PENDING), require longer persistence time before accepting IDLE
+    const WORKING_PERSISTENCE_TIME = 10000; // 10 seconds after last WORKING pattern
+    const PENDING_PERSISTENCE_TIME = 15000; // 15 seconds after last PENDING pattern
+    
+    // If in WORKING state, only accept IDLE if enough time has passed since last WORKING detection
+    if (this.currentState === 'WORKING') {
+      const timeSinceLastWorking = now - this.lastWorkingDetection;
+      return timeSinceLastWorking > WORKING_PERSISTENCE_TIME;
+    }
+    
+    // If in PENDING state, only accept IDLE if enough time has passed since last PENDING detection
+    if (this.currentState === 'PENDING') {
+      const timeSinceLastPending = now - this.lastPendingDetection;
+      return timeSinceLastPending > PENDING_PERSISTENCE_TIME;
+    }
+    
+    // Default: accept IDLE transition
+    return true;
   }
 
   /**
-   * Update state with change tracking and retry logic
+   * Send debug data update immediately (called when state detection runs)
+   */
+  async updateDebugData() {
+    if (this.debugData.isActive) {
+      try {
+        const debugData = this.getDebugData();
+        await this.client.updateDebugData(debugData);
+      } catch (error) {
+        // Silently ignore debug update errors
+      }
+    }
+  }
+
+  /**
+   * Update state with smart cooldowns
    */
   async changeState(newState, details, confidence = 'medium') {
-    
-    
     if (newState === this.currentState) {
       return;
     }
     
+    // Smart cooldowns based on transition type
+    const timeSinceLastChange = Date.now() - this.lastStateChange;
     const previousState = this.currentState;
+    
+    let requiredCooldown;
+    if (newState === 'PENDING' || newState === 'WORKING') {
+      // Fast entry into active states
+      requiredCooldown = 500; // 0.5 seconds
+    } else if (previousState === 'PENDING' || previousState === 'WORKING') {
+      // Slower exit from active states
+      requiredCooldown = 3000; // 3 seconds
+    } else {
+      // Regular transitions
+      requiredCooldown = 1000; // 1 second
+    }
+    
+    if (timeSinceLastChange < requiredCooldown) {
+      return; // Respect cooldown
+    }
+    
     const now = Date.now();
     
     // Record state change
@@ -101,103 +131,117 @@ export class ClaudeStateTracker {
     this.currentState = newState;
     this.lastStateChange = now;
     
-    // Log state transition
-    debug.state('State transition', {
-      taskId: this.taskId,
-      from: previousState,
-      to: newState,
-      confidence,
-      duration: now - this.lastStateChange
-    });
     
-    // Update Tallor backend with retry logic
-    const maxRetries = 3;
-    let retries = 0;
-    
-    while (retries < maxRetries) {
-      try {
-        await this.client.updateTaskState(this.taskId, newState, details);
-        // Clear any pending state change on success
-        this.pendingStateChange = null;
-        break;
-      } catch (error) {
-        retries++;
-        if (retries >= maxRetries) {
-          if (this.enableDebug) {
-            debug.state('Failed to update state after retries', { 
-              maxRetries, 
-              error: error.message, 
-              taskId: this.taskId,
-              fromState: previousState,
-              toState: newState
-            });
-          }
-          throw error; // Re-throw after max retries
-        }
-        
-        // Wait before retry (exponential backoff: 100ms, 200ms, 400ms)
-        await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, retries - 1)));
-      }
+    // Update backend
+    try {
+      await this.client.updateTaskState(this.taskId, newState, details);
+    } catch (error) {
     }
   }
 
   /**
-   * Update debug buffer data (called on every data chunk)
+   * Main entry point for PTY data - simplified unified processing
    */
-  updateDebugBuffer(recentOutput) {
-    // Store the output immediately for line processing
-    this.lastRecentOutput = recentOutput;
-    
-    // Debounce buffer cleaning to avoid showing rapid typing updates
-    if (this.debugBufferTimeout) {
-      clearTimeout(this.debugBufferTimeout);
+  handlePtyData(data) {
+    // 1. Accumulate raw data
+    this.rawBuffer += data;
+    if (this.rawBuffer.length > MAX_BUFFER_SIZE) {
+      this.rawBuffer = this.rawBuffer.slice(-MAX_BUFFER_SIZE);
     }
     
-    this.debugBufferTimeout = setTimeout(() => {
-      this.debugData.cleanedBuffer = stripAnsi(recentOutput.slice(-MAX_BUFFER_SIZE)).trim();
-      
-      if (this.debugData.cleanedBuffer) {
-        this.detectState(this.debugData.cleanedBuffer, this.outputContext);
+    // 2. Update clean buffer for state detection and display
+    this.cleanBuffer = stripAnsi(this.rawBuffer).trim();
+    
+    // 3. Update displays with debouncing
+    this.updateDisplays();
+    
+    // 4. Check for state changes using clean buffer
+    this.checkForStateChanges();
+  }
+
+
+  /**
+   * Update real-time displays with debouncing
+   */
+  updateDisplays() {
+    // Debounced task details updates for real-time display
+    if (this.detailsUpdateTimeout) {
+      clearTimeout(this.detailsUpdateTimeout);
+    }
+    
+    this.detailsUpdateTimeout = setTimeout(() => {
+      if (this.cleanBuffer) {
+        this.client.updateTaskDetails(this.taskId, this.cleanBuffer).catch(() => {});
       }
-    }, 500); // Wait 500ms after typing stops
+    }, 500);
   }
 
   /**
-   * Process output line with Claude-specific detection
+   * Check for state changes using unified clean buffer
    */
-  async processLine(line, recentOutput = '') {
+  checkForStateChanges() {
+    if (!this.cleanBuffer.trim()) {
+      return;
+    }
+    
+    // Get the last line for current state detection
+    const lines = this.cleanBuffer.split('\n').filter(line => line.trim());
+    if (lines.length === 0) {
+      return;
+    }
+    
+    const lastLine = lines[lines.length - 1];
+    this.processStateDetection(lastLine);
+  }
+
+
+  /**
+   * Process state detection - unified logic for both debug and state changes
+   */
+  async processStateDetection(line) {
     const trimmed = line.trim();
     if (!trimmed) return;
     
-    // Store recent output for context
-    this.lastRecentOutput = recentOutput;
-    
-    // Update debug buffer with latest output
-    this.updateDebugBuffer(recentOutput);
-    
-    // Add to context history
-    this.outputContext.recentLines.push(trimmed);
-    if (this.outputContext.recentLines.length > this.outputContext.maxHistoryLines) {
-      this.outputContext.recentLines.shift();
-    }
-    
-    // Process all lines for state detection - no filtering
-    
-    // State detection with improved error handling
     try {
-      const detection = this.detectState(trimmed, this.outputContext);
-      // Always process detection since we always return a state
-      const cleanedOutput = recentOutput ? stripAnsi(recentOutput.slice(-MAX_BUFFER_SIZE)).trim() : detection.details;
-      await this.changeState(detection.state, cleanedOutput, detection.confidence);
-    } catch (error) {
-      // Log errors using structured debug logging
-      debug.state('State detection error', { error: error.message, taskId: this.taskId });
+      // SINGLE detectClaudeState call for both state change and debug
+      const detection = detectClaudeState(trimmed, this.cleanBuffer);
       
-      // If state change fails repeatedly, fall back to IDLE to prevent stuck states
-      if (error.message.includes('network') || error.message.includes('ECONNREFUSED')) {
-        // Network error - defer state change for retry
-        this.pendingStateChange = { trimmed, detection: this.detectState(trimmed, this.outputContext) };
+      // Store debug data from SAME detection call
+      if (detection.patternTests) {
+        this.debugData.lastPatternTests = detection.patternTests;
       }
+      this.debugData.confidence = detection.confidence || 'medium';
+      
+      // Track when active state patterns were last detected
+      const now = Date.now();
+      if (detection && detection.state === 'WORKING') {
+        this.lastWorkingDetection = now;
+      }
+      if (detection && detection.state === 'PENDING') {
+        this.lastPendingDetection = now;
+      }
+      
+      // Update debug data immediately 
+      this.updateDebugData();
+      
+      // Process state changes with enhanced persistence logic
+      if (detection && detection.state) {
+        const recentContext = this.cleanBuffer.split('\n').slice(-5).join('\n') || trimmed;
+        
+        // Enhanced IDLE transition logic with state persistence
+        if (detection.state === 'IDLE') {
+          const shouldAcceptIdleTransition = this.shouldAcceptIdleTransition(detection.confidence);
+          if (shouldAcceptIdleTransition) {
+            await this.changeState(detection.state, recentContext, detection.confidence);
+          } else {
+          }
+          // Otherwise ignore IDLE transition to maintain active state persistence
+        } else {
+          // Always accept non-IDLE state changes (WORKING/PENDING)
+          await this.changeState(detection.state, recentContext, detection.confidence);
+        }
+      }
+    } catch (error) {
     }
   }
 
@@ -206,10 +250,8 @@ export class ClaudeStateTracker {
    */
   getDebugData() {
     return {
-      cleanedBuffer: this.debugData.cleanedBuffer,
-      patternTests: this.debugData.lastPatternTests,
+      cleanedBuffer: this.cleanBuffer, // Use unified clean buffer
       currentState: this.currentState,
-      confidence: this.debugData.confidence,
       detectionHistory: this.stateHistory.slice(-10).map(entry => ({
         timestamp: Math.floor(entry.timestamp / 1000), // Convert to seconds
         from: entry.from,
@@ -218,6 +260,8 @@ export class ClaudeStateTracker {
         confidence: entry.confidence
       })),
       taskId: this.taskId,
+      patternTests: this.debugData.lastPatternTests,
+      confidence: this.debugData.confidence,
       isActive: this.debugData.isActive
     };
   }
@@ -233,32 +277,15 @@ export class ClaudeStateTracker {
     };
   }
 
-  /**
-   * Start periodic debug data updates
-   */
-  startDebugUpdates() {
-    // Send debug data every 1 second when active
-    this.debugInterval = setInterval(async () => {
-      if (this.debugData.isActive) {
-        try {
-          await this.client.updateDebugData(this.getDebugData());
-          
-          // Don't send periodic state updates - only update on actual state changes
-          // This was causing constant updatedAt changes and age=0m issue
-        } catch (error) {
-          // Silently ignore debug update errors
-        }
-      }
-    }, 1000);
-  }
 
   /**
    * Stop debug data updates
    */
   stopDebugUpdates() {
-    if (this.debugInterval) {
-      clearInterval(this.debugInterval);
-      this.debugInterval = null;
+    // Clear pending details update timeout
+    if (this.detailsUpdateTimeout) {
+      clearTimeout(this.detailsUpdateTimeout);
+      this.detailsUpdateTimeout = null;
     }
     
     // Mark as inactive
@@ -277,7 +304,6 @@ export class ClaudeStateTracker {
    */
   async syncInitialState() {
     if (this.currentState !== 'IDLE') {
-      debug.state('Syncing initial state', { state: this.currentState, taskId: this.taskId });
       await this.client.updateTaskState(this.taskId, this.currentState, `Initial state: ${this.currentState}`);
     }
   }

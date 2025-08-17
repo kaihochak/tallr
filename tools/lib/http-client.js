@@ -166,12 +166,27 @@ export class TallorClient {
   }
 
   /**
+   * Update task details with real-time buffer content
+   */
+  async updateTaskDetails(taskId, details) {
+    try {
+      await this.makeRequest('POST', '/v1/tasks/details', {
+        taskId: taskId,
+        details: details
+      });
+      // Task details updated silently
+    } catch (error) {
+      // Silently fail details updates to avoid interfering with CLI operation
+    }
+  }
+
+  /**
    * Update debug data for pattern detection debugging
    */
   async updateDebugData(debugData) {
     try {
       await this.makeRequest('POST', '/v1/debug/update', {
-        debugData: debugData
+        debug_data: debugData  // Match backend's snake_case expectation
       });
       // Debug data updated silently
     } catch (error) {
