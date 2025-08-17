@@ -10,8 +10,8 @@ export default function TaskDetail({ details, isExpanded, onToggleExpanded }: Ta
   return (
     <div className="w-full mt-1">
       <div className="flex items-start gap-2">
-        <div className={`flex-1 text-text-secondary font-mono text-xs leading-relaxed break-words transition-all duration-200 ${
-          isExpanded ? 'whitespace-pre-wrap overflow-visible max-h-none' : 'whitespace-pre-wrap overflow-hidden max-h-[54px]'
+        <div className={`flex-1 text-text-secondary font-mono text-sm sm:text-base leading-relaxed break-words transition-all duration-200 whitespace-pre-wrap ${
+          isExpanded ? 'overflow-visible max-h-none' : 'overflow-hidden max-h-[66px] sm:max-h-[75px]'
         }`}>
           {details}
         </div>

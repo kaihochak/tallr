@@ -122,25 +122,29 @@ async function runWithPTY(command, commandArgs) {
     env: process.env
   });
 
-  let recentOutput = '';
+  let stableLines = [];
 
   // Create line splitter stream
   const lineStream = ptyProcess.pipe(split2());
   
-  // Process output chunks for display and buffer management
+  // Just show output to user - don't accumulate noisy data
   ptyProcess.on('data', (data) => {
     process.stdout.write(data);
-
-    recentOutput += data;
-    if (recentOutput.length > MAX_BUFFER_SIZE) {
-      recentOutput = recentOutput.slice(-MAX_BUFFER_SIZE);
-    }
   });
 
-  // Process complete lines for state detection
+  // Process complete lines for state detection and stable buffer
   lineStream.on('data', (line) => {
     if (line.trim()) {
-      stateTracker.processLine(line, recentOutput).catch(() => {});
+      // Add to stable lines buffer (complete lines only)
+      stableLines.push(line);
+      if (stableLines.length > 100) { // Keep last 100 lines
+        stableLines = stableLines.slice(-100);
+      }
+      
+      // Create stable output from complete lines
+      const stableOutput = stableLines.join('\n');
+      
+      stateTracker.processLine(line, stableOutput).catch(() => {});
     }
   });
 

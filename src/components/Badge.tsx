@@ -10,34 +10,32 @@ export function Badge({ type, name, className = '' }: BadgeProps) {
   
   // Determine the CSS class based on type and name
   const getBadgeClass = (): string => {
-    const baseClass = 'badge';
-    
     if (type === 'agent') {
       switch (normalizedName) {
         case 'claude':
-          return `${baseClass} badge-agent-claude`;
+          return 'agent-badge claude';
         case 'gemini':
-          return `${baseClass} badge-agent-gemini`;
+          return 'agent-badge gemini';
         case 'cursor':
-          return `${baseClass} badge-agent-cursor`;
+          return 'agent-badge cursor';
         default:
-          return `${baseClass} badge-agent-default`;
+          return 'agent-badge default';
       }
     } else { // type === 'ide'
       switch (normalizedName) {
         case 'vscode':
         case 'code':
-          return `${baseClass} badge-ide-vscode`;
+          return 'ide-badge vscode';
         case 'cursor':
-          return `${baseClass} badge-ide-cursor`;
+          return 'ide-badge cursor';
         case 'windsurf':
-          return `${baseClass} badge-ide-windsurf`;
+          return 'ide-badge windsurf';
         case 'webstorm':
-          return `${baseClass} badge-ide-webstorm`;
+          return 'ide-badge webstorm';
         case 'zed':
-          return `${baseClass} badge-ide-zed`;
+          return 'ide-badge zed';
         default:
-          return `${baseClass} badge-ide-default`;
+          return 'ide-badge default';
       }
     }
   };

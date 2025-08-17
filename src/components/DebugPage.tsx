@@ -1,10 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Bug, Circle, CheckCircle, XCircle, Copy, Check, Terminal, Activity, Eye, Code, ArrowLeft } from 'lucide-react';
+import { Bug, Circle, XCircle, Copy, Check, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ApiService, DebugData, logApiError } from '@/services/api';
 import { debug } from '@/utils/debug';
 import TaskStateBadge from './TaskStateBadge';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 
 interface DebugPageProps {
   taskId: string | null;
@@ -16,7 +22,7 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedStates, setCopiedStates] = useState<Record<string, boolean>>({});
-  const [activeTab, setActiveTab] = useState('quick');
+  const [activeTab, setActiveTab] = useState('state-change');
 
   // Copy functionality
   const copyToClipboard = async (text: string, key: string) => {
@@ -41,13 +47,6 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
     copyToClipboard(buffer, 'buffer');
   };
 
-  const copyPatternTests = () => {
-    if (!debugData) return;
-    const patterns = debugData.patternTests.map(test => 
-      `${test.matches ? '✓' : '✗'} ${test.pattern} → ${test.expectedState} (${test.description})`
-    ).join('\n');
-    copyToClipboard(patterns, 'patterns');
-  };
 
   const copyHistory = () => {
     if (!debugData) return;
@@ -81,8 +80,8 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
     // Initial fetch
     fetchDebugData();
 
-    // Poll every 2 seconds
-    const interval = setInterval(fetchDebugData, 2000);
+    // Poll every 250ms for responsive updates
+    const interval = setInterval(fetchDebugData, 250);
     return () => {
       clearInterval(interval);
       debug.ui('Debug page closed');
@@ -138,51 +137,25 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
       <div className="mx-6">
         <div className="inline-flex h-10 items-center justify-center rounded-md bg-bg-secondary p-1 text-text-secondary">
           <button
-            onClick={() => setActiveTab('quick')}
+            onClick={() => setActiveTab('state-change')}
             className={cn(
-              "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all gap-2 cursor-pointer",
-              activeTab === 'quick' 
+              "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all cursor-pointer",
+              activeTab === 'state-change' 
                 ? "bg-bg-primary text-text-primary shadow-sm" 
                 : "hover:bg-bg-hover hover:text-text-primary"
             )}
           >
-            <Activity size={16} />
-            Quick View
-          </button>
-          <button
-            onClick={() => setActiveTab('patterns')}
-            className={cn(
-              "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all gap-2 cursor-pointer",
-              activeTab === 'patterns' 
-                ? "bg-bg-primary text-text-primary shadow-sm" 
-                : "hover:bg-bg-hover hover:text-text-primary"
-            )}
-          >
-            <Code size={16} />
-            Patterns
-          </button>
-          <button
-            onClick={() => setActiveTab('logs')}
-            className={cn(
-              "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all gap-2 cursor-pointer",
-              activeTab === 'logs' 
-                ? "bg-bg-primary text-text-primary shadow-sm" 
-                : "hover:bg-bg-hover hover:text-text-primary"
-            )}
-          >
-            <Terminal size={16} />
-            Logs
+            State Change
           </button>
           <button
             onClick={() => setActiveTab('raw')}
             className={cn(
-              "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all gap-2 cursor-pointer",
+              "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all cursor-pointer",
               activeTab === 'raw' 
                 ? "bg-bg-primary text-text-primary shadow-sm" 
                 : "hover:bg-bg-hover hover:text-text-primary"
             )}
           >
-            <Eye size={16} />
             Raw Data
           </button>
         </div>
@@ -216,122 +189,41 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
 
         {taskId && debugData && (
           <>
-            {/* Quick View Tab */}
-            {activeTab === 'quick' && (
-              <div className="space-y-6 mt-0">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="bg-bg-card p-6 rounded-lg border border-border-primary">
-                    <h3 className="font-semibold text-text-primary mb-4">Current State</h3>
-                    <div className="flex items-center gap-3 mb-2">
-                      <TaskStateBadge state={debugData.currentState} className="px-3 py-2" />
-                      <span className="text-sm text-text-secondary">({debugData.confidence})</span>
-                    </div>
-                    <div className={cn(
-                      "text-sm mt-2",
-                      debugData.isActive ? "text-green-600" : "text-red-600"
-                    )}>
-                      {debugData.isActive ? '● Active Session' : '○ Inactive Session'}
-                    </div>
-                  </div>
-                  
-                  <div className="bg-bg-card p-6 rounded-lg border border-border-primary">
-                    <h3 className="font-semibold text-text-primary mb-4">Session Info</h3>
-                    <div className="space-y-2 text-sm">
-                      <div><span className="text-text-secondary">Task ID:</span> <code className="ml-2">{debugData.taskId}</code></div>
-                      <div><span className="text-text-secondary">Buffer Size:</span> <span className="ml-2">{debugData.currentBuffer.length} chars</span></div>
-                      <div><span className="text-text-secondary">Pattern Tests:</span> <span className="ml-2">{debugData.patternTests.length}</span></div>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-bg-card p-6 rounded-lg border border-border-primary">
-                    <h3 className="font-semibold text-text-primary mb-4">Quick Stats</h3>
-                    <div className="space-y-2 text-sm">
-                      <div><span className="text-text-secondary">Matching Patterns:</span> <span className="ml-2 text-green-600">{debugData.patternTests.filter(p => p.matches).length}</span></div>
-                      <div><span className="text-text-secondary">State Changes:</span> <span className="ml-2">{debugData.detectionHistory.length}</span></div>
-                      <div><span className="text-text-secondary">Last Update:</span> <span className="ml-2">{new Date().toLocaleTimeString()}</span></div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-bg-card p-6 rounded-lg border border-border-primary">
-                  <h3 className="font-semibold text-text-primary mb-4">Recent Activity</h3>
-                  <div className="space-y-2">
-                    {debugData.detectionHistory.slice(-5).map((entry, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-bg-secondary rounded border">
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono text-sm">{entry.from} → {entry.to}</span>
-                          <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">{entry.confidence}</span>
-                        </div>
-                        <span className="text-sm text-text-secondary">{new Date(entry.timestamp * 1000).toLocaleTimeString()}</span>
-                      </div>
-                    ))}
-                    {debugData.detectionHistory.length === 0 && (
-                      <div className="text-center py-8 text-text-secondary">No state changes yet</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Patterns Tab */}
-            {activeTab === 'patterns' && (
-              <div className="space-y-6 mt-0">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-semibold text-text-primary">Pattern Matching Results</h3>
-                  <CopyButton onClick={copyPatternTests} copyKey="patterns" />
-                </div>
-                <div className="grid gap-4">
-                  {debugData.patternTests.map((test, index) => (
-                    <div key={index} className={cn(
-                      "p-4 border rounded-lg",
-                      test.matches ? "bg-green-50 border-green-200" : "bg-gray-50 border-gray-200"
-                    )}>
-                      <div className="flex items-center gap-3 mb-2">
-                        {test.matches ? 
-                          <CheckCircle size={20} className="text-green-600" /> : 
-                          <XCircle size={20} className="text-gray-400" />
-                        }
-                        <code className="text-lg font-mono bg-bg-secondary px-3 py-1 rounded">{test.pattern}</code>
-                        <span className="text-sm text-text-secondary">→ {test.expectedState}</span>
-                      </div>
-                      <div className="text-sm text-text-secondary ml-8">{test.description}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Logs Tab */}
-            {activeTab === 'logs' && (
-              <div className="space-y-6 mt-0">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-semibold text-text-primary">State Change History</h3>
+            {/* State Change Tab */}
+            {activeTab === 'state-change' && (
+              <div className="bg-bg-card p-6 rounded-lg border border-border-primary">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-text-primary">State Change History</h3>
                   <CopyButton onClick={copyHistory} copyKey="history" />
                 </div>
-                <div className="space-y-4">
-                  {debugData.detectionHistory.length === 0 ? (
-                    <div className="text-center py-12 text-text-secondary">No state changes detected yet</div>
-                  ) : (
-                    debugData.detectionHistory.map((entry, index) => (
-                      <div key={index} className="p-4 bg-bg-card border border-border-primary rounded-lg">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="font-mono text-sm text-text-secondary">
-                            {new Date(entry.timestamp * 1000).toLocaleString()}
+                {debugData.detectionHistory.length === 0 ? (
+                  <div className="text-center py-12 text-text-secondary">No state changes detected yet</div>
+                ) : (
+                  <Accordion type="single" collapsible className="w-full">
+                    {debugData.detectionHistory.map((entry, index) => (
+                      <AccordionItem key={index} value={`item-${index}`}>
+                        <AccordionTrigger className="hover:no-underline">
+                          <div className="flex items-center justify-between w-full pr-4">
+                            <div className="flex items-center gap-3">
+                              <div className="font-mono text-sm text-text-secondary">
+                                {new Date(entry.timestamp * 1000).toLocaleTimeString()}
+                              </div>
+                              <TaskStateBadge state={entry.from} />
+                              <span className="text-text-secondary">→</span>
+                              <TaskStateBadge state={entry.to} />
+                            </div>
+                            <div className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">({entry.confidence})</div>
                           </div>
-                          <div className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">({entry.confidence})</div>
-                        </div>
-                        <div className="flex items-center gap-3 mb-3">
-                          <span className="px-3 py-1 rounded text-sm font-medium bg-gray-100 text-gray-800">{entry.from}</span>
-                          <span className="text-text-secondary">→</span>
-                          <span className="px-3 py-1 rounded text-sm font-medium bg-gray-100 text-gray-800">{entry.to}</span>
-                        </div>
-                        <div className="text-sm text-text-primary bg-bg-secondary p-3 rounded border font-mono whitespace-pre-wrap">
-                          {entry.details}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="text-sm text-text-primary bg-bg-tertiary p-3 rounded border font-mono whitespace-pre-wrap mt-2">
+                            {entry.details}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                )}
               </div>
             )}
 

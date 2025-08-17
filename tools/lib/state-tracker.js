@@ -50,7 +50,7 @@ export class ClaudeStateTracker {
     const recentOutput = this.lastRecentOutput || '';
     
     // Use external pattern detection with full context
-    const result = detectClaudeState(line, contextBuffer, recentOutput, context.recentLines);
+    const result = detectClaudeState(line, recentOutput);
     
     // Always process result since we always return a state
     

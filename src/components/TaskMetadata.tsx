@@ -16,10 +16,10 @@ export default function TaskMetadata({ task, project, allTasks, className }: Tas
   return (
     <div className={cn("flex items-center gap-3 flex-1", className)}>
       {/* Project Name with Session Number */}
-      <span className="font-bold text-text-primary text-xl whitespace-nowrap overflow-hidden text-ellipsis">
+      <span className="font-bold text-text-primary text-base sm:text-lg whitespace-nowrap overflow-hidden text-ellipsis">
         {project?.name || "Unknown"}
         {sessionNumber && (
-          <span className="font-medium text-text-secondary text-sm ml-1.5">
+          <span className="font-medium text-text-secondary text-sm sm:text-base ml-1.5">
             #{sessionNumber}
           </span>
         )}
