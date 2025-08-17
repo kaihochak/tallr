@@ -1,21 +1,7 @@
 #!/usr/bin/env node
 
-/**
- * Tallor CLI Wrapper
- * 
- * Monitors CLI output for user prompts with modular architecture
- * 
- * Usage:
- *   export TALLOR_TOKEN=devtoken
- *   export TL_PROJECT="my-project"
- *   export TL_REPO="/path/to/repo"
- *   export TL_AGENT="claude"
- *   export TL_TITLE="Task description"
- *   
- *   node tl-wrap.js claude --your-args-here
- */
-
 import pty from 'node-pty';
+import split2 from 'split2';
 import { TallorClient } from './lib/http-client.js';
 import { ClaudeStateTracker } from './lib/state-tracker.js';
 import { getIdeCommand, promptForIdeCommand } from './lib/settings.js';
@@ -122,31 +108,6 @@ async function updateTaskAndCleanup(state, details) {
   await client.updateTaskState(taskId, state, details);
 }
 
-class LineBuffer {
-  constructor() {
-    this.buffer = '';
-  }
-  
-  processChunk(data, lineCallback) {
-    this.buffer += data.toString();
-    const lines = this.buffer.split('\n');
-    
-    this.buffer = lines.pop() || '';
-    
-    lines.forEach(line => {
-      if (line.trim()) {
-        lineCallback(line);
-      }
-    });
-  }
-  
-  flush(lineCallback) {
-    if (this.buffer.trim()) {
-      lineCallback(this.buffer);
-      this.buffer = '';
-    }
-  }
-}
 
 /**
  * PTY approach for interactive CLIs - minimal passthrough
@@ -162,9 +123,11 @@ async function runWithPTY(command, commandArgs) {
 
   let recentOutput = '';
   const MAX_OUTPUT_SIZE = 3000;
-  const lineBuffer = new LineBuffer();
 
-  // Process output
+  // Create line splitter stream
+  const lineStream = ptyProcess.pipe(split2());
+  
+  // Process output chunks for display and buffer management
   ptyProcess.on('data', (data) => {
     process.stdout.write(data);
 
@@ -172,12 +135,13 @@ async function runWithPTY(command, commandArgs) {
     if (recentOutput.length > MAX_OUTPUT_SIZE) {
       recentOutput = recentOutput.slice(-MAX_OUTPUT_SIZE);
     }
-    
-    stateTracker.updateDebugBuffer(recentOutput);
-    
-    lineBuffer.processChunk(data, (line) => {
+  });
+
+  // Process complete lines for state detection
+  lineStream.on('data', (line) => {
+    if (line.trim()) {
       stateTracker.processLine(line, recentOutput).catch(() => {});
-    });
+    }
   });
 
   if (process.stdin.setRawMode && process.stdin.isTTY) {
@@ -188,10 +152,6 @@ async function runWithPTY(command, commandArgs) {
   }
 
   ptyProcess.on('exit', async (code, signal) => {
-    lineBuffer.flush((line) => {
-      stateTracker.processLine(line, recentOutput).catch(() => {});
-    });
-
     const success = code === 0;
     const details = success 
       ? `Claude session completed successfully` 
