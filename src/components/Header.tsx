@@ -58,7 +58,12 @@ export default function Header({
       <div className="flex items-center gap-0">
         <div className={`status-indicator ${aggregateState}`}></div>
         <div className="flex items-center gap-2 ml-3">
-          <h1 className="text-lg font-bold bg-gradient-to-r from-accent-primary to-accent-primary-hover bg-clip-text text-transparent tracking-tight m-0">
+          <h1 className={`text-lg font-bold bg-gradient-to-r bg-clip-text text-transparent tracking-tight m-0 ${
+            aggregateState === 'pending' ? 'from-status-pending to-status-pending' :
+            aggregateState === 'working' ? 'from-status-working to-status-working' :
+            aggregateState === 'idle' ? 'from-status-idle to-status-idle' :
+            'from-accent-primary to-accent-primary-hover'
+          }`}>
             TALLOR
           </h1>
         </div>

@@ -133,10 +133,12 @@ export default function TaskRow({
                 <ExternalLink size={14} className="mr-2" />
                 Jump to
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => handleDropdownAction('debug')} className="cursor-pointer">
-                <Bug size={14} className="mr-2" />
-                Debug
-              </DropdownMenuItem>
+              {import.meta.env.DEV && (
+                <DropdownMenuItem onSelect={() => handleDropdownAction('debug')} className="cursor-pointer">
+                  <Bug size={14} className="mr-2" />
+                  Debug
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onSelect={() => handleDropdownAction('pin')} className="cursor-pointer">
                 {task.pinned ? <PinOff size={14} className="mr-2" /> : <Pin size={14} className="mr-2" />}
                 {task.pinned ? 'Unpin' : 'Pin to top'}
