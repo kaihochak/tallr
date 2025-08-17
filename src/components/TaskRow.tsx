@@ -100,6 +100,7 @@ export default function TaskRow({
         "hover:border-border-secondary hover:bg-bg-hover",
         isTaskCompleted(task.state) && "opacity-70"
       )}
+      style={task.pinned ? { borderColor: '#14b8a6' } : {}}
       title="Click to open in IDE • Option+Click for debug console"
       onClick={(e) => {
         // Option+click opens debug dialog

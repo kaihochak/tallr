@@ -71,8 +71,6 @@ export class ClaudeStateTracker {
     return null;
   }
 
-  // State mapping removed - using Claude states directly
-
   /**
    * Update state with change tracking and retry logic
    */
@@ -108,9 +106,6 @@ export class ClaudeStateTracker {
       confidence,
       duration: now - this.lastStateChange
     });
-    
-    // Use Claude states directly - no mapping needed
-    // console.log(`[Tallor] Claude: ${previousState} → ${newState}`);
     
     // Update Tallor backend with retry logic
     const maxRetries = 3;

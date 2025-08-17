@@ -107,22 +107,19 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
   );
 
   return (
-    <div className="h-screen flex flex-col bg-bg-primary">
+    <div className="h-screen bg-bg-primary overflow-y-auto">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 bg-bg-card border-b border-border-primary">
+      <div className="flex items-center justify-between px-6 py-8">
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={onBack}
-            className="flex items-center gap-2 text-text-secondary hover:text-text-primary"
+            className="text-text-secondary hover:text-text-primary"
           >
             <ArrowLeft size={18} />
-            Back to Tasks
           </Button>
           <div className="flex items-center gap-3">
-            <Bug size={20} className="text-text-primary" />
-            <h1 className="text-xl font-bold text-text-primary">Debug Console</h1>
             {taskId && (
               <span className="px-2 py-1 bg-bg-secondary text-text-secondary text-sm rounded font-mono">
                 Task: {taskId}
@@ -140,17 +137,11 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
             )}
           </div>
         </div>
-        
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => console.log(debug.getDebugState())}>
-            Export State
-          </Button>
-          <CopyButton onClick={copyAllDebugData} copyKey="all" />
-        </div>
+        <CopyButton onClick={copyAllDebugData} copyKey="all" />
       </div>
 
       {/* Tab Navigation */}
-      <div className="mx-6 mt-4">
+      <div className="mx-6">
         <div className="inline-flex h-10 items-center justify-center rounded-md bg-bg-secondary p-1 text-text-secondary">
           <button
             onClick={() => setActiveTab('quick')}
@@ -204,7 +195,7 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
+      <div className="px-6 py-4">
         {isLoading && !debugData && (
           <div className="flex items-center justify-center gap-3 py-12 text-text-secondary">
             <Circle className="animate-spin" size={24} />
