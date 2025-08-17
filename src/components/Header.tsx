@@ -73,11 +73,11 @@ export default function Header({
           {showDoneTasks ? `${doneTasks} done` : `${activeTasks} tasks`}
         </button>
       </div>
-      <div className="flex items-center gap-4" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+      <div className="flex items-center gap-2 sm:gap-4" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <div className="relative">
           <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none z-10" />
           <Select value={stateFilter} onValueChange={onStateFilterChange}>
-            <SelectTrigger className="pl-9 pr-4 py-2.5 w-[130px] border-border-primary bg-bg-card text-text-primary text-sm font-medium hover:border-border-secondary hover:bg-bg-hover cursor-pointer">
+            <SelectTrigger className="pl-9 pr-2 sm:pr-4 py-2.5 w-[100px] sm:w-[130px] border-border-primary bg-bg-card text-text-primary text-xs sm:text-sm font-medium hover:border-border-secondary hover:bg-bg-hover cursor-pointer">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="cursor-pointer">

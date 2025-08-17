@@ -323,24 +323,24 @@
   }
 
   .task-state-badge.pending { 
-    background: var(--status-pending-bg);
-    color: var(--status-pending);
+    background: rgba(245, 158, 11, 0.6);
+    color: #fbbf24;
     font-weight: 500;
-    border-color: var(--status-pending);
+    border-color: #fbbf24;
   }
 
   .task-state-badge.working { 
-    background: var(--status-working-bg);
-    color: var(--status-working);
+    background: rgba(59, 130, 246, 0.6);
+    color: #60a5fa;
     font-weight: 500;
-    border-color: var(--status-working);
+    border-color: #60a5fa;
   }
 
   .task-state-badge.idle { 
-    background: var(--status-idle-bg);
-    color: var(--status-idle);
+    background: rgba(156, 163, 175, 0.6);
+    color: #d1d5db;
     font-weight: 500;
-    border-color: var(--status-idle);
+    border-color: #d1d5db;
   }
 
   .task-state-badge.completed { 
