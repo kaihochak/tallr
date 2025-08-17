@@ -182,15 +182,15 @@ async function runWithPTY(command, commandArgs) {
       ? `Claude session completed successfully` 
       : `Claude session ended with code ${code}`;
 
+    // Stop state tracker first to prevent race conditions
+    stateTracker.stopDebugUpdates();
+    debugRegistry.unregister(taskId);
+
     if (success) {
       await client.markTaskDone(taskId, details);
     } else {
       await client.updateTaskState(taskId, 'IDLE', details);
     }
-
-    // Cleanup debug registry and stop debug updates
-    debugRegistry.unregister(taskId);
-    stateTracker.stopDebugUpdates();
 
     if (process.stdin.setRawMode && process.stdin.isTTY) {
       process.stdin.setRawMode(false);

@@ -181,7 +181,7 @@ export default function TaskRow({
           <DialogHeader>
             <DialogTitle>Delete Session</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete the "{task.agent}" session in {project?.name || "Unknown"}? This action cannot be undone.
+              Are you sure you want to delete the "{task.agent}" session in {project?.name || "Unknown"}?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

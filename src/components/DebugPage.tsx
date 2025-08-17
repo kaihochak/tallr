@@ -6,10 +6,11 @@ import { ApiService, DebugData, logApiError } from '@/services/api';
 import { debug } from '@/utils/debug';
 
 interface DebugPageProps {
+  taskId: string | null;
   onBack: () => void;
 }
 
-export function DebugPage({ onBack }: DebugPageProps) {
+export function DebugPage({ taskId, onBack }: DebugPageProps) {
   const [debugData, setDebugData] = useState<DebugData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +63,7 @@ export function DebugPage({ onBack }: DebugPageProps) {
       try {
         setIsLoading(true);
         setError(null);
-        const data = await ApiService.getDebugData();
+        const data = await ApiService.getDebugData(taskId || undefined);
         setDebugData(data);
         debug.ui('Debug data fetched', { taskId: data.taskId, state: data.currentState });
       } catch (err) {
@@ -85,7 +86,7 @@ export function DebugPage({ onBack }: DebugPageProps) {
       clearInterval(interval);
       debug.ui('Debug page closed');
     };
-  }, []);
+  }, [taskId]);
 
   // Copy button component
   const CopyButton = ({ onClick, copyKey, className = "", size = 16 }: { 
@@ -122,6 +123,11 @@ export function DebugPage({ onBack }: DebugPageProps) {
           <div className="flex items-center gap-3">
             <Bug size={20} className="text-text-primary" />
             <h1 className="text-xl font-bold text-text-primary">Debug Console</h1>
+            {taskId && (
+              <span className="px-2 py-1 bg-bg-secondary text-text-secondary text-sm rounded font-mono">
+                Task: {taskId}
+              </span>
+            )}
             {debugData && (
               <span className={cn(
                 "px-3 py-1 rounded-lg text-sm font-medium",
@@ -206,6 +212,13 @@ export function DebugPage({ onBack }: DebugPageProps) {
           </div>
         )}
 
+        {!taskId && (
+          <div className="flex items-center gap-3 p-6 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 mb-6">
+            <Bug size={20} />
+            <span>No task selected for debugging. Please select a task from the dropdown menu.</span>
+          </div>
+        )}
+
         {error && (
           <div className="flex items-center gap-3 p-6 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive mb-6">
             <XCircle size={20} />
@@ -213,7 +226,7 @@ export function DebugPage({ onBack }: DebugPageProps) {
           </div>
         )}
 
-        {debugData && (
+        {taskId && debugData && (
           <>
             {/* Quick View Tab */}
             {activeTab === 'quick' && (

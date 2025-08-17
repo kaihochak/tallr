@@ -231,11 +231,6 @@ function App() {
         toggleAlwaysOnTop();
       }
       
-      // Command+Shift+D for debug page
-      if (e.metaKey && e.shiftKey && e.key.toLowerCase() === "d") {
-        e.preventDefault();
-        setCurrentPage(prev => prev === 'debug' ? 'tasks' : 'debug');
-      }
       
       // Command+Shift+C to copy debug state to clipboard
       if (e.metaKey && e.shiftKey && e.key.toLowerCase() === "c") {
@@ -407,12 +402,10 @@ function App() {
         alwaysOnTop={settings.alwaysOnTop}
         stateFilter={stateFilter}
         theme={settings.theme}
-        showDebugPanel={currentPage === 'debug'}
         onTogglePin={toggleAlwaysOnTop}
         onToggleDoneTasks={() => setShowDoneTasks(prev => !prev)}
         onStateFilterChange={setStateFilter}
         onToggleTheme={toggleTheme}
-        onToggleDebugPanel={() => setCurrentPage(prev => prev === 'debug' ? 'tasks' : 'debug')}
       />
 
       {/* Main Content */}
@@ -450,7 +443,13 @@ function App() {
           )}
         </div>
       ) : (
-        <DebugPage onBack={() => setCurrentPage('tasks')} />
+        <DebugPage 
+          taskId={debugTaskId}
+          onBack={() => {
+            setDebugTaskId(null);
+            setCurrentPage('tasks');
+          }} 
+        />
       )}
       
       {/* Footer */}
