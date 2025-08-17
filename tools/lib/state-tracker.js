@@ -5,6 +5,7 @@
  */
 
 import { detectClaudeState, cleanANSIForDisplay } from './claude-patterns.js';
+import { debug } from './debug.js';
 
 export class ClaudeStateTracker {
   constructor(client, taskId, enableDebug = false) {
@@ -48,7 +49,7 @@ export class ClaudeStateTracker {
     // Use external pattern detection with full context
     const result = detectClaudeState(line, contextBuffer, recentOutput, context.recentLines);
     
-    if (!result) return null;
+    // Always process result since we always return a state
     
     // Update debug data if pattern tests are available
     if (result.patternTests) {
@@ -76,10 +77,6 @@ export class ClaudeStateTracker {
    * Update state with change tracking and retry logic
    */
   async changeState(newState, details, confidence = 'medium') {
-    // Map ERROR/BLOCKED states to IDLE as per simplified state system
-    if (newState === 'ERROR' || newState === 'BLOCKED' || newState === 'DONE') {
-      newState = 'IDLE';
-    }
     
     
     if (newState === this.currentState) {
@@ -103,6 +100,15 @@ export class ClaudeStateTracker {
     this.currentState = newState;
     this.lastStateChange = now;
     
+    // Log state transition
+    debug.state('State transition', {
+      taskId: this.taskId,
+      from: previousState,
+      to: newState,
+      confidence,
+      duration: now - this.lastStateChange
+    });
+    
     // Use Claude states directly - no mapping needed
     // console.log(`[Tallor] Claude: ${previousState} → ${newState}`);
     
@@ -120,7 +126,13 @@ export class ClaudeStateTracker {
         retries++;
         if (retries >= maxRetries) {
           if (this.enableDebug) {
-            console.error(`[Tallor Debug] Failed to update state after ${maxRetries} retries:`, error.message);
+            debug.state('Failed to update state after retries', { 
+              maxRetries, 
+              error: error.message, 
+              taskId: this.taskId,
+              fromState: previousState,
+              toState: newState
+            });
           }
           throw error; // Re-throw after max retries
         }
@@ -163,31 +175,17 @@ export class ClaudeStateTracker {
       this.outputContext.recentLines.shift();
     }
     
-    // Only run state detection for significant lines that might indicate state changes
-    const isSignificantLine = trimmed.includes('❯') || 
-                             trimmed.includes('esc to interrupt') ||
-                             trimmed.includes('proceed') ||
-                             trimmed.includes('Yes') ||
-                             trimmed.includes('No') ||
-                             trimmed.length > 20; // Ignore very short lines
-    
-    if (!isSignificantLine) {
-      return;
-    }
+    // Process all lines for state detection - no filtering
     
     // State detection with improved error handling
     try {
       const detection = this.detectState(trimmed, this.outputContext);
-      if (detection) {
-        // Include cleaned recent output in the details (last 2000 chars) - preserve formatting for display
-        const cleanedOutput = recentOutput ? cleanANSIForDisplay(recentOutput.slice(-2000)) : detection.details;
-        await this.changeState(detection.state, cleanedOutput, detection.confidence);
-      }
+      // Always process detection since we always return a state
+      const cleanedOutput = recentOutput ? cleanANSIForDisplay(recentOutput.slice(-2000)) : detection.details;
+      await this.changeState(detection.state, cleanedOutput, detection.confidence);
     } catch (error) {
-      // Log errors in debug mode but prevent display interference
-      if (this.enableDebug) {
-        console.error(`[Tallor Debug] State detection error:`, error.message);
-      }
+      // Log errors using structured debug logging
+      debug.state('State detection error', { error: error.message, taskId: this.taskId });
       
       // If state change fails repeatedly, fall back to IDLE to prevent stuck states
       if (error.message.includes('network') || error.message.includes('ECONNREFUSED')) {
@@ -274,7 +272,7 @@ export class ClaudeStateTracker {
    */
   async syncInitialState() {
     if (this.currentState !== 'IDLE') {
-      console.log(`[Tallor] Syncing initial state: ${this.currentState}`);
+      debug.state('Syncing initial state', { state: this.currentState, taskId: this.taskId });
       await this.client.updateTaskState(this.taskId, this.currentState, `Initial state: ${this.currentState}`);
     }
   }

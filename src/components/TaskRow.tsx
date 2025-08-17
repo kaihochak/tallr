@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { 
   Trash2,
   MoreHorizontal,
@@ -14,6 +14,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { TaskRowProps } from '@/types';
 import { isTaskCompleted } from '@/lib/sessionHelpers';
@@ -33,6 +41,7 @@ export default function TaskRow({
   onTogglePin,
   allTasks
 }: TaskRowProps) {
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const handleJumpToContext = useCallback(async () => {
     if (!project) return;
@@ -65,9 +74,7 @@ export default function TaskRow({
           await onTogglePin(task.id, !task.pinned);
           break;
         case 'delete':
-          if (confirm(`Delete session "${task.agent}" in ${project?.name || "Unknown"}?`)) {
-            await onDeleteTask(task.id);
-          }
+          setShowDeleteDialog(true);
           break;
       }
     } catch (error) {
@@ -76,14 +83,33 @@ export default function TaskRow({
     }
   }, [task.id, task.agent, task.pinned, project?.name, onJumpToContext, onShowDebug, onTogglePin, onDeleteTask]);
 
+  const handleConfirmDelete = useCallback(async () => {
+    try {
+      await onDeleteTask(task.id);
+      setShowDeleteDialog(false);
+    } catch (error) {
+      console.error("Failed to delete task:", error);
+      alert("Failed to delete session. Please try again.");
+    }
+  }, [task.id, onDeleteTask]);
+
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 p-5 mb-4 rounded-xl bg-bg-card border border-border-light cursor-pointer transition-all duration-200 animate-slideInUp shadow-sm relative overflow-hidden min-h-[60px]",
-        "hover:-translate-y-0.5 hover:shadow-md hover:border-border-secondary",
-        isTaskCompleted(task.state) && "opacity-80"
+        "flex flex-col gap-3 p-4 mb-3 rounded-lg bg-bg-card border border-border-primary cursor-pointer transition-all duration-150 animate-slideInUp relative overflow-hidden min-h-[60px]",
+        "hover:border-border-secondary hover:bg-bg-hover",
+        isTaskCompleted(task.state) && "opacity-70"
       )}
-      onClick={handleJumpToContext}
+      title="Click to open in IDE • Option+Click for debug console"
+      onClick={(e) => {
+        // Option+click opens debug dialog
+        if (e.altKey) {
+          e.preventDefault();
+          onShowDebug?.(task.id);
+        } else {
+          handleJumpToContext();
+        }
+      }}
     >
       <StatusIndicator state={task.state} />
       
@@ -148,6 +174,26 @@ export default function TaskRow({
           onToggleExpanded={toggleTaskExpanded}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Session</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the "{task.agent}" session in {project?.name || "Unknown"}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDelete}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

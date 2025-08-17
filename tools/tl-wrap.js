@@ -20,6 +20,7 @@ import { TallorClient } from './lib/http-client.js';
 import { ClaudeStateTracker } from './lib/state-tracker.js';
 import { getIdeCommand, promptForIdeCommand } from './lib/settings.js';
 import { debugRegistry } from './lib/debug-registry.js';
+import { debug } from './lib/debug.js';
 import { execSync } from 'child_process';
 import http from 'http';
 
@@ -105,12 +106,24 @@ const config = {
 // Generate unique task ID
 const taskId = `${config.agent}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+// Check if debug mode is enabled
+const debugEnabled = process.env.TALLOR_DEBUG === 'true' || 
+                    process.env.DEBUG?.includes('tallor') || 
+                    process.env.NODE_ENV === 'development';
+
 // Initialize components
 const client = new TallorClient(config);
-const stateTracker = new ClaudeStateTracker(client, taskId, false); // Disable debug
+const stateTracker = new ClaudeStateTracker(client, taskId, debugEnabled);
 
 // Register state tracker for debug access
 debugRegistry.register(taskId, stateTracker);
+
+debug.cli('CLI wrapper initialized', {
+  taskId,
+  agent: config.agent,
+  project: config.project,
+  debugEnabled
+});
 
 /**
  * PTY approach for interactive CLIs - minimal passthrough
@@ -187,7 +200,7 @@ async function runWithPTY(command, commandArgs) {
 
   // Handle PTY errors with better recovery
   ptyProcess.on('error', async (error) => {
-    console.error(`\n[Tally] PTY error:`, error.message);
+    console.error(`\n[Tallor] PTY error:`, error.message);
     
     // Attempt graceful cleanup
     try {
@@ -203,7 +216,7 @@ async function runWithPTY(command, commandArgs) {
       debugRegistry.unregister(taskId);
       stateTracker.stopDebugUpdates();
     } catch (cleanupError) {
-      console.error(`[Tally] Cleanup error:`, cleanupError.message);
+      console.error(`[Tallor] Cleanup error:`, cleanupError.message);
     }
     
     // Exit with appropriate code based on error type
@@ -213,7 +226,7 @@ async function runWithPTY(command, commandArgs) {
 
   // Handle signals with robust cleanup
   const cleanup = async (signal, exitCode) => {
-    console.log(`\n[Tally] Received ${signal}, cleaning up PTY...`);
+    console.log(`\n[Tallor] Received ${signal}, cleaning up PTY...`);
     
     try {
       // Kill PTY process if still running
@@ -229,7 +242,7 @@ async function runWithPTY(command, commandArgs) {
       // Update task state
       await client.updateTaskState(taskId, 'CANCELLED', `Interactive session ${signal.toLowerCase()}`);
     } catch (cleanupError) {
-      console.error(`[Tally] Cleanup error:`, cleanupError.message);
+      console.error(`[Tallor] Cleanup error:`, cleanupError.message);
     } finally {
       process.exit(exitCode);
     }
@@ -317,7 +330,7 @@ async function runWithSpawn(command, commandArgs) {
 
   // Handle process errors with better diagnostics
   child.on('error', async (error) => {
-    console.error(`[Tally] Process error:`, error.message);
+    console.error(`[Tallor] Process error:`, error.message);
     
     try {
       // Provide better error context
@@ -330,7 +343,7 @@ async function runWithSpawn(command, commandArgs) {
       
       await client.updateTaskState(taskId, 'ERROR', errorDetails);
     } catch (updateError) {
-      console.error(`[Tally] Failed to update error state:`, updateError.message);
+      console.error(`[Tallor] Failed to update error state:`, updateError.message);
     }
     
     const exitCode = error.code === 'ENOENT' ? 127 : 1;
@@ -339,7 +352,7 @@ async function runWithSpawn(command, commandArgs) {
 
   // Handle signals with robust cleanup
   const cleanup = async (signal, exitCode) => {
-    console.log(`\n[Tally] Received ${signal}, cleaning up...`);
+    console.log(`\n[Tallor] Received ${signal}, cleaning up...`);
     
     try {
       // Kill child process if still running
@@ -350,7 +363,7 @@ async function runWithSpawn(command, commandArgs) {
       // Update task state
       await client.updateTaskState(taskId, 'CANCELLED', `Process ${signal.toLowerCase()}`);
     } catch (cleanupError) {
-      console.error(`[Tally] Cleanup error:`, cleanupError.message);
+      console.error(`[Tallor] Cleanup error:`, cleanupError.message);
     } finally {
       process.exit(exitCode);
     }
@@ -381,7 +394,7 @@ async function main() {
       taskCreated = true;
     } catch (error) {
       // Continue even if task creation fails
-      console.error(`[Tally] Warning: Could not create task, continuing without tracking`);
+      console.error(`[Tallor] Warning: Could not create task, continuing without tracking`);
     }
     
     // Initialize state tracking
@@ -398,7 +411,7 @@ async function main() {
     }
     
   } catch (error) {
-    console.error('[Tally] Wrapper error:', error.message);
+    console.error('[Tallor] Wrapper error:', error.message);
     
     // Try to clean up task state if it was created
     if (taskCreated) {
@@ -417,7 +430,7 @@ async function main() {
  * Global error handlers for unhandled errors
  */
 process.on('uncaughtException', async (error) => {
-  console.error('[Tally] Uncaught exception:', error.message);
+  console.error('[Tallor] Uncaught exception:', error.message);
   try {
     await client.updateTaskState(taskId, 'ERROR', `Uncaught exception: ${error.message}`);
   } catch {
@@ -427,7 +440,7 @@ process.on('uncaughtException', async (error) => {
 });
 
 process.on('unhandledRejection', async (reason, promise) => {
-  console.error('[Tally] Unhandled promise rejection:', reason);
+  console.error('[Tallor] Unhandled promise rejection:', reason);
   try {
     await client.updateTaskState(taskId, 'ERROR', `Unhandled rejection: ${reason}`);
   } catch {
@@ -439,7 +452,7 @@ process.on('unhandledRejection', async (reason, promise) => {
 // Run if called directly
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((error) => {
-    console.error('[Tally] Fatal wrapper error:', error.message);
+    console.error('[Tallor] Fatal wrapper error:', error.message);
     process.exit(1);
   });
 }

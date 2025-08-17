@@ -1,43 +1,69 @@
-import { Terminal, Code, HelpCircle, Sparkles } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Terminal, Copy, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function EmptyState() {
+  const [copied, setCopied] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState("claude");
+
+  const handleCopyCommand = useCallback(() => {
+    const command = `tallor ${selectedAgent}`;
+    navigator.clipboard.writeText(command);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [selectedAgent]);
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-10 animate-fadeIn">
-      <Sparkles className="w-48 h-48 mb-6 text-accent-primary opacity-20 animate-pulse-slow" />
-      <h3 className="text-2xl font-bold text-text-primary mb-3 m-0">Ready to track your AI sessions!</h3>
-      <p className="text-text-secondary text-base max-w-[500px] mb-8 m-0">
-        Use the <code className="bg-bg-tertiary px-1.5 py-0.5 rounded font-mono text-sm text-accent-primary border border-border-primary">tallor</code> command to wrap any AI tool and get notifications when it needs input.
+    <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8 animate-fadeIn">
+      <h3 className="text-2xl font-semibold text-text-primary mb-3 m-0">No active sessions</h3>
+      <p className="text-text-secondary text-base mb-8 m-0 max-w-[400px]">
+        Wrap your AI CLI tools with tallor to get notified when they need input
       </p>
-      <div className="flex gap-6 my-8 justify-center flex-wrap">
-        <div className="text-left bg-bg-card p-5 rounded-xl border border-border-primary transition-all duration-200 shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:border-accent-primary">
-          <h4 className="text-sm font-semibold text-text-primary flex items-center gap-2 mb-3 m-0">
-            <Terminal className="w-4.5 h-4.5 text-accent-primary" />
-            Try it out:
-          </h4>
-          <code className="block font-mono text-sm bg-bg-tertiary px-3 py-2.5 rounded-md my-1.5 text-accent-primary border border-border-light transition-all duration-200 hover:bg-bg-hover hover:border-accent-primary">
-            cd ~/your-project
-          </code>
-          <code className="block font-mono text-sm bg-bg-tertiary px-3 py-2.5 rounded-md my-1.5 text-accent-primary border border-border-light transition-all duration-200 hover:bg-bg-hover hover:border-accent-primary">
-            tallor claude
-          </code>
+      
+      <div className="bg-bg-card p-6 rounded-xl border border-border-primary shadow-sm max-w-[360px] w-full">
+        <div className="flex items-center gap-3 mb-4">
+          <Terminal className="w-5 h-5 text-accent-primary" />
+          <span className="text-sm font-medium text-text-primary">Get started</span>
         </div>
-        <div className="text-left bg-bg-card p-5 rounded-xl border border-border-primary transition-all duration-200 shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:border-accent-primary">
-          <h4 className="text-sm font-semibold text-text-primary flex items-center gap-2 mb-3 m-0">
-            <Code className="w-4.5 h-4.5 text-accent-primary" />
-            Other AI tools:
-          </h4>
-          <code className="block font-mono text-sm bg-bg-tertiary px-3 py-2.5 rounded-md my-1.5 text-accent-primary border border-border-light transition-all duration-200 hover:bg-bg-hover hover:border-accent-primary">
-            tallor gemini
+        
+        <div className="mb-4">
+          <Select value={selectedAgent} onValueChange={setSelectedAgent}>
+            <SelectTrigger className="w-full border-border-primary bg-bg-card text-text-primary text-sm font-medium hover:border-border-secondary hover:bg-bg-hover cursor-pointer">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="cursor-pointer">
+              <SelectItem value="claude" className="cursor-pointer">Claude Code CLI</SelectItem>
+              <SelectItem value="gemini" className="cursor-pointer">Gemini CLI</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div className="relative">
+          <code className="block font-mono text-sm bg-bg-tertiary px-4 py-3 rounded-lg text-accent-primary border border-border-light pr-12">
+            tallor {selectedAgent}
           </code>
-          <code className="block font-mono text-sm bg-bg-tertiary px-3 py-2.5 rounded-md my-1.5 text-accent-primary border border-border-light transition-all duration-200 hover:bg-bg-hover hover:border-accent-primary">
-            tallor cursor-composer
-          </code>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleCopyCommand}
+            className="absolute top-2 right-2 h-7 w-7 text-text-secondary hover:text-text-primary"
+            title="Copy command"
+          >
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+          </Button>
         </div>
       </div>
-      <div className="text-sm text-text-tertiary mt-6 flex items-center gap-2">
-        <HelpCircle className="w-4 h-4" />
-        <small>Sessions will appear here automatically when you start them</small>
-      </div>
+      
+      <p className="text-xs text-text-tertiary mt-6 flex items-center gap-1">
+        Sessions appear here automatically
+      </p>
     </div>
   );
 }

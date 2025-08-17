@@ -67,59 +67,11 @@ const CLAUDE_PATTERNS = [
     expectedState: 'PENDING'
   },
   {
-    pattern: '❯ 1\\.|❯ 2\\.|❯ 3\\.',
-    regex: /❯\s*[123]\./,
-    description: 'Claude numbered options detection',
-    expectedState: 'PENDING'
-  },
-  {
-    pattern: 'Would you like to proceed\\?',
-    regex: /Would you like to proceed\?/i,
-    description: 'Proceed confirmation detection',
-    expectedState: 'PENDING'
-  },
-  {
-    pattern: 'Approve\\?',
-    regex: /Approve\?/i,
-    description: 'Approval prompt detection',
-    expectedState: 'PENDING'
-  },
-  {
-    pattern: '\\[y/N\\]|\\[Y/n\\]',
-    regex: /\[(y\/N|Y\/n)\]/,
-    description: 'Y/N choice detection',
-    expectedState: 'PENDING'
-  },
-  {
     pattern: 'esc to interrupt',
     regex: /esc to interrupt/i,
     description: 'Working state detection',
     expectedState: 'WORKING'
   },
-  {
-    pattern: 'working\\.\\.\\.|…',
-    regex: /(working\.\.\.)|…/i,
-    description: 'Working indicator detection',
-    expectedState: 'WORKING'
-  },
-  {
-    pattern: 'error|failed|exception',
-    regex: /error|failed|exception/i,
-    description: 'Error detection',
-    expectedState: 'ERROR'
-  },
-  {
-    pattern: 'continue\\?|proceed\\?',
-    regex: /(continue|proceed)\?/i,
-    description: 'General confirmation detection',
-    expectedState: 'PENDING'
-  },
-  {
-    pattern: 'claude.*thinking|analyzing',
-    regex: /(claude.*(thinking|analyzing))|thinking|analyzing/i,
-    description: 'Claude thinking state',
-    expectedState: 'WORKING'
-  }
 ];
 
 /**
@@ -137,40 +89,37 @@ export function detectClaudeState(line, contextBuffer, recentOutput = '', contex
     expectedState: p.expectedState
   }));
   
-  // WORKING: Claude is actively processing (check first as most important)
-  if (cleanLine.includes('esc to interrupt') || contextBuffer.includes('esc to interrupt')) {
-    return { 
-      state: 'WORKING', 
-      details: cleanLine, 
+  // Check for WORKING patterns in recent context
+  const workingPatterns = CLAUDE_PATTERNS.filter(p => p.expectedState === 'WORKING');
+  const hasWorkingPattern = workingPatterns.some(p => p.regex.test(recentOutput));
+  
+  if (hasWorkingPattern) {
+    return {
+      state: 'WORKING',
+      details: cleanLine,
       confidence: 'high',
-      patternTests 
+      patternTests
     };
   }
   
-  // PENDING: Claude is waiting for user input - check multiple patterns
-  const pendingCheck = cleanLine.includes('❯') || 
-      cleanLine.includes('Do you want to proceed') ||
-      cleanLine.includes('Would you like to proceed') ||
-      cleanLine.includes('Approve?') ||
-      cleanLine.includes('[y/N]') ||
-      recentOutput.includes('❯ 1.') ||
-      recentOutput.includes('❯ 2.') ||
-      recentOutput.includes('❯ 3.') ||
-      recentOutput.includes('Do you want to proceed') ||
-      recentOutput.includes('Would you like to proceed');
-      
-  if (pendingCheck) {
-    return { 
-      state: 'PENDING', 
-      details: cleanLine, 
+  // Check for PENDING patterns in recent context
+  const pendingPatterns = CLAUDE_PATTERNS.filter(p => p.expectedState === 'PENDING');
+  const hasPendingPattern = pendingPatterns.some(p => p.regex.test(recentOutput));
+  
+  if (hasPendingPattern) {
+    return {
+      state: 'PENDING',
+      details: cleanLine,
       confidence: 'high',
-      patternTests 
+      patternTests
     };
   }
   
-  // IDLE: Only transition to IDLE with very conservative logic
-  // Don't be aggressive - only detect IDLE when we have strong evidence
-  // For now, don't auto-transition to IDLE at all - let explicit signals handle it
-  
-  return { patternTests };
+  // Default to IDLE when no special patterns found
+  return {
+    state: 'IDLE',
+    details: cleanLine,
+    confidence: 'medium',
+    patternTests
+  };
 }

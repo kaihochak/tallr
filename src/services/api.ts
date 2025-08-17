@@ -134,9 +134,8 @@ export const ApiService = {
   },
 
   // Get debug data for pattern detection
-  async getDebugData(taskId?: string): Promise<DebugData> {
-    const endpoint = taskId ? `/v1/debug/patterns/${taskId}` : '/v1/debug/patterns';
-    return apiClient.get<DebugData>(endpoint);
+  async getDebugData(): Promise<DebugData> {
+    return apiClient.get<DebugData>('/v1/debug/patterns');
   },
 
   // Health check for the local server

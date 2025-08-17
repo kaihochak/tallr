@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/button';
 import TaskRow from "./components/TaskRow";
 import EmptyState from "./components/EmptyState";
 import Header from "./components/Header";
-import { DebugDialog } from "./components/DebugDialog";
+import { DebugPage } from "./components/DebugPage";
 import { useAppState } from "./hooks/useAppState";
 import { useSettings } from "./hooks/useSettings";
+import { debug } from "./utils/debug";
+import { ApiService } from "./services/api";
 import "./App.css";
 
 interface Task {
@@ -36,9 +38,10 @@ function App() {
   const [stateFilter, setStateFilter] = useState("all");
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
-  const [showDebugDialog, setShowDebugDialog] = useState(false);
-  const [debugTaskId, setDebugTaskId] = useState<string | undefined>(undefined);
+  const [currentPage, setCurrentPage] = useState<'tasks' | 'debug'>('tasks');
+  const [debugTaskId, setDebugTaskId] = useState<string | null>(null);
   const [showDoneTasks, setShowDoneTasks] = useState(false);
+  
   
   // Setup wizard state
   const [installing, setInstalling] = useState(false);
@@ -132,18 +135,28 @@ function App() {
 
   // Handle delete task
   const handleDeleteTask = useCallback(async (taskId: string) => {
+    console.log(`Attempting to delete task: ${taskId}`);
     try {
+      const requestBody = { taskId };
+      console.log("Delete request body:", requestBody);
+      
       const response = await fetch("http://127.0.0.1:4317/v1/tasks/delete", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ taskId }),
+        body: JSON.stringify(requestBody),
       });
 
+      console.log(`Delete response status: ${response.status}`);
+      
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error("Delete response error:", errorText);
+        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
       }
+      
+      console.log(`Successfully deleted task: ${taskId}`);
     } catch (error) {
       console.error("Failed to delete task:", error);
       throw error; // Re-throw so TaskRow can handle the error display
@@ -161,7 +174,7 @@ function App() {
   // Handle show debug for specific task
   const handleShowDebugForTask = useCallback((taskId: string) => {
     setDebugTaskId(taskId);
-    setShowDebugDialog(true);
+    setCurrentPage('debug');
   }, []);
 
   // Handle toggle pin
@@ -184,6 +197,31 @@ function App() {
     }
   }, []);
 
+  // Copy debug state to clipboard for sharing
+  const copyDebugStateToClipboard = useCallback(async () => {
+    try {
+      const debugData = await ApiService.getDebugData();
+      const simplifiedState = {
+        currentState: debugData.currentState,
+        confidence: debugData.confidence,
+        taskId: debugData.taskId,
+        isActive: debugData.isActive,
+        recentHistory: debugData.detectionHistory.slice(-3),
+        matchingPatterns: debugData.patternTests.filter(p => p.matches).map(p => p.pattern),
+        timestamp: new Date().toISOString()
+      };
+      
+      await navigator.clipboard.writeText(JSON.stringify(simplifiedState, null, 2));
+      debug.ui('Debug state copied to clipboard', simplifiedState);
+      
+      // Show a brief notification (could enhance this later)
+      console.log('Debug state copied to clipboard');
+    } catch (error) {
+      debug.ui('Failed to copy debug state', { error });
+      console.error('Failed to copy debug state:', error);
+    }
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -193,11 +231,22 @@ function App() {
         toggleAlwaysOnTop();
       }
       
+      // Command+Shift+D for debug page
+      if (e.metaKey && e.shiftKey && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        setCurrentPage(prev => prev === 'debug' ? 'tasks' : 'debug');
+      }
+      
+      // Command+Shift+C to copy debug state to clipboard
+      if (e.metaKey && e.shiftKey && e.key.toLowerCase() === "c") {
+        e.preventDefault();
+        copyDebugStateToClipboard();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [toggleAlwaysOnTop]);
+  }, [toggleAlwaysOnTop, copyDebugStateToClipboard]);
 
   // Setup wizard handlers
   const handleInstall = useCallback(async () => {
@@ -358,55 +407,51 @@ function App() {
         alwaysOnTop={settings.alwaysOnTop}
         stateFilter={stateFilter}
         theme={settings.theme}
+        showDebugPanel={currentPage === 'debug'}
         onTogglePin={toggleAlwaysOnTop}
         onToggleDoneTasks={() => setShowDoneTasks(prev => !prev)}
         onStateFilterChange={setStateFilter}
         onToggleTheme={toggleTheme}
+        onToggleDebugPanel={() => setCurrentPage(prev => prev === 'debug' ? 'tasks' : 'debug')}
       />
 
-      {/* Task List */}
-      <div className="flex-1 overflow-y-auto p-6 bg-bg-primary scrollbar-thin scrollbar-thumb-border-primary scrollbar-track-transparent scrollbar-thumb-rounded-full scrollbar-track-rounded-full hover:scrollbar-thumb-border-secondary">
-        {isLoading ? (
-          // Loading skeletons
-          <>
-            <div className="h-20 mb-3 rounded-xl bg-gradient-to-r from-bg-tertiary via-bg-hover to-bg-tertiary bg-[length:2000px_100%] animate-shimmer"></div>
-            <div className="h-20 mb-3 rounded-xl bg-gradient-to-r from-bg-tertiary via-bg-hover to-bg-tertiary bg-[length:2000px_100%] animate-shimmer"></div>
-            <div className="h-20 mb-3 rounded-xl bg-gradient-to-r from-bg-tertiary via-bg-hover to-bg-tertiary bg-[length:2000px_100%] animate-shimmer"></div>
-          </>
-        ) : filteredTasks.length === 0 ? (
-          <EmptyState />
-        ) : (
-          filteredTasks.map((task) => {
-            const project = appState.projects[task.projectId];
-            const isExpanded = expandedTasks.has(task.id);
-            
-            return (
-              <TaskRow
-                key={task.id}
-                task={task}
-                project={project}
-                isExpanded={isExpanded}
-                setExpandedTasks={setExpandedTasks}
-                onDeleteTask={handleDeleteTask}
-                onJumpToContext={handleJumpToSpecificTask}
-                onShowDebug={handleShowDebugForTask}
-                onTogglePin={handleTogglePin}
-                allTasks={filteredTasks}
-              />
-            );
-          })
-        )}
-      </div>
-
-      {/* Debug Dialog */}
-      <DebugDialog 
-        isOpen={showDebugDialog}
-        onClose={() => {
-          setShowDebugDialog(false);
-          setDebugTaskId(undefined);
-        }}
-        taskId={debugTaskId}
-      />
+      {/* Main Content */}
+      {currentPage === 'tasks' ? (
+        <div className="flex-1 overflow-y-auto p-6 bg-bg-primary scrollbar-thin scrollbar-thumb-border-primary scrollbar-track-transparent scrollbar-thumb-rounded-full scrollbar-track-rounded-full hover:scrollbar-thumb-border-secondary">
+          {isLoading ? (
+            // Loading skeletons
+            <>
+              <div className="h-20 mb-3 rounded-xl bg-gradient-to-r from-bg-tertiary via-bg-hover to-bg-tertiary bg-[length:2000px_100%] animate-shimmer"></div>
+              <div className="h-20 mb-3 rounded-xl bg-gradient-to-r from-bg-tertiary via-bg-hover to-bg-tertiary bg-[length:2000px_100%] animate-shimmer"></div>
+              <div className="h-20 mb-3 rounded-xl bg-gradient-to-r from-bg-tertiary via-bg-hover to-bg-tertiary bg-[length:2000px_100%] animate-shimmer"></div>
+            </>
+          ) : filteredTasks.length === 0 ? (
+            <EmptyState />
+          ) : (
+            filteredTasks.map((task) => {
+              const project = appState.projects[task.projectId];
+              const isExpanded = expandedTasks.has(task.id);
+              
+              return (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  project={project}
+                  isExpanded={isExpanded}
+                  setExpandedTasks={setExpandedTasks}
+                  onDeleteTask={handleDeleteTask}
+                  onJumpToContext={handleJumpToSpecificTask}
+                  onShowDebug={handleShowDebugForTask}
+                  onTogglePin={handleTogglePin}
+                  allTasks={filteredTasks}
+                />
+              );
+            })
+          )}
+        </div>
+      ) : (
+        <DebugPage onBack={() => setCurrentPage('tasks')} />
+      )}
       
       {/* Footer */}
       <footer className="p-4 border-t border-border-primary bg-bg-secondary text-xs text-text-secondary flex justify-between items-center">

@@ -2,7 +2,8 @@ import {
   Pin,
   Filter,
   Sun,
-  Moon
+  Moon,
+  Bug
 } from "lucide-react";
 import {
   Select,
