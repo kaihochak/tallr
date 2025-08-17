@@ -212,11 +212,10 @@ function App() {
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-bg-primary to-bg-secondary animate-fadeIn">
       {/* Setup Wizard */}
-      {showSetupWizard && (
-        <SetupWizard 
-          onComplete={handleSetupComplete}
-        />
-      )}
+      <SetupWizard 
+        isOpen={showSetupWizard}
+        onComplete={handleSetupComplete}
+      />
       
       {/* Header */}
       <Header 

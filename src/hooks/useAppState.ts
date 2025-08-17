@@ -1,34 +1,6 @@
 import { useState, useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
-
-interface Project {
-  id: string;
-  name: string;
-  repoPath: string;
-  preferredIde: string;
-  githubUrl?: string;
-  createdAt: number;
-  updatedAt: number;
-}
-
-interface Task {
-  id: string;
-  projectId: string;
-  agent: string;
-  title: string;
-  state: string;
-  details?: string;
-  createdAt: number;
-  updatedAt: number;
-  completedAt?: number;
-  pinned: boolean;
-}
-
-interface AppState {
-  projects: Record<string, Project>;
-  tasks: Record<string, Task>;
-  updatedAt: number;
-}
+import { AppState } from '@/types';
 
 export function useAppState() {
   const [appState, setAppState] = useState<AppState>({ 
@@ -96,10 +68,6 @@ export function useAppState() {
     };
 
     loadTasks();
-    
-    // Poll for updates every 2 seconds
-    const interval = setInterval(loadTasks, 2000);
-    return () => clearInterval(interval);
   }, []);
 
   return {

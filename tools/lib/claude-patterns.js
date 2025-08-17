@@ -125,7 +125,7 @@ const CLAUDE_PATTERNS = [
 /**
  * Detect Claude state from cleaned line and context
  */
-export function detectClaudeState(line, contextBuffer, recentOutput = '') {
+export function detectClaudeState(line, contextBuffer, recentOutput = '', contextLines = []) {
   const cleanLine = cleanANSIForDetection(line);
   if (!cleanLine || cleanLine.length < 3) return null;
   
@@ -167,6 +167,10 @@ export function detectClaudeState(line, contextBuffer, recentOutput = '') {
       patternTests 
     };
   }
+  
+  // IDLE: Only transition to IDLE with very conservative logic
+  // Don't be aggressive - only detect IDLE when we have strong evidence
+  // For now, don't auto-transition to IDLE at all - let explicit signals handle it
   
   return { patternTests };
 }

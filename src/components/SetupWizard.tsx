@@ -1,13 +1,21 @@
 import React, { useState, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Download, Terminal, Copy, Check, AlertCircle } from 'lucide-react';
-import './SetupWizard.css';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 
 interface SetupWizardProps {
+  isOpen: boolean;
   onComplete: () => void;
 }
 
-const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
+const SetupWizard: React.FC<SetupWizardProps> = ({ isOpen, onComplete }) => {
   const [installing, setInstalling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showManualInstructions, setShowManualInstructions] = useState(false);
@@ -50,66 +58,89 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
   }, []);
 
   return (
-    <div className="setup-wizard-overlay">
-      <div className="setup-wizard">
-        <div className="install-main">
-          <h2>Install CLI Tools</h2>
-          <p>Get notified when your AI sessions need input.</p>
+    <Dialog open={isOpen} onOpenChange={() => {}}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-semibold text-center">
+            Install CLI Tools
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-6">
+          <p className="text-center text-text-secondary">
+            Get notified when your AI sessions need input.
+          </p>
           
-          <button 
-            className="primary-install-button" 
+          <Button 
             onClick={handleInstall}
             disabled={installing}
+            className="w-full h-12 text-base font-medium"
+            size="lg"
           >
             {installing ? (
               <>
-                <Download className="install-icon spinner" /> Installing...
+                <Download className="w-5 h-5 mr-2 animate-spin" /> Installing...
               </>
             ) : (
               <>
-                <Download className="install-icon" /> Install CLI Tools
+                <Download className="w-5 h-5 mr-2" /> Install CLI Tools
               </>
             )}
-          </button>
+          </Button>
           
           {error && (
-            <div className="install-error">
-              <p><AlertCircle style={{ width: 16, height: 16, display: 'inline', marginRight: 4 }} /><strong>Installation failed:</strong></p>
-              <p className="error-message">{error}</p>
+            <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <div className="flex items-center gap-2 mb-2 text-destructive">
+                <AlertCircle size={16} />
+                <strong>Installation failed:</strong>
+              </div>
+              <p className="text-destructive text-sm mb-2">{error}</p>
               {showManualInstructions && (
-                <p>Please try the manual installation method below.</p>
+                <p className="text-destructive text-sm">Please try the manual installation method below.</p>
               )}
             </div>
           )}
-        </div>
 
-        <div className="wizard-actions">
-          <button 
-            className="alternatives-button" 
-            onClick={() => setShowManualInstructions(!showManualInstructions)}
-          >
-            {showManualInstructions ? 'Hide' : 'Manual installation'}
-          </button>
-        </div>
-
-        {/* Manual installation instructions */}
-        {showManualInstructions && (
-          <div className="manual-panel">
-            <h4><Terminal className="manual-icon" /> Manual Installation</h4>
-            <p>Run this command in Terminal:</p>
-            <div className="command-box">
-              <code>sudo ln -s /Applications/Tally.app/Contents/MacOS/tally /usr/local/bin/tally</code>
-              <button className="copy-button" onClick={handleCopyCommand}>
-                {copied ? <Check /> : <Copy />}
-              </button>
-            </div>
-            <p className="manual-note">
-              You'll be prompted for your password to create the symlink.
-            </p>
+          <div className="flex justify-center">
+            <Button 
+              variant="outline"
+              onClick={() => setShowManualInstructions(!showManualInstructions)}
+              className="text-sm"
+            >
+              {showManualInstructions ? 'Hide' : 'Manual installation'}
+            </Button>
           </div>
-        )}
-      </div>
-    </div>
+
+          {/* Manual installation instructions */}
+          {showManualInstructions && (
+            <div className="space-y-4 p-4 bg-bg-secondary border border-border-primary rounded-lg">
+              <div className="flex items-center gap-2">
+                <Terminal size={18} className="text-text-primary" />
+                <h4 className="font-semibold text-text-primary">Manual Installation</h4>
+              </div>
+              <p className="text-sm text-text-secondary">Run this command in Terminal:</p>
+              <div className="relative">
+                <code className="block p-3 bg-bg-tertiary border border-border-secondary rounded-lg text-sm font-mono text-text-primary pr-12 whitespace-pre-wrap">
+                  sudo ln -s /Applications/Tally.app/Contents/MacOS/tally /usr/local/bin/tally
+                </code>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleCopyCommand}
+                  className="absolute top-2 right-2 h-8 w-8 text-text-secondary hover:text-text-primary"
+                  title="Copy to clipboard"
+                >
+                  {copied ? <Check size={16} /> : <Copy size={16} />}
+                </Button>
+              </div>
+              <p className="text-xs text-text-tertiary">
+                You'll be prompted for your password to create the symlink.
+              </p>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

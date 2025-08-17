@@ -634,6 +634,7 @@ struct AppSettings {
     visible_on_all_workspaces: bool,
     window_position: Option<WindowPosition>,
     preferred_ide: String,
+    theme: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -649,6 +650,7 @@ impl Default for AppSettings {
             visible_on_all_workspaces: true,
             window_position: None,
             preferred_ide: "cursor".to_string(),
+            theme: "light".to_string(),
         }
     }
 }

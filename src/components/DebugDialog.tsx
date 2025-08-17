@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react';
-import { X, Bug, Circle, CheckCircle, XCircle } from 'lucide-react';
+import { X, Bug, Circle, CheckCircle, XCircle, Copy, Check } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 
 interface DebugData {
   currentBuffer: string;
@@ -32,6 +40,46 @@ export function DebugDialog({ isOpen, onClose }: DebugDialogProps) {
   const [debugData, setDebugData] = useState<DebugData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copiedStates, setCopiedStates] = useState<Record<string, boolean>>({});
+
+  // Copy functionality
+  const copyToClipboard = async (text: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedStates(prev => ({ ...prev, [key]: true }));
+      setTimeout(() => {
+        setCopiedStates(prev => ({ ...prev, [key]: false }));
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+    }
+  };
+
+  const copyAllDebugData = () => {
+    if (!debugData) return;
+    const allData = JSON.stringify(debugData, null, 2);
+    copyToClipboard(allData, 'all');
+  };
+
+  const copyBuffer = (buffer: string, type: 'raw' | 'cleaned') => {
+    copyToClipboard(buffer, `buffer-${type}`);
+  };
+
+  const copyPatternTests = () => {
+    if (!debugData) return;
+    const patterns = debugData.patternTests.map(test => 
+      `${test.matches ? '✓' : '✗'} ${test.pattern} → ${test.expectedState} (${test.description})`
+    ).join('\n');
+    copyToClipboard(patterns, 'patterns');
+  };
+
+  const copyHistory = () => {
+    if (!debugData) return;
+    const history = debugData.detectionHistory.map(entry => 
+      `${new Date(entry.timestamp * 1000).toLocaleTimeString()} | ${entry.from} → ${entry.to} | ${entry.confidence} | ${entry.details}`
+    ).join('\n');
+    copyToClipboard(history, 'history');
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -64,29 +112,52 @@ export function DebugDialog({ isOpen, onClose }: DebugDialogProps) {
 
   if (!isOpen) return null;
 
-  return (
-    <div className="debug-dialog-overlay">
-      <div className="debug-dialog">
-        <div className="debug-header">
-          <div className="debug-title">
-            <Bug size={20} />
-            <h2>Pattern Detection Debug</h2>
-          </div>
-          <button className="debug-close" onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
+  // Copy button component
+  const CopyButton = ({ onClick, copyKey, className = "", size = 16 }: { 
+    onClick: () => void; 
+    copyKey: string; 
+    className?: string;
+    size?: number;
+  }) => (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={onClick}
+      className={cn("h-8 w-8 text-text-secondary hover:text-text-primary", className)}
+      title="Copy to clipboard"
+    >
+      {copiedStates[copyKey] ? <Check size={size} /> : <Copy size={size} />}
+    </Button>
+  );
 
-        <div className="debug-content">
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+        <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <DialogTitle className="flex items-center gap-3 text-lg font-semibold">
+            <Bug size={20} className="text-text-primary" />
+            Pattern Detection Debug
+          </DialogTitle>
+          <div className="flex items-center gap-2">
+            <CopyButton 
+              onClick={copyAllDebugData} 
+              copyKey="all" 
+              className="h-8 w-8"
+              size={16}
+            />
+          </div>
+        </DialogHeader>
+
+        <div className="overflow-y-auto max-h-[calc(90vh-120px)] space-y-6 pr-2">
           {isLoading && !debugData && (
-            <div className="debug-loading">
-              <Circle className="loading-spinner" size={20} />
+            <div className="flex items-center justify-center gap-3 py-8 text-text-secondary">
+              <Circle className="animate-spin" size={20} />
               Loading debug data...
             </div>
           )}
 
           {error && (
-            <div className="debug-error">
+            <div className="flex items-center gap-2 p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive">
               <XCircle size={16} />
               {error}
             </div>
@@ -95,18 +166,26 @@ export function DebugDialog({ isOpen, onClose }: DebugDialogProps) {
           {debugData && (
             <>
               {/* Current State */}
-              <div className="debug-section">
-                <h3>Current State</h3>
-                <div className="debug-state-info">
-                  <div className="state-badge">
-                    <span className={`state-indicator state-${debugData.currentState.toLowerCase()}`}>
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-text-primary">Current State</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <span className={cn(
+                      "px-3 py-1.5 rounded-lg font-medium text-sm",
+                      debugData.currentState.toLowerCase() === 'pending' && "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300",
+                      debugData.currentState.toLowerCase() === 'working' && "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300",
+                      debugData.currentState.toLowerCase() === 'idle' && "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300"
+                    )}>
                       {debugData.currentState}
                     </span>
-                    <span className="confidence">({debugData.confidence} confidence)</span>
+                    <span className="text-text-secondary text-sm">({debugData.confidence} confidence)</span>
                   </div>
-                  <div className="task-info">
-                    <strong>Task ID:</strong> {debugData.taskId}
-                    <span className={`status ${debugData.isActive ? 'active' : 'inactive'}`}>
+                  <div className="flex items-center gap-4 text-sm">
+                    <span className="text-text-primary"><strong>Task ID:</strong> {debugData.taskId}</span>
+                    <span className={cn(
+                      "flex items-center gap-1 px-2 py-1 rounded text-xs font-medium",
+                      debugData.isActive ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300" : "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300"
+                    )}>
                       {debugData.isActive ? '🟢 Active' : '🔴 Inactive'}
                     </span>
                   </div>
@@ -114,56 +193,114 @@ export function DebugDialog({ isOpen, onClose }: DebugDialogProps) {
               </div>
 
               {/* Buffer Content */}
-              <div className="debug-section">
-                <h3>Buffer Analysis</h3>
-                <div className="buffer-content">
-                  <div className="buffer-item">
-                    <label>Raw Buffer ({debugData.currentBuffer.length} chars):</label>
-                    <pre className="buffer-text raw">{debugData.currentBuffer || '(empty)'}</pre>
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-text-primary">Buffer Analysis</h3>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-text-primary">Raw Buffer ({debugData.currentBuffer.length} chars)</label>
+                      <CopyButton 
+                        onClick={() => copyBuffer(debugData.currentBuffer, 'raw')} 
+                        copyKey="buffer-raw"
+                        size={14}
+                      />
+                    </div>
+                    <pre 
+                      className="p-3 bg-bg-secondary border border-border-primary rounded-lg text-xs text-text-primary font-mono whitespace-pre-wrap cursor-pointer hover:bg-bg-tertiary transition-colors max-h-32 overflow-y-auto" 
+                      onClick={() => copyBuffer(debugData.currentBuffer, 'raw')}
+                    >
+                      {debugData.currentBuffer || '(empty)'}
+                    </pre>
                   </div>
-                  <div className="buffer-item">
-                    <label>Cleaned Buffer ({debugData.cleanedBuffer.length} chars):</label>
-                    <pre className="buffer-text cleaned">{debugData.cleanedBuffer || '(empty)'}</pre>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-text-primary">Cleaned Buffer ({debugData.cleanedBuffer.length} chars)</label>
+                      <CopyButton 
+                        onClick={() => copyBuffer(debugData.cleanedBuffer, 'cleaned')} 
+                        copyKey="buffer-cleaned"
+                        size={14}
+                      />
+                    </div>
+                    <pre 
+                      className="p-3 bg-bg-secondary border border-border-primary rounded-lg text-xs text-text-primary font-mono whitespace-pre-wrap cursor-pointer hover:bg-bg-tertiary transition-colors max-h-32 overflow-y-auto"
+                      onClick={() => copyBuffer(debugData.cleanedBuffer, 'cleaned')}
+                    >
+                      {debugData.cleanedBuffer || '(empty)'}
+                    </pre>
                   </div>
                 </div>
               </div>
 
               {/* Pattern Tests */}
-              <div className="debug-section">
-                <h3>Pattern Matching</h3>
-                <div className="pattern-tests">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-text-primary">Pattern Matching</h3>
+                  <CopyButton 
+                    onClick={copyPatternTests} 
+                    copyKey="patterns"
+                    size={14}
+                  />
+                </div>
+                <div className="space-y-2">
                   {debugData.patternTests.map((test, index) => (
-                    <div key={index} className={`pattern-test ${test.matches ? 'match' : 'no-match'}`}>
-                      <div className="pattern-header">
-                        {test.matches ? <CheckCircle size={16} /> : <XCircle size={16} />}
-                        <code className="pattern-code">"{test.pattern}"</code>
-                        <span className="pattern-state">→ {test.expectedState}</span>
+                    <div key={index} className={cn(
+                      "p-3 border rounded-lg",
+                      test.matches 
+                        ? "bg-green-50 border-green-200 dark:bg-green-900/10 dark:border-green-800" 
+                        : "bg-red-50 border-red-200 dark:bg-red-900/10 dark:border-red-800"
+                    )}>
+                      <div className="flex items-center gap-3 mb-2">
+                        {test.matches ? 
+                          <CheckCircle size={16} className="text-green-600 dark:text-green-400" /> : 
+                          <XCircle size={16} className="text-red-600 dark:text-red-400" />
+                        }
+                        <code className="bg-bg-secondary px-2 py-1 rounded text-sm font-mono text-text-primary">"{test.pattern}"</code>
+                        <span className="text-text-secondary text-sm">→ {test.expectedState}</span>
                       </div>
-                      <div className="pattern-description">{test.description}</div>
+                      <div className="text-sm text-text-secondary ml-7">{test.description}</div>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Detection History */}
-              <div className="debug-section">
-                <h3>Recent History</h3>
-                <div className="detection-history">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-text-primary">Recent History</h3>
+                  <CopyButton 
+                    onClick={copyHistory} 
+                    copyKey="history"
+                    size={14}
+                  />
+                </div>
+                <div className="space-y-2">
                   {debugData.detectionHistory.length === 0 ? (
-                    <div className="no-history">No state changes detected yet</div>
+                    <div className="text-center py-8 text-text-secondary">No state changes detected yet</div>
                   ) : (
                     debugData.detectionHistory.map((entry, index) => (
-                      <div key={index} className="history-entry">
-                        <div className="history-time">
-                          {new Date(entry.timestamp * 1000).toLocaleTimeString()}
+                      <div key={index} className="p-3 bg-bg-secondary border border-border-primary rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="text-sm font-mono text-text-secondary">
+                            {new Date(entry.timestamp * 1000).toLocaleTimeString()}
+                          </div>
+                          <div className="text-xs text-text-tertiary">({entry.confidence})</div>
                         </div>
-                        <div className="history-transition">
-                          <span className={`state-tag ${entry.from.toLowerCase()}`}>{entry.from}</span>
-                          →
-                          <span className={`state-tag ${entry.to.toLowerCase()}`}>{entry.to}</span>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={cn(
+                            "px-2 py-1 rounded text-xs font-medium",
+                            entry.from.toLowerCase() === 'pending' && "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300",
+                            entry.from.toLowerCase() === 'working' && "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300",
+                            entry.from.toLowerCase() === 'idle' && "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300"
+                          )}>{entry.from}</span>
+                          <span className="text-text-secondary">→</span>
+                          <span className={cn(
+                            "px-2 py-1 rounded text-xs font-medium",
+                            entry.to.toLowerCase() === 'pending' && "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300",
+                            entry.to.toLowerCase() === 'working' && "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300",
+                            entry.to.toLowerCase() === 'idle' && "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300"
+                          )}>{entry.to}</span>
                         </div>
-                        <div className="history-details">{entry.details}</div>
-                        <div className="history-confidence">({entry.confidence})</div>
+                        <div className="text-sm text-text-primary">{entry.details}</div>
                       </div>
                     ))
                   )}
@@ -172,7 +309,7 @@ export function DebugDialog({ isOpen, onClose }: DebugDialogProps) {
             </>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

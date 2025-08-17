@@ -37,36 +37,6 @@
   --color-status-pending: #f59e0b;
   --color-status-pending-bg: #fed7aa;
 
-  /* Dark mode colors */
-  --color-*-dark {
-    --color-bg-primary: #0f172a;
-    --color-bg-secondary: #1e293b;
-    --color-bg-tertiary: #334155;
-    --color-bg-hover: #475569;
-    --color-bg-card: #1e293b;
-    --color-bg-overlay: rgba(0, 0, 0, 0.7);
-
-    --color-text-primary: #f8fafc;
-    --color-text-secondary: #cbd5e1;
-    --color-text-tertiary: #94a3b8;
-    --color-text-muted: #64748b;
-
-    --color-border-primary: #334155;
-    --color-border-secondary: #475569;
-    --color-border-light: #1e293b;
-    --color-border-medium: #64748b;
-
-    --color-accent-primary: #818cf8;
-    --color-accent-primary-hover: #6366f1;
-    --color-accent-primary-light: rgba(129, 140, 248, 0.1);
-
-    --color-status-idle: #94a3b8;
-    --color-status-idle-bg: rgba(148, 163, 184, 0.1);
-    --color-status-working: #60a5fa;
-    --color-status-working-bg: rgba(96, 165, 250, 0.1);
-    --color-status-pending: #fbbf24;
-    --color-status-pending-bg: rgba(251, 191, 36, 0.1);
-  }
 
   /* Custom spacing */
   --spacing-2_5: 0.625rem;
@@ -173,68 +143,131 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg-primary: #0f172a;
-      --bg-secondary: #1e293b;
-      --bg-tertiary: #334155;
-      --bg-hover: #475569;
-      --bg-card: #1e293b;
-      --bg-overlay: rgba(0, 0, 0, 0.7);
 
-      --text-primary: #f8fafc;
-      --text-secondary: #cbd5e1;
-      --text-tertiary: #94a3b8;
-      --text-muted: #64748b;
+  /* Manual light mode - overrides system preference when .light class is applied */
+  .light {
+    --color-bg-primary: #ffffff;
+    --color-bg-secondary: #f8fafc;
+    --color-bg-tertiary: #f1f5f9;
+    --color-bg-hover: #e2e8f0;
+    --color-bg-card: #ffffff;
+    --color-bg-overlay: rgba(15, 23, 42, 0.5);
+    
+    --color-text-primary: #0f172a;
+    --color-text-secondary: #475569;
+    --color-text-tertiary: #94a3b8;
+    --color-text-muted: #cbd5e1;
+    
+    --color-border-primary: #e2e8f0;
+    --color-border-secondary: #cbd5e1;
+    --color-border-light: #f1f5f9;
+    --color-border-medium: #94a3b8;
+    
+    --color-accent-primary: #6366f1;
+    --color-accent-primary-hover: #5558e3;
+    --color-accent-primary-light: #e0e7ff;
+    
+    --color-status-idle: #94a3b8;
+    --color-status-idle-bg: #f1f5f9;
+    --color-status-working: #3b82f6;
+    --color-status-working-bg: #dbeafe;
+    --color-status-pending: #f59e0b;
+    --color-status-pending-bg: #fed7aa;
+    
+    /* Agent brand colors - light mode */
+    --agent-claude: #9d6b53;
+    --agent-claude-text: #ffffff;
+    --agent-gemini: #6b7b94;
+    --agent-gemini-text: #ffffff;
+    --agent-cursor: #7c7f9d;
+    --agent-cursor-text: #ffffff;
+    --agent-default: #94a3b8;
+    --agent-default-text: #ffffff;
+    
+    /* IDE brand colors - light mode */
+    --ide-vscode: #5d7c94;
+    --ide-vscode-text: #ffffff;
+    --ide-code: #5d7c94;
+    --ide-code-text: #ffffff;
+    --ide-cursor: #7c7f9d;
+    --ide-cursor-text: #ffffff;
+    --ide-windsurf: #6b9490;
+    --ide-windsurf-text: #ffffff;
+    --ide-webstorm: #6b7b94;
+    --ide-webstorm-text: #ffffff;
+    --ide-zed: #7a9470;
+    --ide-zed-text: #ffffff;
+    --ide-default: #94a3b8;
+    --ide-default-text: #ffffff;
+    
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.1);
+  }
 
-      --border-primary: #334155;
-      --border-secondary: #475569;
-      --border-light: #1e293b;
-      --border-medium: #64748b;
-
-      --accent-primary: #818cf8;
-      --accent-primary-hover: #6366f1;
-      --accent-primary-light: rgba(129, 140, 248, 0.1);
-
-      --status-idle: #94a3b8;
-      --status-idle-bg: rgba(148, 163, 184, 0.1);
-      --status-working: #60a5fa;
-      --status-working-bg: rgba(96, 165, 250, 0.1);
-      --status-pending: #fbbf24;
-      --status-pending-bg: rgba(251, 191, 36, 0.1);
-
-      /* Agent brand colors - dark mode muted */
-      --agent-claude: #8a5a47;
-      --agent-claude-text: #ffffff;
-      --agent-gemini: #5a6b84;
-      --agent-gemini-text: #ffffff;
-      --agent-cursor: #6c6f8a;
-      --agent-cursor-text: #ffffff;
-      --agent-default: #94a3b8;
-      --agent-default-text: #ffffff;
-
-      /* IDE brand colors - dark mode muted */
-      --ide-vscode: #526b84;
-      --ide-vscode-text: #ffffff;
-      --ide-code: #526b84;
-      --ide-code-text: #ffffff;
-      --ide-cursor: #6c6f8a;
-      --ide-cursor-text: #ffffff;
-      --ide-windsurf: #5a8480;
-      --ide-windsurf-text: #ffffff;
-      --ide-webstorm: #5a6b84;
-      --ide-webstorm-text: #ffffff;
-      --ide-zed: #6b8463;
-      --ide-zed-text: #ffffff;
-      --ide-default: #94a3b8;
-      --ide-default-text: #ffffff;
-
-      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.2);
-      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
-      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3);
-      --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.4);
-      --shadow-glow: 0 0 40px rgba(129, 140, 248, 0.15);
-    }
+  /* Manual dark mode - overrides system preference when .dark class is applied */
+  .dark {
+    --color-bg-primary: #0f172a;
+    --color-bg-secondary: #1e293b;
+    --color-bg-tertiary: #334155;
+    --color-bg-hover: #475569;
+    --color-bg-card: #1e293b;
+    --color-bg-overlay: rgba(0, 0, 0, 0.7);
+    
+    --color-text-primary: #f8fafc;
+    --color-text-secondary: #cbd5e1;
+    --color-text-tertiary: #94a3b8;
+    --color-text-muted: #64748b;
+    
+    --color-border-primary: #334155;
+    --color-border-secondary: #475569;
+    --color-border-light: #1e293b;
+    --color-border-medium: #64748b;
+    
+    --color-accent-primary: #818cf8;
+    --color-accent-primary-hover: #6366f1;
+    --color-accent-primary-light: rgba(129, 140, 248, 0.1);
+    
+    --color-status-idle: #94a3b8;
+    --color-status-idle-bg: rgba(148, 163, 184, 0.1);
+    --color-status-working: #60a5fa;
+    --color-status-working-bg: rgba(96, 165, 250, 0.1);
+    --color-status-pending: #fbbf24;
+    --color-status-pending-bg: rgba(251, 191, 36, 0.1);
+    
+    /* Agent brand colors - dark mode muted */
+    --agent-claude: #8a5a47;
+    --agent-claude-text: #ffffff;
+    --agent-gemini: #5a6b84;
+    --agent-gemini-text: #ffffff;
+    --agent-cursor: #6c6f8a;
+    --agent-cursor-text: #ffffff;
+    --agent-default: #94a3b8;
+    --agent-default-text: #ffffff;
+    
+    /* IDE brand colors - dark mode muted */
+    --ide-vscode: #526b84;
+    --ide-vscode-text: #ffffff;
+    --ide-code: #526b84;
+    --ide-code-text: #ffffff;
+    --ide-cursor: #6c6f8a;
+    --ide-cursor-text: #ffffff;
+    --ide-windsurf: #5a8480;
+    --ide-windsurf-text: #ffffff;
+    --ide-webstorm: #5a6b84;
+    --ide-webstorm-text: #ffffff;
+    --ide-zed: #6b8463;
+    --ide-zed-text: #ffffff;
+    --ide-default: #94a3b8;
+    --ide-default-text: #ffffff;
+    
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.2);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.4);
+    --shadow-glow: 0 0 40px rgba(129, 140, 248, 0.15);
   }
 
   * {
@@ -292,9 +325,9 @@
   }
 
   .task-state-badge {
-    padding: 0.125rem 0.5rem;
-    border-radius: 0.25rem;
-    font-size: 0.75rem;
+    padding: 0.25rem 0.625rem;
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.025em;
@@ -321,8 +354,8 @@
   }
 
   .task-state-badge.completed { 
-    background: #dcfce7;
-    color: #16a34a;
+    background: var(--status-working-bg);
+    color: var(--status-working);
     font-weight: 600;
     animation: completedPulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
@@ -495,11 +528,11 @@
   @keyframes completedPulse {
     0%, 100% {
       opacity: 1;
-      background: #d1fae5;
+      background: var(--status-working-bg);
     }
     50% {
       opacity: 0.8;
-      background: #a7f3d0;
+      background: var(--status-working);
     }
   }
 

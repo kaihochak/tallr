@@ -12,7 +12,7 @@ interface AppSettings {
   visibleOnAllWorkspaces: boolean;
   windowPosition?: WindowPosition;
   preferredIde: string;
-  theme: 'light' | 'dark' | 'system';
+  theme: 'light' | 'dark';
 }
 
 export function useSettings() {
@@ -21,32 +21,55 @@ export function useSettings() {
     visibleOnAllWorkspaces: true,
     windowPosition: undefined,
     preferredIde: "cursor",
-    theme: "system"
+    theme: "light"
   });
   
   const [isLoading, setIsLoading] = useState(true);
+
+  // Apply theme to document
+  const applyTheme = useCallback((theme: 'light' | 'dark') => {
+    const html = document.documentElement;
+    
+    // Always apply manual theme class
+    html.classList.remove('light', 'dark');
+    html.classList.add(theme);
+  }, []);
 
   // Load settings on mount
   useEffect(() => {
     const loadSettings = async () => {
       try {
         const loadedSettings = await invoke<AppSettings>("load_settings");
-        setSettings(loadedSettings);
+        
+        // Ensure theme property exists with default value
+        const settingsWithTheme = {
+          ...loadedSettings,
+          theme: (loadedSettings.theme === 'light' || loadedSettings.theme === 'dark') 
+            ? loadedSettings.theme 
+            : 'light' as const
+        };
+        
+        setSettings(settingsWithTheme);
+        
+        // Apply theme immediately after loading
+        applyTheme(settingsWithTheme.theme);
         
         // Apply window settings
         const window = getCurrentWindow();
-        await window.setAlwaysOnTop(loadedSettings.alwaysOnTop);
-        await window.setVisibleOnAllWorkspaces(loadedSettings.visibleOnAllWorkspaces);
+        await window.setAlwaysOnTop(settingsWithTheme.alwaysOnTop);
+        await window.setVisibleOnAllWorkspaces(settingsWithTheme.visibleOnAllWorkspaces);
         
       } catch (error) {
         console.error("Failed to load settings:", error);
+        // Apply default theme even if loading fails
+        applyTheme('light');
       } finally {
         setIsLoading(false);
       }
     };
 
     loadSettings();
-  }, []);
+  }, [applyTheme]);
 
   // Save settings to file
   const saveSettings = useCallback(async (newSettings: Partial<AppSettings>) => {
@@ -88,25 +111,9 @@ export function useSettings() {
     await saveSettings({ preferredIde: ide });
   }, [saveSettings]);
 
-  // Apply theme to document
-  const applyTheme = useCallback((theme: 'light' | 'dark' | 'system') => {
-    const html = document.documentElement;
-    
-    if (theme === 'system') {
-      // Remove manual theme classes and let CSS media query handle it
-      html.classList.remove('light', 'dark');
-    } else {
-      // Apply manual theme
-      html.classList.remove('light', 'dark');
-      html.classList.add(theme);
-    }
-  }, []);
-
   // Toggle theme
   const toggleTheme = useCallback(async () => {
-    const themes: Array<'system' | 'light' | 'dark'> = ['system', 'light', 'dark'];
-    const currentIndex = themes.indexOf(settings.theme);
-    const nextTheme = themes[(currentIndex + 1) % themes.length];
+    const nextTheme = settings.theme === 'light' ? 'dark' : 'light';
     
     applyTheme(nextTheme);
     await saveSettings({ theme: nextTheme });

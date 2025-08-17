@@ -45,8 +45,8 @@ export class ClaudeStateTracker {
     const contextBuffer = context.recentLines.slice(-10).join(' ');
     const recentOutput = this.lastRecentOutput || '';
     
-    // Use external pattern detection
-    const result = detectClaudeState(line, contextBuffer, recentOutput);
+    // Use external pattern detection with full context
+    const result = detectClaudeState(line, contextBuffer, recentOutput, context.recentLines);
     
     if (!result) return null;
     
@@ -65,15 +65,8 @@ export class ClaudeStateTracker {
       };
     }
     
-    // Fallback IDLE detection for sufficient context
-    if (context.recentLines.length >= 5 && 
-        !contextBuffer.includes('esc to interrupt') &&
-        !contextBuffer.includes('❯') &&
-        !contextBuffer.includes('Would you like to proceed')) {
-      this.debugData.confidence = 'medium';
-      return { state: 'IDLE', details: line, confidence: 'medium' };
-    }
-    
+    // No automatic IDLE fallback - let pattern module handle all decisions
+    // States should persist until explicit evidence of change
     return null;
   }
 
