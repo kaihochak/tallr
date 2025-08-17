@@ -108,7 +108,7 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
   );
 
   return (
-    <div className="h-screen bg-bg-primary overflow-y-auto">
+    <div className="h-screen bg-bg-primary flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-8">
         <div className="flex items-center gap-4">
@@ -189,7 +189,10 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
       </div>
 
       {/* Content */}
-      <div className="px-6 py-4">
+      <div className={cn(
+        "px-6 py-4",
+        activeTab === 'raw' ? "flex-1 flex flex-col" : "overflow-y-auto"
+      )}>
         {isLoading && !debugData && (
           <div className="flex items-center justify-center gap-3 py-12 text-text-secondary">
             <Circle className="animate-spin" size={24} />
@@ -334,19 +337,17 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
 
             {/* Raw Tab */}
             {activeTab === 'raw' && (
-              <div className="space-y-6 mt-0">
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-semibold text-text-primary">Buffer ({debugData.cleanedBuffer.length} chars)</h3>
-                    <CopyButton onClick={() => copyBuffer(debugData.cleanedBuffer)} copyKey="buffer" />
-                  </div>
-                  <pre 
-                    className="p-4 bg-bg-card border border-border-primary rounded-lg text-sm font-mono whitespace-pre-wrap cursor-pointer hover:bg-bg-secondary transition-colors overflow-auto max-h-96"
-                    onClick={() => copyBuffer(debugData.cleanedBuffer)}
-                  >
-                    {debugData.cleanedBuffer || '(empty)'}
-                  </pre>
+              <div className="flex flex-col h-full min-h-0">
+                <div className="flex items-center justify-between mb-4 flex-shrink-0">
+                  <h3 className="text-xl font-semibold text-text-primary">Buffer ({debugData.cleanedBuffer.length} chars)</h3>
+                  <CopyButton onClick={() => copyBuffer(debugData.cleanedBuffer)} copyKey="buffer" />
                 </div>
+                <pre 
+                  className="flex-1 min-h-0 p-4 bg-bg-card border border-border-primary rounded-lg text-sm font-mono whitespace-pre-wrap cursor-pointer hover:bg-bg-secondary transition-colors overflow-auto"
+                  onClick={() => copyBuffer(debugData.cleanedBuffer)}
+                >
+                  {debugData.cleanedBuffer || '(empty)'}
+                </pre>
               </div>
             )}
           </>

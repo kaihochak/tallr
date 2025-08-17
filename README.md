@@ -165,7 +165,7 @@ When you run `tally claude`, Tally's CLI wrapper:
 - **Backend**: Rust + Tauri v2.1.1 + Axum 0.8
 - **Build**: Vite 7 with Rolldown bundler (100x memory reduction)
 - **Desktop**: macOS native with system tray and notifications
-- **CLI Wrapper**: Node.js with PTY support for interactive sessions
+- **CLI Wrapper**: Node.js with PTY support + external tools (`split2`, `strip-ansi`)
 
 ### Prerequisites
 - **macOS 13+** (required for Tauri v2)
@@ -186,9 +186,9 @@ tally/
 │   └── Cargo.toml          # Rust dependencies
 ├── tools/                  # CLI wrapper (Node.js)
 │   ├── tally               # Shell script entry point
-│   ├── tl-wrap.js          # Main wrapper with PTY support
+│   ├── tl-wrap.js          # Main wrapper with PTY support + external tools
 │   ├── lib/
-│   │   ├── state-tracker.js # Detects Claude states
+│   │   ├── state-tracker.js # State detection using strip-ansi
 │   │   └── http-client.js   # API communication
 │   └── examples/           # Test scripts
 └── package.json            # Modern Node dependencies

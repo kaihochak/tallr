@@ -7,6 +7,7 @@ import { ClaudeStateTracker } from './lib/state-tracker.js';
 import { getIdeCommand, promptForIdeCommand } from './lib/settings.js';
 import { debugRegistry } from './lib/debug-registry.js';
 import { debug } from './lib/debug.js';
+import { MAX_BUFFER_SIZE } from './lib/claude-patterns.js';
 import { execSync } from 'child_process';
 import http from 'http';
 
@@ -122,7 +123,6 @@ async function runWithPTY(command, commandArgs) {
   });
 
   let recentOutput = '';
-  const MAX_OUTPUT_SIZE = 3000;
 
   // Create line splitter stream
   const lineStream = ptyProcess.pipe(split2());
@@ -132,8 +132,8 @@ async function runWithPTY(command, commandArgs) {
     process.stdout.write(data);
 
     recentOutput += data;
-    if (recentOutput.length > MAX_OUTPUT_SIZE) {
-      recentOutput = recentOutput.slice(-MAX_OUTPUT_SIZE);
+    if (recentOutput.length > MAX_BUFFER_SIZE) {
+      recentOutput = recentOutput.slice(-MAX_BUFFER_SIZE);
     }
   });
 

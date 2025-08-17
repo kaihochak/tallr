@@ -6,6 +6,8 @@
 
 import stripAnsi from 'strip-ansi';
 
+export const MAX_BUFFER_SIZE = 50000;
+
 /**
  * Clean ANSI codes from terminal output for STATE DETECTION
  * Aggressive cleaning to ensure reliable pattern matching
@@ -29,17 +31,6 @@ export function cleanANSIForDetection(text) {
     .trim();
 }
 
-export function cleanANSIForDisplay(text) {
-  return stripAnsi(text)
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    .replace(/\t/g, '  ')
-    .replace(/[ ]+/g, ' ')
-    .replace(/\n[ ]+/g, '\n')
-    .replace(/[ ]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
 
 /**
  * Pattern definitions for Claude state detection

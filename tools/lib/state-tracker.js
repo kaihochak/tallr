@@ -4,8 +4,9 @@
  * Manages Claude CLI state detection and transitions
  */
 
-import { detectClaudeState, cleanANSIForDisplay } from './claude-patterns.js';
+import { detectClaudeState, MAX_BUFFER_SIZE } from './claude-patterns.js';
 import { debug } from './debug.js';
+import stripAnsi from 'strip-ansi';
 
 export class ClaudeStateTracker {
   constructor(client, taskId, enableDebug = false) {
@@ -31,6 +32,9 @@ export class ClaudeStateTracker {
       confidence: 'N/A',
       isActive: true
     };
+    
+    // Debounce buffer updates to reduce noise from rapid typing
+    this.debugBufferTimeout = null;
     
     // Start debug data updates
     this.startDebugUpdates();
@@ -141,12 +145,21 @@ export class ClaudeStateTracker {
    * Update debug buffer data (called on every data chunk)
    */
   updateDebugBuffer(recentOutput) {
-    this.debugData.cleanedBuffer = cleanANSIForDisplay(recentOutput.slice(-3000));
+    // Store the output immediately for line processing
     this.lastRecentOutput = recentOutput;
     
-    if (this.debugData.cleanedBuffer) {
-      this.detectState(this.debugData.cleanedBuffer, this.outputContext);
+    // Debounce buffer cleaning to avoid showing rapid typing updates
+    if (this.debugBufferTimeout) {
+      clearTimeout(this.debugBufferTimeout);
     }
+    
+    this.debugBufferTimeout = setTimeout(() => {
+      this.debugData.cleanedBuffer = stripAnsi(recentOutput.slice(-MAX_BUFFER_SIZE)).trim();
+      
+      if (this.debugData.cleanedBuffer) {
+        this.detectState(this.debugData.cleanedBuffer, this.outputContext);
+      }
+    }, 500); // Wait 500ms after typing stops
   }
 
   /**
@@ -174,7 +187,7 @@ export class ClaudeStateTracker {
     try {
       const detection = this.detectState(trimmed, this.outputContext);
       // Always process detection since we always return a state
-      const cleanedOutput = recentOutput ? cleanANSIForDisplay(recentOutput.slice(-2000)) : detection.details;
+      const cleanedOutput = recentOutput ? stripAnsi(recentOutput.slice(-MAX_BUFFER_SIZE)).trim() : detection.details;
       await this.changeState(detection.state, cleanedOutput, detection.confidence);
     } catch (error) {
       // Log errors using structured debug logging

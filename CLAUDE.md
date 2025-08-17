@@ -249,9 +249,9 @@ src-tauri/
 
 tools/
 ├── tallor               # Shell entry point
-├── tl-wrap.js           # Main wrapper logic
+├── tl-wrap.js           # Main wrapper with external tools (split2, strip-ansi)
 └── lib/                 # Supporting modules
-    ├── state-tracker.js # Pattern detection
+    ├── state-tracker.js # Pattern detection using industry-standard libraries
     └── http-client.js   # API communication
 ```
 
@@ -261,6 +261,7 @@ tools/
 - Avoid unnecessary comments - prefer self-documenting code
 - Remove existing comments that don't add value or explain complex logic
 - Only add comments for complex business logic or non-obvious behavior
+- **Prefer external tools** over custom implementations (e.g., `strip-ansi` vs custom regex, `split2` vs custom line buffering)
 
 ### React Patterns
 
