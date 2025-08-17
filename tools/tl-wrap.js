@@ -122,13 +122,30 @@ async function updateTaskAndCleanup(state, details) {
   await client.updateTaskState(taskId, state, details);
 }
 
-function processOutputLines(data, recentOutput) {
-  const lines = data.toString().split('\n');
-  lines.forEach(line => {
-    if (line.trim()) {
-      stateTracker.processLine(line, recentOutput).catch(() => {});
+class LineBuffer {
+  constructor() {
+    this.buffer = '';
+  }
+  
+  processChunk(data, lineCallback) {
+    this.buffer += data.toString();
+    const lines = this.buffer.split('\n');
+    
+    this.buffer = lines.pop() || '';
+    
+    lines.forEach(line => {
+      if (line.trim()) {
+        lineCallback(line);
+      }
+    });
+  }
+  
+  flush(lineCallback) {
+    if (this.buffer.trim()) {
+      lineCallback(this.buffer);
+      this.buffer = '';
     }
-  });
+  }
 }
 
 /**
@@ -145,6 +162,7 @@ async function runWithPTY(command, commandArgs) {
 
   let recentOutput = '';
   const MAX_OUTPUT_SIZE = 3000;
+  const lineBuffer = new LineBuffer();
 
   // Process output
   ptyProcess.on('data', (data) => {
@@ -157,7 +175,9 @@ async function runWithPTY(command, commandArgs) {
     
     stateTracker.updateDebugBuffer(recentOutput);
     
-    processOutputLines(data, recentOutput);
+    lineBuffer.processChunk(data, (line) => {
+      stateTracker.processLine(line, recentOutput).catch(() => {});
+    });
   });
 
   if (process.stdin.setRawMode && process.stdin.isTTY) {
@@ -168,6 +188,10 @@ async function runWithPTY(command, commandArgs) {
   }
 
   ptyProcess.on('exit', async (code, signal) => {
+    lineBuffer.flush((line) => {
+      stateTracker.processLine(line, recentOutput).catch(() => {});
+    });
+
     const success = code === 0;
     const details = success 
       ? `Claude session completed successfully` 

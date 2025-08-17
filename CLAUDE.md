@@ -257,6 +257,11 @@ tools/
 
 ## Code Patterns & Conventions
 
+### Code Style
+- Avoid unnecessary comments - prefer self-documenting code
+- Remove existing comments that don't add value or explain complex logic
+- Only add comments for complex business logic or non-obvious behavior
+
 ### React Patterns
 
 **Custom Hook Structure:**
