@@ -187,7 +187,7 @@ async function runWithPTY(command, commandArgs) {
     debugRegistry.unregister(taskId);
 
     if (success) {
-      await client.markTaskDone(taskId, details);
+      await client.updateTaskState(taskId, 'DONE', details);
     } else {
       await client.updateTaskState(taskId, 'IDLE', details);
     }

@@ -41,7 +41,7 @@ struct TaskIn {
 struct AppState {
     projects: HashMap<String, Project>,
     tasks: HashMap<String, Task>,
-    debug_data: Option<DebugData>,
+    debug_data: HashMap<String, DebugData>,
     updated_at: i64,
 }
 
@@ -372,85 +372,21 @@ async fn get_setup_status() -> Json<SetupStatus> {
     })
 }
 
-async fn get_debug_patterns() -> Json<DebugData> {
+async fn get_debug_patterns_for_task(axum::extract::Path(task_id): axum::extract::Path<String>) -> Result<Json<DebugData>, StatusCode> {
     let state = APP_STATE.lock();
     
-    // Return stored debug data if available
-    if let Some(debug_data) = &state.debug_data {
-        return Json(debug_data.clone());
+    match state.debug_data.get(&task_id) {
+        Some(debug_data) => Ok(Json(debug_data.clone())),
+        None => Err(StatusCode::NOT_FOUND)
     }
-    
-    drop(state);
-    
-    // Return default data when no CLI session is active
-    let default_patterns = vec![
-        PatternTest {
-            pattern: "❯\\s*\\d+\\.\\s+".to_string(),
-            description: "Claude numbered prompt detection".to_string(),
-            matches: false,
-            expected_state: "PENDING".to_string(),
-        },
-        PatternTest {
-            pattern: "❯ 1\\. Yes".to_string(),
-            description: "Claude Yes/No prompt detection".to_string(),
-            matches: false,
-            expected_state: "PENDING".to_string(),
-        },
-        PatternTest {
-            pattern: "Would you like to proceed\\?".to_string(),
-            description: "Proceed confirmation detection".to_string(),
-            matches: false,
-            expected_state: "PENDING".to_string(),
-        },
-        PatternTest {
-            pattern: "Approve\\?".to_string(),
-            description: "Approval prompt detection".to_string(),
-            matches: false,
-            expected_state: "PENDING".to_string(),
-        },
-        PatternTest {
-            pattern: "\\[y/N\\]".to_string(),
-            description: "Y/N choice detection".to_string(),
-            matches: false,
-            expected_state: "PENDING".to_string(),
-        },
-        PatternTest {
-            pattern: "esc to interrupt".to_string(),
-            description: "Working state detection".to_string(),
-            matches: false,
-            expected_state: "WORKING".to_string(),
-        },
-        PatternTest {
-            pattern: "working\\.\\.\\.".to_string(),
-            description: "Working indicator detection".to_string(),
-            matches: false,
-            expected_state: "WORKING".to_string(),
-        },
-        PatternTest {
-            pattern: "error|failed|exception".to_string(),
-            description: "Error detection".to_string(),
-            matches: false,
-            expected_state: "ERROR".to_string(),
-        },
-    ];
-
-    Json(DebugData {
-        current_buffer: "No active CLI session".to_string(),
-        cleaned_buffer: "No active CLI session".to_string(),
-        pattern_tests: default_patterns,
-        current_state: "IDLE".to_string(),
-        confidence: "N/A".to_string(),
-        detection_history: vec![],
-        task_id: "no-active-task".to_string(),
-        is_active: false,
-    })
 }
 
 async fn update_debug_data(
     Json(req): Json<DebugUpdateRequest>,
 ) -> Result<Json<()>, StatusCode> {
     let mut state = APP_STATE.lock();
-    state.debug_data = Some(req.debug_data);
+    let task_id = req.debug_data.task_id.clone();
+    state.debug_data.insert(task_id, req.debug_data);
     state.updated_at = current_timestamp();
     
     Ok(Json(()))
@@ -1058,7 +994,7 @@ async fn start_http_server(app_handle: AppHandle) {
         .route("/v1/tasks/delete", post(delete_task))
         .route("/v1/tasks/pin", post(toggle_task_pin))
         .route("/v1/setup/status", get(get_setup_status))
-        .route("/v1/debug/patterns", get(get_debug_patterns))
+        .route("/v1/debug/patterns/{task_id}", get(get_debug_patterns_for_task))
         .route("/v1/debug/update", post(update_debug_data))
         .layer(CorsLayer::permissive())
         .with_state(app_handle);
