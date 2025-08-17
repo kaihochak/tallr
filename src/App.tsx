@@ -34,7 +34,7 @@ interface SetupStatus {
 
 function App() {
   const { appState, isLoading } = useAppState();
-  const { settings, toggleAlwaysOnTop, toggleTheme } = useSettings();
+  const { settings, toggleAlwaysOnTop, toggleTheme, toggleSimpleMode } = useSettings();
   const [stateFilter, setStateFilter] = useState("all");
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [currentPage, setCurrentPage] = useState<'tasks' | 'debug'>('tasks');
@@ -398,10 +398,12 @@ function App() {
         alwaysOnTop={settings.alwaysOnTop}
         stateFilter={stateFilter}
         theme={settings.theme}
+        simpleMode={settings.simpleMode}
         onTogglePin={toggleAlwaysOnTop}
         onToggleDoneTasks={() => setShowDoneTasks(prev => !prev)}
         onStateFilterChange={setStateFilter}
         onToggleTheme={toggleTheme}
+        onToggleSimpleMode={toggleSimpleMode}
       />
 
       {/* Main Content */}
@@ -425,6 +427,7 @@ function App() {
                   key={task.id}
                   task={task}
                   project={project}
+                  simpleMode={settings.simpleMode}
                   onDeleteTask={handleDeleteTask}
                   onJumpToContext={handleJumpToSpecificTask}
                   onShowDebug={handleShowDebugForTask}

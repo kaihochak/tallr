@@ -2,14 +2,14 @@ import {
   Pin,
   Filter,
   Sun,
-  Moon
+  Moon,
+  Rows3
 } from "lucide-react";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
@@ -21,10 +21,12 @@ interface HeaderProps {
   alwaysOnTop: boolean;
   stateFilter: string;
   theme: 'light' | 'dark';
+  simpleMode: boolean;
   onTogglePin: () => void;
   onToggleDoneTasks: () => void;
   onStateFilterChange: (value: string) => void;
   onToggleTheme: () => void;
+  onToggleSimpleMode: () => void;
 }
 
 export default function Header({
@@ -35,10 +37,12 @@ export default function Header({
   alwaysOnTop,
   stateFilter,
   theme,
+  simpleMode,
   onTogglePin,
   onToggleDoneTasks,
   onStateFilterChange,
-  onToggleTheme
+  onToggleTheme,
+  onToggleSimpleMode
 }: HeaderProps) {
   // Get theme icon and title
   const getThemeIcon = () => {
@@ -72,25 +76,25 @@ export default function Header({
           {showDoneTasks ? `${doneTasks} done` : `${activeTasks} tasks`}
         </button>
       </div>
-      <div className="flex items-center gap-2 sm:gap-4" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        <div className="relative">
-          <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none z-10" />
-          <Select value={stateFilter} onValueChange={onStateFilterChange}>
-            <SelectTrigger className="pl-9 pr-2 sm:pr-4 py-2.5 w-[100px] sm:w-[130px] border-border-primary bg-bg-card text-text-primary text-xs sm:text-sm font-medium hover:border-border-secondary hover:bg-bg-hover cursor-pointer">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="cursor-pointer">
-              <SelectItem value="all" className="cursor-pointer">All States</SelectItem>
-              <SelectItem value="PENDING" className="cursor-pointer">Pending</SelectItem>
-              <SelectItem value="WORKING" className="cursor-pointer">Working</SelectItem>
-              <SelectItem value="IDLE" className="cursor-pointer">Idle</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        <Select value={stateFilter} onValueChange={onStateFilterChange}>
+          <SelectTrigger 
+            className="!w-7 !h-7 !min-h-0 !p-0 !px-0 !py-0 !border-0 !rounded-md !bg-bg-primary !text-text-primary hover:!bg-bg-hover hover:!scale-105 !cursor-pointer !transition-all !duration-200 !flex !items-center !justify-center !gap-0 !shadow-none focus-visible:!ring-0 [&>svg:last-child]:!hidden"
+            size="sm"
+          >
+            <Filter className="w-4 h-4" />
+          </SelectTrigger>
+          <SelectContent className="cursor-pointer">
+            <SelectItem value="all" className="cursor-pointer">All States</SelectItem>
+            <SelectItem value="PENDING" className="cursor-pointer">Pending</SelectItem>
+            <SelectItem value="WORKING" className="cursor-pointer">Working</SelectItem>
+            <SelectItem value="IDLE" className="cursor-pointer">Idle</SelectItem>
+          </SelectContent>
+        </Select>
         <Button
           variant="ghost"
           size="icon"
-          className="w-8 h-8 bg-bg-tertiary text-text-secondary hover:bg-bg-hover hover:text-text-primary hover:scale-105 cursor-pointer"
+          className="w-7 h-7 bg-bg-primary text-text-primary hover:bg-bg-hover hover:scale-105 cursor-pointer transition-all duration-200"
           onClick={onToggleTheme}
           title={getThemeTitle()}
           aria-label={getThemeTitle()}
@@ -101,17 +105,32 @@ export default function Header({
         <Button
           variant="ghost"
           size="icon"
-          className={`w-8 h-8 relative z-25 transition-all duration-200 cursor-pointer ${
-            alwaysOnTop
-              ? 'bg-accent-primary text-white shadow-[0_0_16px_rgba(129,140,248,0.3)] hover:bg-accent-primary-hover'
-              : 'bg-bg-tertiary text-text-secondary hover:bg-bg-hover hover:text-text-primary'
-          } hover:scale-105`}
+          className={`w-7 h-7 cursor-pointer transition-all duration-200 hover:scale-105 ${
+            simpleMode 
+              ? 'bg-accent-primary text-white hover:bg-accent-primary-hover' 
+              : 'bg-bg-primary text-text-primary hover:bg-bg-hover'
+          }`}
+          onClick={onToggleSimpleMode}
+          title={simpleMode ? "Disable simple mode" : "Enable simple mode"}
+          aria-label={simpleMode ? "Disable simple mode" : "Enable simple mode"}
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        >
+          <Rows3 className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={`w-7 h-7 cursor-pointer transition-all duration-200 hover:scale-105 ${
+            alwaysOnTop 
+              ? 'bg-accent-primary text-white hover:bg-accent-primary-hover' 
+              : 'bg-bg-primary text-text-primary hover:bg-bg-hover'
+          }`}
           onClick={onTogglePin}
           title={alwaysOnTop ? "Disable always on top (⌘⇧T)" : "Enable always on top (⌘⇧T)"}
           aria-label={alwaysOnTop ? "Disable always on top" : "Enable always on top"}
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
-          <Pin className={`w-4.5 h-4.5 transition-transform duration-200 ${alwaysOnTop ? 'rotate-45' : ''}`} />
+          <Pin className={`w-4 h-4 transition-transform duration-200 ${alwaysOnTop ? 'rotate-45' : ''}`} />
         </Button>
       </div>
     </div>

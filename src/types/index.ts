@@ -30,6 +30,7 @@ export interface AppState {
 export interface TaskRowProps {
   task: Task;
   project: Project | undefined;
+  simpleMode: boolean;
   onDeleteTask: (taskId: string) => Promise<void>;
   onJumpToContext: (taskId: string) => Promise<void>;
   onShowDebug: (taskId: string) => void;

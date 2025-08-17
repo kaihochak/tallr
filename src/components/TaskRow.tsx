@@ -34,6 +34,7 @@ import TaskStateBadge from './TaskStateBadge';
 export default function TaskRow({
   task,
   project,
+  simpleMode,
   onDeleteTask,
   onJumpToContext,
   onShowDebug,
@@ -83,7 +84,8 @@ export default function TaskRow({
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 p-4 mb-3 rounded-lg bg-bg-card border border-border-primary cursor-pointer transition-all duration-150 animate-slideInUp relative overflow-hidden min-h-[60px]",
+        "flex flex-col gap-3 p-4 mb-3 rounded-lg bg-bg-card border border-border-primary cursor-pointer transition-all duration-150 animate-slideInUp relative overflow-hidden",
+        simpleMode ? "min-h-[50px]" : "min-h-[60px]",
         "hover:border-border-secondary hover:bg-bg-hover",
         isTaskCompleted(task.state) && "opacity-70"
       )}
@@ -152,10 +154,12 @@ export default function TaskRow({
         </div>
       </div>
 
-      {/* Details Row - Always rendered for consistent height */}
-      <TaskDetail 
-        details={task.details || ''}
-      />
+      {/* Details Row - Only rendered when not in simple mode */}
+      {!simpleMode && (
+        <TaskDetail 
+          details={task.details || ''}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

@@ -13,6 +13,7 @@ interface AppSettings {
   windowPosition?: WindowPosition;
   preferredIde: string;
   theme: 'light' | 'dark';
+  simpleMode: boolean;
 }
 
 export function useSettings() {
@@ -21,7 +22,8 @@ export function useSettings() {
     visibleOnAllWorkspaces: true,
     windowPosition: undefined,
     preferredIde: "cursor",
-    theme: "light"
+    theme: "light",
+    simpleMode: false
   });
   
   const [isLoading, setIsLoading] = useState(true);
@@ -119,6 +121,12 @@ export function useSettings() {
     await saveSettings({ theme: nextTheme });
   }, [settings.theme, applyTheme, saveSettings]);
 
+  // Toggle simple mode
+  const toggleSimpleMode = useCallback(async () => {
+    const newState = !settings.simpleMode;
+    await saveSettings({ simpleMode: newState });
+  }, [settings.simpleMode, saveSettings]);
+
   // Apply theme when settings change
   useEffect(() => {
     applyTheme(settings.theme);
@@ -131,6 +139,7 @@ export function useSettings() {
     saveWindowPosition,
     setPreferredIde,
     toggleTheme,
+    toggleSimpleMode,
     saveSettings
   };
 }
