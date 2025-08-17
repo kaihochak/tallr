@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Bug, Circle, XCircle, Copy, Check, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { ApiService, DebugData, logApiError } from '@/services/api';
+import { ApiService, DebugData } from '@/services/api';
 import { Task } from '@/types';
 import { debug } from '@/utils/debug';
 import TaskStateBadge from './TaskStateBadge';
@@ -19,7 +19,7 @@ interface DebugPageProps {
   onBack: () => void;
 }
 
-export function DebugPage({ taskId, task, onBack }: DebugPageProps) {
+export function DebugPage({ taskId, onBack }: DebugPageProps) {
   const [debugData, setDebugData] = useState<DebugData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,20 +59,46 @@ export function DebugPage({ taskId, task, onBack }: DebugPageProps) {
   };
 
   useEffect(() => {
-    debug.ui('Debug page opened');
+    debug.ui('Debug page opened', { taskId });
 
     const fetchDebugData = async () => {
       try {
         setIsLoading(true);
         setError(null);
+        
+        debug.api('Fetching debug data', { taskId: taskId || 'latest' });
+        console.log('[DEBUG] Making API call with taskId:', taskId);
         const data = await ApiService.getDebugData(taskId || undefined);
+        console.log('[DEBUG] API response:', data);
         setDebugData(data);
-        debug.ui('Debug data fetched', { taskId: data.taskId, state: data.currentState });
+        debug.ui('Debug data fetched successfully', { 
+          taskId: data.taskId, 
+          state: data.currentState,
+          historyLength: data.detectionHistory.length,
+          bufferLength: data.cleanedBuffer?.length || 0
+        });
       } catch (err) {
         const apiError = err instanceof Error ? err : new Error('Failed to fetch debug data');
-        debug.ui('Debug data fetch failed', { error: apiError.message });
-        logApiError('/v1/debug/patterns', apiError);
-        setError(apiError.message);
+        console.error('[DEBUG] API call failed:', apiError);
+        debug.api('Debug data fetch failed', { 
+          error: apiError.message, 
+          taskId: taskId || 'latest',
+          stack: apiError.stack 
+        });
+        
+        // More descriptive error messages
+        let errorMessage = apiError.message;
+        if (apiError.message.includes('404')) {
+          errorMessage = taskId 
+            ? `No debug data found for task "${taskId}". This task may not have any pattern detection activity.`
+            : 'No active debug sessions found. Start a CLI session to see debug data.';
+        } else if (apiError.message.includes('timeout')) {
+          errorMessage = 'Connection timeout. Make sure the Tallor app is running.';
+        } else if (apiError.message.includes('ECONNREFUSED')) {
+          errorMessage = 'Cannot connect to Tallor backend. Make sure the app is running on port 4317.';
+        }
+        
+        setError(errorMessage);
         setDebugData(null);
       } finally {
         setIsLoading(false);
@@ -82,8 +108,8 @@ export function DebugPage({ taskId, task, onBack }: DebugPageProps) {
     // Initial fetch
     fetchDebugData();
 
-    // Poll every 250ms for responsive updates
-    const interval = setInterval(fetchDebugData, 250);
+    // Poll every 500ms for responsive updates (reduced frequency to avoid spam)
+    const interval = setInterval(fetchDebugData, 500);
     return () => {
       clearInterval(interval);
       debug.ui('Debug page closed');
@@ -122,9 +148,9 @@ export function DebugPage({ taskId, task, onBack }: DebugPageProps) {
             <ArrowLeft size={18} />
           </Button>
           <div className="flex items-center gap-3">
-            {taskId && (
+            {(taskId || debugData?.taskId) && (
               <span className="px-2 py-1 bg-bg-secondary text-text-secondary text-sm rounded font-mono">
-                Task: {taskId}
+                Task: {taskId || debugData?.taskId}
               </span>
             )}
             {debugData && (
@@ -168,10 +194,10 @@ export function DebugPage({ taskId, task, onBack }: DebugPageProps) {
         "px-6 py-4",
         activeTab === 'raw' ? "flex-1 flex flex-col" : "overflow-y-auto"
       )}>
-        {isLoading && !debugData && (
+        {isLoading && (
           <div className="flex items-center justify-center gap-3 py-12 text-text-secondary">
             <Circle className="animate-spin" size={24} />
-            <span className="text-lg">Loading debug data...</span>
+            <span className="text-lg">Loading debug data... (TaskID: {taskId || 'latest'})</span>
           </div>
         )}
 
@@ -183,13 +209,24 @@ export function DebugPage({ taskId, task, onBack }: DebugPageProps) {
         )}
 
         {error && (
-          <div className="flex items-center gap-3 p-6 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive mb-6">
-            <XCircle size={20} />
-            <span>{error}</span>
+          <div className="flex items-center justify-between p-6 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive mb-6">
+            <div className="flex items-center gap-3">
+              <XCircle size={20} />
+              <span>{error}</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => window.location.reload()}
+              className="text-destructive hover:text-destructive/80"
+              title="Refresh page"
+            >
+              Retry
+            </Button>
           </div>
         )}
 
-        {taskId && debugData && (
+        {debugData && (
           <>
             {/* State Change Tab */}
             {activeTab === 'state-change' && (

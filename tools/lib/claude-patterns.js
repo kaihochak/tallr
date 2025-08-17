@@ -34,6 +34,7 @@ export function detectClaudeState(line, recentOutput = '') {
   
   // Use recent output for both pattern tests AND detection for consistency
   const recentLines = recentOutput.split('\n').slice(-15).join('\n'); // Last 15 lines
+  const recentFewLines = recentOutput.split('\n').slice(-5).join('\n'); // Last 5 lines for PENDING
   
   // Test all patterns against recent buffer (consistent with detection logic)
   const patternTests = CLAUDE_PATTERNS.map(p => ({
@@ -43,11 +44,12 @@ export function detectClaudeState(line, recentOutput = '') {
     expectedState: p.expectedState
   }));
   
-  // Check for PENDING patterns in current line (these need immediate response)
+  // PRIORITY 1: Check for PENDING patterns in recent lines (immediate response needed)
   const pendingPatterns = CLAUDE_PATTERNS.filter(p => p.expectedState === 'PENDING');
-  const hasPendingPattern = pendingPatterns.some(p => p.regex.test(cleanLine));
+  const hasPendingInRecent = pendingPatterns.some(p => p.regex.test(recentFewLines));
+  const hasPendingInCurrent = pendingPatterns.some(p => p.regex.test(cleanLine));
   
-  if (hasPendingPattern) {
+  if (hasPendingInRecent || hasPendingInCurrent) {
     return {
       state: 'PENDING',
       details: cleanLine,
@@ -56,7 +58,7 @@ export function detectClaudeState(line, recentOutput = '') {
     };
   }
   
-  // Check for WORKING patterns in recent output (persistent detection)
+  // PRIORITY 2: Check for WORKING patterns in recent output (only if no PENDING found)
   const workingPatterns = CLAUDE_PATTERNS.filter(p => p.expectedState === 'WORKING');
   const hasWorkingPattern = workingPatterns.some(p => p.regex.test(recentLines));
   
@@ -69,6 +71,7 @@ export function detectClaudeState(line, recentOutput = '') {
     };
   }
   
+  // PRIORITY 3: Default to IDLE if no active patterns found
   return {
     state: 'IDLE',
     details: cleanLine,

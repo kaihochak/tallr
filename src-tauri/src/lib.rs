@@ -217,7 +217,7 @@ async fn upsert_task(
     update_tray_menu(&app_handle);
 
     // Save state to disk
-    if let Err(e) = save_app_state() {
+    if let Err(_e) = save_app_state() {
     }
 
     Ok(Json(()))
@@ -258,7 +258,7 @@ async fn update_task_state(
         update_tray_menu(&app_handle);
 
         // Save state to disk
-        if let Err(e) = save_app_state() {
+        if let Err(_e) = save_app_state() {
             }
 
         Ok(Json(()))
@@ -307,7 +307,7 @@ async fn mark_task_done(
         update_tray_menu(&app_handle);
 
         // Save state to disk
-        if let Err(e) = save_app_state() {
+        if let Err(_e) = save_app_state() {
             }
 
         Ok(Json(()))
@@ -333,7 +333,7 @@ async fn delete_task(
         update_tray_menu(&app_handle);
 
         // Save state to disk
-        if let Err(e) = save_app_state() {
+        if let Err(_e) = save_app_state() {
             }
 
         Ok(Json(()))
@@ -361,7 +361,7 @@ async fn toggle_task_pin(
         update_tray_menu(&app_handle);
 
         // Save state to disk
-        if let Err(e) = save_app_state() {
+        if let Err(_e) = save_app_state() {
             }
 
         Ok(Json(()))
@@ -387,6 +387,38 @@ async fn get_debug_patterns_for_task(axum::extract::Path(task_id): axum::extract
     
     match state.debug_data.get(&task_id) {
         Some(debug_data) => Ok(Json(debug_data.clone())),
+        None => Err(StatusCode::NOT_FOUND)
+    }
+}
+
+async fn get_debug_patterns() -> Result<Json<DebugData>, StatusCode> {
+    let state = APP_STATE.lock();
+    
+    // Find the most recent debug data entry (highest timestamp)
+    let most_recent = state.debug_data
+        .values()
+        .max_by_key(|debug_data| {
+            debug_data.detection_history
+                .iter()
+                .map(|entry| entry.timestamp)
+                .max()
+                .unwrap_or(0)
+        });
+    
+    match most_recent {
+        Some(debug_data) => {
+            // Create a clean copy of the debug data
+            let clean_debug_data = debug_data.clone();
+            
+            // Remove ANSI codes from the cleaned buffer for better frontend display
+            // This is already done by the CLI wrapper, but let's ensure it's clean
+            if clean_debug_data.cleaned_buffer.contains('\u{001b}') {
+                // Simple ANSI removal regex would be better, but for now just note this
+                // The frontend should handle ANSI codes properly
+            }
+            
+            Ok(Json(clean_debug_data))
+        },
         None => Err(StatusCode::NOT_FOUND)
     }
 }
@@ -532,7 +564,7 @@ async fn open_ide_and_terminal(
                 
             match result {
                 Ok(_) => Ok(()),
-                Err(e) => {
+                Err(_e) => {
                     // If the IDE command fails, try alternative approaches
                     
                     // Try with 'open -a' on macOS
@@ -949,11 +981,11 @@ pub fn run() {
                     
                     // Save the cleaned state back to disk to persist the cleanup
                     *APP_STATE.lock() = cleaned_state.clone();
-                    if let Err(e) = save_app_state() {
+                    if let Err(_e) = save_app_state() {
                     }
                     
                 },
-                Err(e) => {
+                Err(_e) => {
                     // APP_STATE is already initialized with default empty state
                 }
             }
@@ -993,6 +1025,7 @@ async fn start_http_server(app_handle: AppHandle) {
         .route("/v1/tasks/delete", post(delete_task))
         .route("/v1/tasks/pin", post(toggle_task_pin))
         .route("/v1/setup/status", get(get_setup_status))
+        .route("/v1/debug/patterns", get(get_debug_patterns))
         .route("/v1/debug/patterns/{task_id}", get(get_debug_patterns_for_task))
         .route("/v1/debug/update", post(update_debug_data))
         .layer(CorsLayer::permissive())

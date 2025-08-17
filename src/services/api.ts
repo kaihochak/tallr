@@ -127,7 +127,14 @@ export const ApiService = {
   // Get debug data for pattern detection
   async getDebugData(taskId?: string): Promise<DebugData> {
     const url = taskId ? `/v1/debug/patterns/${taskId}` : '/v1/debug/patterns';
-    return apiClient.get<DebugData>(url);
+    logApiCall(url, 'GET');
+    try {
+      const result = await apiClient.get<DebugData>(url);
+      return result;
+    } catch (error) {
+      logApiError(url, error instanceof Error ? error : new Error('Unknown error'));
+      throw error;
+    }
   },
 
   // Health check for the local server
