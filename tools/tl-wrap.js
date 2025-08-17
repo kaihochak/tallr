@@ -4,7 +4,7 @@ import pty from 'node-pty';
 import { TallorClient } from './lib/http-client.js';
 import { ClaudeStateTracker } from './lib/state-tracker.js';
 import { getIdeCommand, promptForIdeCommand } from './lib/settings.js';
-import { MAX_BUFFER_SIZE } from './lib/claude-patterns.js';
+import { MAX_BUFFER_SIZE } from './lib/patterns.js';
 import { execSync } from 'child_process';
 import http from 'http';
 

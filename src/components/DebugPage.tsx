@@ -68,7 +68,21 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
         
         debug.api('Fetching debug data', { taskId: taskId || 'latest' });
         console.log('[DEBUG] Making API call with taskId:', taskId);
-        const data = await ApiService.getDebugData(taskId || undefined);
+        
+        let data;
+        try {
+          // Try to get data for specific task first
+          data = await ApiService.getDebugData(taskId || undefined);
+        } catch (specificError) {
+          if (taskId && specificError instanceof Error && specificError.message.includes('404')) {
+            // If specific task has no debug data, try to get the most recent debug data
+            console.log('[DEBUG] Task-specific debug data not found, trying latest...');
+            data = await ApiService.getDebugData(undefined);
+          } else {
+            throw specificError;
+          }
+        }
+        
         console.log('[DEBUG] API response:', data);
         setDebugData(data);
         debug.ui('Debug data fetched successfully', { 

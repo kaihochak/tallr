@@ -11,7 +11,7 @@ export const MAX_BUFFER_SIZE = 5000;
 
 
 /**
- * Pattern definitions for Claude state detection
+ * Pattern definitions for Claude and Gemini state detection
  */
 const CLAUDE_PATTERNS = [
   {
@@ -23,7 +23,19 @@ const CLAUDE_PATTERNS = [
   {
     pattern: 'esc to interrupt',
     regex: /esc to interrupt/i,
-    description: 'Working state detection',
+    description: 'Claude working state detection',
+    expectedState: 'WORKING'
+  },
+  {
+    pattern: '● \\d+\\. Yes',
+    regex: /● \d+\. Yes/,
+    description: 'Gemini numbered prompt detection',
+    expectedState: 'PENDING'
+  },
+  {
+    pattern: 'esc to cancel',
+    regex: /esc to cancel/i,
+    description: 'Gemini working state detection',
     expectedState: 'WORKING'
   },
 ];

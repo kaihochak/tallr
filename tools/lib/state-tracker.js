@@ -4,7 +4,7 @@
  * Manages Claude CLI state detection and transitions
  */
 
-import { detectClaudeState, MAX_BUFFER_SIZE } from './claude-patterns.js';
+import { detectClaudeState, MAX_BUFFER_SIZE } from './patterns.js';
 import stripAnsi from 'strip-ansi';
 
 export class ClaudeStateTracker {
