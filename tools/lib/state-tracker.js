@@ -4,27 +4,7 @@
  * Manages Claude CLI state detection and transitions
  */
 
-/**
- * Clean ANSI codes from terminal output
- */
-function cleanANSI(text) {
-  return text
-    // Remove all ANSI escape sequences
-    .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')  // Most ANSI sequences
-    .replace(/\x1b\][0-9;]*;[^\x07]*\x07/g, '') // OSC sequences
-    .replace(/\x1b[=>]/g, '') // Application keypad
-    .replace(/\x1b[()][AB012]/g, '') // Character set sequences
-    // Remove control characters but keep printable Unicode
-    .replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '')
-    // Remove box-drawing characters
-    .replace(/[│─┌┐└┘├┤┬┴┼╭╮╰╯]/g, '')
-    // Clean up whitespace - preserve carriage return semantics
-    .replace(/\r\n/g, '\n')
-    // NOTE: Do NOT convert \r to \n - carriage returns are already handled in real-time parsing
-    .replace(/\t/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+import { detectClaudeState, cleanANSIForDisplay } from './claude-patterns.js';
 
 export class ClaudeStateTracker {
   constructor(client, taskId, enableDebug = false) {
@@ -57,106 +37,43 @@ export class ClaudeStateTracker {
   }
 
   /**
-   * Detect Claude state from output line (simplified 3-state system)
+   * Wrapper for external pattern detection (simplified 3-state system)
    * Only returns: IDLE, WORKING, PENDING
    * All error/blocked/done states are mapped to IDLE in changeState()
    */
-  detectClaudeState(line, context) {
-    const cleanLine = cleanANSI(line);
-    if (!cleanLine || cleanLine.length < 3) return null;
+  detectState(line, context) {
+    const contextBuffer = context.recentLines.slice(-10).join(' ');
+    const recentOutput = this.lastRecentOutput || '';
     
-    // Define patterns for debug tracking - improved for real Claude output
-    const patterns = [
-      {
-        pattern: '❯\\s*\\d+\\.\\s+',
-        regex: /❯\s*\d+\.\s+/,
-        description: 'Claude numbered prompt detection',
-        expectedState: 'PENDING'
-      },
-      {
-        pattern: '❯ 1\\. Yes',
-        regex: /❯\s*1\.\s*Yes/,
-        description: 'Claude Yes/No prompt detection',
-        expectedState: 'PENDING'
-      },
-      {
-        pattern: 'Would you like to proceed\\?',
-        regex: /Would you like to proceed\?/i,
-        description: 'Proceed confirmation detection',
-        expectedState: 'PENDING'
-      },
-      {
-        pattern: 'Approve\\?',
-        regex: /Approve\?/i,
-        description: 'Approval prompt detection',
-        expectedState: 'PENDING'
-      },
-      {
-        pattern: '\\[y/N\\]|\\[Y/n\\]',
-        regex: /\[(y\/N|Y\/n)\]/,
-        description: 'Y/N choice detection',
-        expectedState: 'PENDING'
-      },
-      {
-        pattern: 'esc to interrupt',
-        regex: /esc to interrupt/i,
-        description: 'Working state detection',
-        expectedState: 'WORKING'
-      },
-      {
-        pattern: 'working\\.\\.\\.|…',
-        regex: /(working\.\.\.)|…/i,
-        description: 'Working indicator detection',
-        expectedState: 'WORKING'
-      },
-      {
-        pattern: 'error|failed|exception',
-        regex: /error|failed|exception/i,
-        description: 'Error detection',
-        expectedState: 'ERROR'
-      },
-      {
-        pattern: 'continue\\?|proceed\\?',
-        regex: /(continue|proceed)\?/i,
-        description: 'General confirmation detection',
-        expectedState: 'PENDING'
-      },
-      {
-        pattern: 'claude.*thinking|analyzing',
-        regex: /(claude.*(thinking|analyzing))|thinking|analyzing/i,
-        description: 'Claude thinking state',
-        expectedState: 'WORKING'
-      }
-    ];
+    // Use external pattern detection
+    const result = detectClaudeState(line, contextBuffer, recentOutput);
     
-    // Test all patterns and collect debug data
-    const patternTests = patterns.map(p => ({
-      pattern: p.pattern,
-      description: p.description,
-      matches: p.regex.test(cleanLine),
-      expectedState: p.expectedState
-    }));
+    if (!result) return null;
     
-    // Update debug data
-    this.debugData.lastPatternTests = patternTests;
-    
-    // WORKING: Claude is actively processing (check first as most important)
-    if (cleanLine.includes('esc to interrupt')) {
-      this.debugData.confidence = 'high';
-      return { state: 'WORKING', details: cleanLine, confidence: 'high' };
+    // Update debug data if pattern tests are available
+    if (result.patternTests) {
+      this.debugData.lastPatternTests = result.patternTests;
     }
     
-    // PENDING: Claude is waiting for user input - check multiple patterns
-    if (cleanLine.includes('❯ 1. Yes') || 
-        cleanLine.includes('Would you like to proceed?') ||
-        cleanLine.includes('Approve?') ||
-        cleanLine.includes('[y/N]')) {
-      this.debugData.confidence = 'high';
-      return { state: 'PENDING', details: cleanLine, confidence: 'high' };
+    // Return state if detected
+    if (result.state) {
+      this.debugData.confidence = result.confidence || 'medium';
+      return { 
+        state: result.state, 
+        details: result.details || line, 
+        confidence: result.confidence || 'medium' 
+      };
     }
     
-    // Don't return IDLE for every line - only return state changes
-    this.debugData.confidence = 'low';
+    // Fallback IDLE detection for sufficient context
+    if (context.recentLines.length >= 5 && 
+        !contextBuffer.includes('esc to interrupt') &&
+        !contextBuffer.includes('❯') &&
+        !contextBuffer.includes('Would you like to proceed')) {
+      this.debugData.confidence = 'medium';
+      return { state: 'IDLE', details: line, confidence: 'medium' };
+    }
+    
     return null;
   }
 
@@ -170,6 +87,7 @@ export class ClaudeStateTracker {
     if (newState === 'ERROR' || newState === 'BLOCKED' || newState === 'DONE') {
       newState = 'IDLE';
     }
+    
     
     if (newState === this.currentState) {
       return;
@@ -226,13 +144,13 @@ export class ClaudeStateTracker {
   updateDebugBuffer(recentOutput) {
     // Update debug buffer data immediately
     this.debugData.currentBuffer = recentOutput.slice(-3000); // Keep last 3000 chars
-    this.debugData.cleanedBuffer = cleanANSI(this.debugData.currentBuffer);
+    this.debugData.cleanedBuffer = cleanANSIForDisplay(this.debugData.currentBuffer);
     this.lastRecentOutput = recentOutput;
     
     // Run pattern detection on the cleaned buffer for debug purposes
     // This won't change state, just updates pattern test results
     if (this.debugData.cleanedBuffer) {
-      this.detectClaudeState(this.debugData.cleanedBuffer, this.outputContext);
+      this.detectState(this.debugData.cleanedBuffer, this.outputContext);
     }
   }
 
@@ -252,12 +170,24 @@ export class ClaudeStateTracker {
       this.outputContext.recentLines.shift();
     }
     
+    // Only run state detection for significant lines that might indicate state changes
+    const isSignificantLine = trimmed.includes('❯') || 
+                             trimmed.includes('esc to interrupt') ||
+                             trimmed.includes('proceed') ||
+                             trimmed.includes('Yes') ||
+                             trimmed.includes('No') ||
+                             trimmed.length > 20; // Ignore very short lines
+    
+    if (!isSignificantLine) {
+      return;
+    }
+    
     // State detection with improved error handling
     try {
-      const detection = this.detectClaudeState(trimmed, this.outputContext);
+      const detection = this.detectState(trimmed, this.outputContext);
       if (detection) {
-        // Include cleaned recent output in the details (last 2000 chars)
-        const cleanedOutput = recentOutput ? cleanANSI(recentOutput.slice(-2000)) : detection.details;
+        // Include cleaned recent output in the details (last 2000 chars) - preserve formatting for display
+        const cleanedOutput = recentOutput ? cleanANSIForDisplay(recentOutput.slice(-2000)) : detection.details;
         await this.changeState(detection.state, cleanedOutput, detection.confidence);
       }
     } catch (error) {
@@ -269,7 +199,7 @@ export class ClaudeStateTracker {
       // If state change fails repeatedly, fall back to IDLE to prevent stuck states
       if (error.message.includes('network') || error.message.includes('ECONNREFUSED')) {
         // Network error - defer state change for retry
-        this.pendingStateChange = { trimmed, detection: this.detectClaudeState(trimmed, this.outputContext) };
+        this.pendingStateChange = { trimmed, detection: this.detectState(trimmed, this.outputContext) };
       }
     }
   }
@@ -317,11 +247,8 @@ export class ClaudeStateTracker {
         try {
           await this.client.updateDebugData(this.getDebugData());
           
-          // Also send periodic state updates with current details to keep UI fresh
-          if (this.lastRecentOutput && this.lastRecentOutput.length > 10) {
-            const cleanedOutput = cleanANSI(this.lastRecentOutput.slice(-1000));
-            await this.client.updateTaskState(this.taskId, this.currentState, cleanedOutput);
-          }
+          // Don't send periodic state updates - only update on actual state changes
+          // This was causing constant updatedAt changes and age=0m issue
         } catch (error) {
           // Silently ignore debug update errors
         }

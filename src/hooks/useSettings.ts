@@ -12,6 +12,7 @@ interface AppSettings {
   visibleOnAllWorkspaces: boolean;
   windowPosition?: WindowPosition;
   preferredIde: string;
+  theme: 'light' | 'dark' | 'system';
 }
 
 export function useSettings() {
@@ -19,7 +20,8 @@ export function useSettings() {
     alwaysOnTop: true,
     visibleOnAllWorkspaces: true,
     windowPosition: undefined,
-    preferredIde: "cursor"
+    preferredIde: "cursor",
+    theme: "system"
   });
   
   const [isLoading, setIsLoading] = useState(true);
@@ -86,12 +88,42 @@ export function useSettings() {
     await saveSettings({ preferredIde: ide });
   }, [saveSettings]);
 
+  // Apply theme to document
+  const applyTheme = useCallback((theme: 'light' | 'dark' | 'system') => {
+    const html = document.documentElement;
+    
+    if (theme === 'system') {
+      // Remove manual theme classes and let CSS media query handle it
+      html.classList.remove('light', 'dark');
+    } else {
+      // Apply manual theme
+      html.classList.remove('light', 'dark');
+      html.classList.add(theme);
+    }
+  }, []);
+
+  // Toggle theme
+  const toggleTheme = useCallback(async () => {
+    const themes: Array<'system' | 'light' | 'dark'> = ['system', 'light', 'dark'];
+    const currentIndex = themes.indexOf(settings.theme);
+    const nextTheme = themes[(currentIndex + 1) % themes.length];
+    
+    applyTheme(nextTheme);
+    await saveSettings({ theme: nextTheme });
+  }, [settings.theme, applyTheme, saveSettings]);
+
+  // Apply theme when settings change
+  useEffect(() => {
+    applyTheme(settings.theme);
+  }, [settings.theme, applyTheme]);
+
   return {
     settings,
     isLoading,
     toggleAlwaysOnTop,
     saveWindowPosition,
     setPreferredIde,
+    toggleTheme,
     saveSettings
   };
 }

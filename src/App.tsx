@@ -1,8 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { 
-  Filter
-} from "lucide-react";
 import SetupWizard from "./components/SetupWizard";
 import TaskRow from "./components/TaskRow";
 import EmptyState from "./components/EmptyState";
@@ -33,9 +30,8 @@ interface SetupStatus {
 
 function App() {
   const { appState, isLoading } = useAppState();
-  const { settings, toggleAlwaysOnTop } = useSettings();
+  const { settings, toggleAlwaysOnTop, toggleTheme } = useSettings();
   const [stateFilter, setStateFilter] = useState("all");
-  const [selectedTaskIndex, setSelectedTaskIndex] = useState(0);
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [showDebugDialog, setShowDebugDialog] = useState(false);
@@ -105,8 +101,8 @@ function App() {
       
       if (aPriority !== bPriority) return aPriority - bPriority;
       
-      // Third priority: most recent first
-      return b.updatedAt - a.updatedAt;
+      // Third priority: creation order (oldest first for stability)
+      return a.createdAt - b.createdAt;
     });
   }, [appState, stateFilter, showDoneTasks]);
 
@@ -154,7 +150,7 @@ function App() {
   }, [appState.tasks, handleJumpToContext]);
 
   // Handle show debug for specific task
-  const handleShowDebugForTask = useCallback((taskId: string) => {
+  const handleShowDebugForTask = useCallback((_taskId: string) => {
     // For now, just open the debug dialog - could be enhanced to focus on specific task
     setShowDebugDialog(true);
   }, []);
@@ -188,27 +184,11 @@ function App() {
         toggleAlwaysOnTop();
       }
       
-      // Arrow navigation
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setSelectedTaskIndex(prev => Math.max(0, prev - 1));
-      }
-      
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setSelectedTaskIndex(prev => Math.min(filteredTasks.length - 1, prev + 1));
-      }
-      
-      // Enter to jump to selected task
-      if (e.key === "Enter" && filteredTasks[selectedTaskIndex]) {
-        e.preventDefault();
-        handleJumpToSpecificTask(filteredTasks[selectedTaskIndex].id);
-      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedTaskIndex, filteredTasks, handleJumpToSpecificTask, toggleAlwaysOnTop]);
+  }, [toggleAlwaysOnTop]);
 
   // Setup wizard handlers
   const handleSetupComplete = useCallback(async () => {
@@ -230,7 +210,7 @@ function App() {
 
 
   return (
-    <div className="tally-app">
+    <div className="h-screen flex flex-col bg-gradient-to-br from-bg-primary to-bg-secondary animate-fadeIn">
       {/* Setup Wizard */}
       {showSetupWizard && (
         <SetupWizard 
@@ -241,50 +221,32 @@ function App() {
       {/* Header */}
       <Header 
         aggregateState={aggregateState}
-        selectedTaskIndex={selectedTaskIndex}
-        filteredTasks={filteredTasks}
         activeTasks={taskCounts.activeTasks}
         doneTasks={taskCounts.doneTasks}
         showDoneTasks={showDoneTasks}
         alwaysOnTop={settings.alwaysOnTop}
-        onNavigateUp={() => setSelectedTaskIndex(prev => Math.max(0, prev - 1))}
-        onNavigateDown={() => setSelectedTaskIndex(prev => Math.min(filteredTasks.length - 1, prev + 1))}
+        stateFilter={stateFilter}
+        theme={settings.theme}
         onTogglePin={toggleAlwaysOnTop}
         onToggleDoneTasks={() => setShowDoneTasks(prev => !prev)}
+        onStateFilterChange={setStateFilter}
+        onToggleTheme={toggleTheme}
       />
 
-      {/* Filters */}
-      <div className="filters">
-        <div className="filter-wrapper">
-          <Filter className="filter-icon" />
-          <select
-            value={stateFilter}
-            onChange={(e) => setStateFilter(e.target.value)}
-            className="state-filter"
-          >
-            <option value="all">All States</option>
-            <option value="PENDING">Pending</option>
-            <option value="WORKING">Working</option>
-            <option value="IDLE">Idle</option>
-          </select>
-        </div>
-      </div>
-
       {/* Task List */}
-      <div className="task-list">
+      <div className="flex-1 overflow-y-auto p-6 bg-bg-primary scrollbar-thin scrollbar-thumb-border-primary scrollbar-track-transparent scrollbar-thumb-rounded-full scrollbar-track-rounded-full hover:scrollbar-thumb-border-secondary">
         {isLoading ? (
           // Loading skeletons
           <>
-            <div className="skeleton skeleton-task"></div>
-            <div className="skeleton skeleton-task"></div>
-            <div className="skeleton skeleton-task"></div>
+            <div className="h-20 mb-3 rounded-xl bg-gradient-to-r from-bg-tertiary via-bg-hover to-bg-tertiary bg-[length:2000px_100%] animate-shimmer"></div>
+            <div className="h-20 mb-3 rounded-xl bg-gradient-to-r from-bg-tertiary via-bg-hover to-bg-tertiary bg-[length:2000px_100%] animate-shimmer"></div>
+            <div className="h-20 mb-3 rounded-xl bg-gradient-to-r from-bg-tertiary via-bg-hover to-bg-tertiary bg-[length:2000px_100%] animate-shimmer"></div>
           </>
         ) : filteredTasks.length === 0 ? (
           <EmptyState />
         ) : (
-          filteredTasks.map((task, index) => {
+          filteredTasks.map((task) => {
             const project = appState.projects[task.projectId];
-            const isSelected = index === selectedTaskIndex;
             const isExpanded = expandedTasks.has(task.id);
             
             return (
@@ -292,14 +254,13 @@ function App() {
                 key={task.id}
                 task={task}
                 project={project}
-                isSelected={isSelected}
                 isExpanded={isExpanded}
-                expandedTasks={expandedTasks}
                 setExpandedTasks={setExpandedTasks}
                 onDeleteTask={handleDeleteTask}
                 onJumpToContext={handleJumpToSpecificTask}
                 onShowDebug={handleShowDebugForTask}
                 onTogglePin={handleTogglePin}
+                allTasks={filteredTasks}
               />
             );
           })

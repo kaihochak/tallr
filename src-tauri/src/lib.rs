@@ -503,6 +503,25 @@ fn save_app_state() -> Result<(), String> {
     Ok(())
 }
 
+fn cleanup_done_sessions(mut state: AppState) -> AppState {
+    let initial_task_count = state.tasks.len();
+    
+    // Remove all tasks with "DONE" state
+    state.tasks.retain(|_, task| task.state != "DONE");
+    
+    let cleaned_task_count = state.tasks.len();
+    let removed_count = initial_task_count - cleaned_task_count;
+    
+    if removed_count > 0 {
+        // Update the state timestamp since we modified it
+        state.updated_at = current_timestamp();
+        println!("✓ Cleaned up {} done session(s), {} active session(s) remaining", 
+                 removed_count, cleaned_task_count);
+    }
+    
+    state
+}
+
 fn load_app_state() -> Result<AppState, String> {
     let sessions_file = get_sessions_file_path()?;
     
@@ -978,10 +997,6 @@ fn update_tray_menu(app_handle: &AppHandle) {
         let icon = load_tray_icon(aggregate_state);
         let _ = tray.set_icon(Some(icon));
         
-        // For development/testing, log the state change
-        if aggregate_state != "idle" {
-            println!("Tray icon updated to {} (using {})", aggregate_state, icon_path);
-        }
     }
 }
 
@@ -997,11 +1012,18 @@ pub fn run() {
             // Load persisted state on startup (with robust error handling)
             match load_app_state() {
                 Ok(loaded_state) => {
-                    *APP_STATE.lock() = loaded_state;
-                    let state = APP_STATE.lock();
+                    // Clean up done sessions before setting the state
+                    let cleaned_state = cleanup_done_sessions(loaded_state);
+                    
+                    // Save the cleaned state back to disk to persist the cleanup
+                    *APP_STATE.lock() = cleaned_state.clone();
+                    if let Err(e) = save_app_state() {
+                        eprintln!("⚠ Failed to save cleaned app state: {}", e);
+                    }
+                    
                     println!("✓ Loaded persisted sessions: {} projects, {} tasks", 
-                             state.projects.len(), 
-                             state.tasks.len());
+                             cleaned_state.projects.len(), 
+                             cleaned_state.tasks.len());
                 },
                 Err(e) => {
                     println!("⚠ Failed to load persisted sessions: {}", e);
