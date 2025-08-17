@@ -137,16 +137,14 @@ async function runWithPTY(command, commandArgs) {
     env: process.env
   });
 
-  let monitoringBuffer = '';
   let recentOutput = ''; // Rolling buffer for recent output to send to Tally
-  let currentLine = '';  // Current line being built for state tracking
   const MAX_OUTPUT_SIZE = 3000; // Keep last 3000 chars for UI display
 
   // Real-time character processing - preserve terminal control flow
   ptyProcess.on('data', (data) => {
     // Immediate passthrough for display - preserves all terminal control sequences
     process.stdout.write(data);
-    
+
     // Maintain rolling buffer of recent output for context
     recentOutput += data;
     if (recentOutput.length > MAX_OUTPUT_SIZE * 2) {
