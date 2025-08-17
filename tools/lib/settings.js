@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Settings Manager for Tally CLI
+ * Settings Manager for Tallor CLI
  * Handles user-specific IDE mappings and preferences
  */
 
@@ -10,7 +10,7 @@ import path from 'path';
 import os from 'os';
 
 // Settings file location
-const SETTINGS_DIR = path.join(os.homedir(), '.tally');
+const SETTINGS_DIR = path.join(os.homedir(), '.tallor');
 const SETTINGS_FILE = path.join(SETTINGS_DIR, 'settings.json');
 
 // Default settings structure
@@ -47,7 +47,7 @@ function loadSettings() {
     // Merge with defaults to ensure all required fields exist
     return { ...DEFAULT_SETTINGS, ...settings };
   } catch (error) {
-    console.error('[Tally] Error loading settings:', error.message);
+    console.error('[Tallor] Error loading settings:', error.message);
     return DEFAULT_SETTINGS;
   }
 }
@@ -61,7 +61,7 @@ function saveSettings(settings) {
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
     return true;
   } catch (error) {
-    console.error('[Tally] Error saving settings:', error.message);
+    console.error('[Tallor] Error saving settings:', error.message);
     return false;
   }
 }
@@ -95,21 +95,21 @@ function saveIdeMapping(appName, command) {
  * Prompt user for IDE command when unknown IDE is detected
  */
 function promptForIdeCommand(appName) {
-  console.log(`\n[Tally] Unknown IDE '${appName}' detected.`);
+  console.log(`\n[Tallor] Unknown IDE '${appName}' detected.`);
   console.log('To enable jump-to-context, please tell us the command to open this IDE:');
   console.log(`Example: if you open projects with '${appName.toLowerCase()}', enter: ${appName.toLowerCase()}`);
   console.log('');
   console.log('You can also:');
   console.log('1. Set TL_IDE environment variable: export TL_IDE=your-command');
-  console.log('2. Edit ~/.tally/settings.json manually');
-  console.log('3. Report this IDE at: https://github.com/anthropics/tally/issues');
+  console.log('2. Edit ~/.tallor/settings.json manually');
+  console.log('3. Report this IDE at: https://github.com/anthropics/tallor/issues');
   console.log('');
   
   // For now, we'll just return a guessed command
   // In a future version, we could add interactive prompting
   const guessed = appName.toLowerCase().replace(/\s+/g, '');
-  console.log(`[Tally] Using guessed command: ${guessed}`);
-  console.log(`[Tally] To customize, run: echo '{"ideMapping":{"${appName}":"your-command"}}' > ~/.tally/settings.json`);
+  console.log(`[Tallor] Using guessed command: ${guessed}`);
+  console.log(`[Tallor] To customize, run: echo '{"ideMapping":{"${appName}":"your-command"}}' > ~/.tallor/settings.json`);
   
   return guessed;
 }

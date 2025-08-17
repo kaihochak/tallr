@@ -55,7 +55,7 @@ export default function Header({
         <div className={`status-indicator ${aggregateState}`}></div>
         <div className="flex items-center gap-2 ml-3">
           <h1 className="text-lg font-bold bg-gradient-to-r from-accent-primary to-accent-primary-hover bg-clip-text text-transparent tracking-tight m-0">
-            TALLY
+            TALLOR
           </h1>
         </div>
         <button 

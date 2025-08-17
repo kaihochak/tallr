@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import SetupWizard from "./components/SetupWizard";
+import { open } from "@tauri-apps/plugin-shell";
+import { Download, Terminal, Copy, Check, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import TaskRow from "./components/TaskRow";
 import EmptyState from "./components/EmptyState";
 import Header from "./components/Header";
@@ -35,7 +37,14 @@ function App() {
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [showDebugDialog, setShowDebugDialog] = useState(false);
+  const [debugTaskId, setDebugTaskId] = useState<string | undefined>(undefined);
   const [showDoneTasks, setShowDoneTasks] = useState(false);
+  
+  // Setup wizard state
+  const [installing, setInstalling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showManualInstructions, setShowManualInstructions] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Load setup status
   useEffect(() => {
@@ -150,8 +159,8 @@ function App() {
   }, [appState.tasks, handleJumpToContext]);
 
   // Handle show debug for specific task
-  const handleShowDebugForTask = useCallback((_taskId: string) => {
-    // For now, just open the debug dialog - could be enhanced to focus on specific task
+  const handleShowDebugForTask = useCallback((taskId: string) => {
+    setDebugTaskId(taskId);
     setShowDebugDialog(true);
   }, []);
 
@@ -191,6 +200,42 @@ function App() {
   }, [toggleAlwaysOnTop]);
 
   // Setup wizard handlers
+  const handleInstall = useCallback(async () => {
+    setInstalling(true);
+    setError(null);
+    
+    try {
+      // First check permissions
+      const hasPermission = await invoke<boolean>('check_cli_permissions');
+      if (!hasPermission) {
+        throw new Error('Permission denied. Please use the manual installation method with sudo.');
+      }
+      
+      // Perform installation
+      await invoke('install_cli_globally');
+      // Installation complete - go straight to main app
+      handleSetupComplete();
+    } catch (err: any) {
+      console.error('Installation failed:', err);
+      const errorMsg = err.toString().replace('Error: ', '');
+      setError(errorMsg);
+      
+      // If permission denied, automatically show manual instructions
+      if (errorMsg.includes('Permission denied') || errorMsg.includes('sudo')) {
+        setShowManualInstructions(true);
+      }
+    } finally {
+      setInstalling(false);
+    }
+  }, []);
+
+  const handleCopyCommand = useCallback(() => {
+    const command = 'sudo ln -s /Applications/Tallor.app/Contents/MacOS/tallor /usr/local/bin/tallor';
+    navigator.clipboard.writeText(command);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, []);
+
   const handleSetupComplete = useCallback(async () => {
     try {
       await invoke("mark_setup_completed_cmd");
@@ -209,14 +254,101 @@ function App() {
   }, [appState.tasks]);
 
 
+  if (showSetupWizard) {
+    return (
+      <div className="h-screen flex flex-col bg-gradient-to-br from-bg-primary to-bg-secondary animate-fadeIn">
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="max-w-lg w-full space-y-6">
+            <div className="text-center space-y-4">
+              <h1 className="text-3xl font-bold text-text-primary">Install CLI Tools</h1>
+              <p className="text-text-secondary">
+                Get notified when your AI sessions need input.
+              </p>
+            </div>
+            
+            <Button 
+              onClick={handleInstall}
+              disabled={installing}
+              className="w-full h-12 text-base font-medium"
+              size="lg"
+            >
+              {installing ? (
+                <>
+                  <Download className="w-5 h-5 mr-2 animate-spin" /> Installing...
+                </>
+              ) : (
+                <>
+                  <Download className="w-5 h-5 mr-2" /> Install CLI Tools
+                </>
+              )}
+            </Button>
+            
+            {error && (
+              <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <div className="flex items-center gap-2 mb-2 text-destructive">
+                  <AlertCircle size={16} />
+                  <strong>Installation failed:</strong>
+                </div>
+                <p className="text-destructive text-sm mb-2">{error}</p>
+                {showManualInstructions && (
+                  <p className="text-destructive text-sm">Please try the manual installation method below.</p>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-center">
+              <Button 
+                variant="outline"
+                onClick={() => setShowManualInstructions(!showManualInstructions)}
+                className="text-sm"
+              >
+                {showManualInstructions ? 'Hide' : 'Manual installation'}
+              </Button>
+            </div>
+
+            {/* Manual installation instructions */}
+            {showManualInstructions && (
+              <div className="space-y-4 p-4 bg-bg-secondary border border-border-primary rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Terminal size={18} className="text-text-primary" />
+                  <h4 className="font-semibold text-text-primary">Manual Installation</h4>
+                </div>
+                <p className="text-sm text-text-secondary">Run this command in Terminal:</p>
+                <div className="relative">
+                  <code className="block p-3 bg-bg-tertiary border border-border-secondary rounded-lg text-sm font-mono text-text-primary pr-12 whitespace-pre-wrap">
+                    sudo ln -s /Applications/Tallor.app/Contents/MacOS/tallor /usr/local/bin/tallor
+                  </code>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleCopyCommand}
+                    className="absolute top-2 right-2 h-8 w-8 text-text-secondary hover:text-text-primary"
+                    title="Copy to clipboard"
+                  >
+                    {copied ? <Check size={16} /> : <Copy size={16} />}
+                  </Button>
+                </div>
+                <p className="text-xs text-text-tertiary">
+                  You'll be prompted for your password to create the symlink.
+                </p>
+                <div className="flex justify-center pt-2">
+                  <Button 
+                    onClick={handleSetupComplete}
+                    className="text-sm"
+                  >
+                    Continue to App
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-bg-primary to-bg-secondary animate-fadeIn">
-      {/* Setup Wizard */}
-      <SetupWizard 
-        isOpen={showSetupWizard}
-        onComplete={handleSetupComplete}
-      />
-      
       {/* Header */}
       <Header 
         aggregateState={aggregateState}
@@ -269,8 +401,34 @@ function App() {
       {/* Debug Dialog */}
       <DebugDialog 
         isOpen={showDebugDialog}
-        onClose={() => setShowDebugDialog(false)}
+        onClose={() => {
+          setShowDebugDialog(false);
+          setDebugTaskId(undefined);
+        }}
+        taskId={debugTaskId}
       />
+      
+      {/* Footer */}
+      <footer className="p-4 border-t border-border-primary bg-bg-secondary text-xs text-text-secondary flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <span>v0.1.0</span>
+          <button 
+            onClick={() => open("https://github.com/anthropics/claude-code/issues")}
+            className="hover:text-accent-primary transition-colors cursor-pointer"
+          >
+            Submit Support
+          </button>
+        </div>
+        <div className="text-right">
+          Built by{" "}
+          <button 
+            onClick={() => open("https://tallor.dev")}
+            className="hover:text-accent-primary transition-colors cursor-pointer"
+          >
+            Tallor Team
+          </button>
+        </div>
+      </footer>
     </div>
   );
 }

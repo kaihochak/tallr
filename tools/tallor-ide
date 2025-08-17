@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Tally IDE Management CLI
+ * Tallor IDE Management CLI
  * Utility for managing IDE mappings and testing detection
  */
 
@@ -27,8 +27,8 @@ switch (command) {
 
   case 'set':
     if (args.length !== 2) {
-      console.error('Usage: tally-ide set <app-name> <command>');
-      console.error('Example: tally-ide set "My IDE" myide');
+      console.error('Usage: tallor-ide set <app-name> <command>');
+      console.error('Example: tallor-ide set "My IDE" myide');
       process.exit(1);
     }
     const [appName, ideCommand] = args;
@@ -71,7 +71,7 @@ switch (command) {
 
   case 'help':
   default:
-    console.log('Tally IDE Management CLI');
+    console.log('Tallor IDE Management CLI');
     console.log('');
     console.log('Commands:');
     console.log('  list                    Show current IDE mappings');
@@ -80,8 +80,8 @@ switch (command) {
     console.log('  help                    Show this help');
     console.log('');
     console.log('Examples:');
-    console.log('  tally-ide list');
-    console.log('  tally-ide set "New IDE" newide');
-    console.log('  tally-ide test');
+    console.log('  tallor-ide list');
+    console.log('  tallor-ide set "New IDE" newide');
+    console.log('  tallor-ide test');
     break;
 }

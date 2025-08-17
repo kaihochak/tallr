@@ -128,13 +128,13 @@ Tally automatically detects which IDE you're using and opens the correct one whe
 export TL_IDE=cursor
 
 # Add permanent custom mapping
-./tools/tally-ide set "My Custom IDE" myide-command
+./tools/tallor-ide set "My Custom IDE" myide-command
 
 # View all IDE mappings
-./tools/tally-ide list
+./tools/tallor-ide list
 
 # Debug detection issues
-./tools/tally-ide test
+./tools/tallor-ide test
 ```
 
 ### Unknown IDEs
@@ -207,9 +207,9 @@ export TL_IDE=cursor           # Override auto-detected IDE (cursor/code/zed/web
 export TL_PROJECT="Custom Name" # Override project name
 
 # IDE Management (manual mappings)
-./tools/tally-ide list         # View current IDE mappings
-./tools/tally-ide set "My IDE" myide  # Add custom IDE mapping
-./tools/tally-ide test         # Debug IDE detection
+./tools/tallor-ide list         # View current IDE mappings
+./tools/tallor-ide set "My IDE" myide  # Add custom IDE mapping
+./tools/tallor-ide test         # Debug IDE detection
 ```
 
 ## API Reference

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { AppState } from '@/types';
+import { ApiService, logApiError } from '@/services/api';
 
 export function useAppState() {
   const [appState, setAppState] = useState<AppState>({ 
@@ -17,17 +18,27 @@ export function useAppState() {
       
       // Use functional state update to avoid stale closure
       setAppState(currentState => {
-        // Mark IDLE tasks as completed for time-based filtering
-        Object.values(newState.tasks).forEach(task => {
+        // Create immutable copy of tasks with proper completedAt timestamps
+        const updatedTasks = { ...newState.tasks };
+        
+        Object.values(updatedTasks).forEach(task => {
           const oldTask = currentState.tasks[task.id];
           
           // If task changed to IDLE from any other state, mark completion time
           if (oldTask && oldTask.state !== 'IDLE' && task.state === 'IDLE') {
-            task.completedAt = Date.now();
+            // Create new task object with completedAt instead of mutating
+            updatedTasks[task.id] = {
+              ...task,
+              completedAt: Date.now()
+            };
           }
         });
         
-        return newState;
+        // Return new state object with updated tasks
+        return {
+          ...newState,
+          tasks: updatedTasks
+        };
       });
     });
 
@@ -57,12 +68,13 @@ export function useAppState() {
   useEffect(() => {
     const loadTasks = async () => {
       try {
-        const response = await fetch("http://127.0.0.1:4317/v1/state");
-        const data = await response.json();
+        const data = await ApiService.getState();
         setAppState(data);
         setIsLoading(false);
       } catch (error) {
-        console.error("Failed to load tasks:", error);
+        const apiError = error instanceof Error ? error : new Error('Unknown error');
+        logApiError('/v1/state', apiError);
+        console.error("Failed to load tasks:", apiError);
         setIsLoading(false);
       }
     };

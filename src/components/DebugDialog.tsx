@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Bug, Circle, CheckCircle, XCircle, Copy, Check } from 'lucide-react';
+import { Bug, Circle, CheckCircle, XCircle, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -8,35 +8,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { ApiService, DebugData, logApiError } from '@/services/api';
 
-interface DebugData {
-  currentBuffer: string;
-  cleanedBuffer: string;
-  patternTests: Array<{
-    pattern: string;
-    description: string;
-    matches: boolean;
-    expectedState: string;
-  }>;
-  currentState: string;
-  confidence: string;
-  detectionHistory: Array<{
-    timestamp: number;
-    from: string;
-    to: string;
-    details: string;
-    confidence: string;
-  }>;
-  taskId: string;
-  isActive: boolean;
-}
 
 interface DebugDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  taskId?: string;
 }
 
-export function DebugDialog({ isOpen, onClose }: DebugDialogProps) {
+export function DebugDialog({ isOpen, onClose, taskId }: DebugDialogProps) {
   const [debugData, setDebugData] = useState<DebugData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,14 +69,12 @@ export function DebugDialog({ isOpen, onClose }: DebugDialogProps) {
       try {
         setIsLoading(true);
         setError(null);
-        const response = await fetch('http://127.0.0.1:4317/v1/debug/patterns');
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        const data = await response.json();
+        const data = await ApiService.getDebugData(taskId);
         setDebugData(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch debug data');
+        const apiError = err instanceof Error ? err : new Error('Failed to fetch debug data');
+        logApiError('/v1/debug/patterns', apiError);
+        setError(apiError.message);
         setDebugData(null);
       } finally {
         setIsLoading(false);
@@ -108,7 +87,7 @@ export function DebugDialog({ isOpen, onClose }: DebugDialogProps) {
     // Poll every 500ms for real-time updates
     const interval = setInterval(fetchDebugData, 500);
     return () => clearInterval(interval);
-  }, [isOpen]);
+  }, [isOpen, taskId]);
 
   if (!isOpen) return null;
 

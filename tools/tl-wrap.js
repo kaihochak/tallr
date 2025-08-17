@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
 /**
- * Tally CLI Wrapper
+ * Tallor CLI Wrapper
  * 
  * Monitors CLI output for user prompts with modular architecture
  * 
  * Usage:
- *   export TALLY_TOKEN=devtoken
+ *   export TALLOR_TOKEN=devtoken
  *   export TL_PROJECT="my-project"
  *   export TL_REPO="/path/to/repo"
  *   export TL_AGENT="claude"
@@ -16,7 +16,7 @@
  */
 
 import pty from 'node-pty';
-import { TallyClient } from './lib/http-client.js';
+import { TallorClient } from './lib/http-client.js';
 import { ClaudeStateTracker } from './lib/state-tracker.js';
 import { getIdeCommand, promptForIdeCommand } from './lib/settings.js';
 import { debugRegistry } from './lib/debug-registry.js';
@@ -93,8 +93,8 @@ function detectCurrentIDE() {
 
 // Configuration from environment
 const config = {
-  token: process.env.TALLY_TOKEN || process.env.SWITCHBOARD_TOKEN || 'devtoken',
-  gateway: process.env.TALLY_GATEWAY || 'http://127.0.0.1:4317',
+  token: process.env.TALLOR_TOKEN || process.env.SWITCHBOARD_TOKEN || 'devtoken',
+  gateway: process.env.TALLOR_GATEWAY || 'http://127.0.0.1:4317',
   project: process.env.TL_PROJECT || 'default-project',
   repo: process.env.TL_REPO || process.cwd(),
   agent: process.env.TL_AGENT || 'cli',
@@ -106,7 +106,7 @@ const config = {
 const taskId = `${config.agent}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 // Initialize components
-const client = new TallyClient(config);
+const client = new TallorClient(config);
 const stateTracker = new ClaudeStateTracker(client, taskId, false); // Disable debug
 
 // Register state tracker for debug access

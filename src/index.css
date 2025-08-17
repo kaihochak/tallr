@@ -334,29 +334,38 @@
     transition: all var(--transition-base);
     white-space: nowrap;
     letter-spacing: 0.3px;
+    border: 1px solid transparent;
   }
 
   .task-state-badge.pending { 
-    background: var(--status-pending-bg);
-    color: var(--status-pending);
+    background: #fef3c7;
+    color: #92400e;
     font-weight: 700;
-    box-shadow: 0 0 0 1px var(--status-pending);
+    border-color: #fbbf24;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   }
 
   .task-state-badge.working { 
-    background: var(--status-working-bg);
-    color: var(--status-working);
+    background: #dbeafe;
+    color: #1d4ed8;
+    font-weight: 600;
+    border-color: #60a5fa;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   }
 
   .task-state-badge.idle { 
-    background: var(--status-idle-bg);
-    color: var(--status-idle);
+    background: #f1f5f9;
+    color: #475569;
+    font-weight: 500;
+    border-color: #cbd5e1;
   }
 
   .task-state-badge.completed { 
-    background: var(--status-working-bg);
-    color: var(--status-working);
+    background: #d1fae5;
+    color: #047857;
     font-weight: 600;
+    border-color: #34d399;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     animation: completedPulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 
@@ -528,11 +537,13 @@
   @keyframes completedPulse {
     0%, 100% {
       opacity: 1;
-      background: var(--status-working-bg);
+      background: #d1fae5;
+      border-color: #34d399;
     }
     50% {
-      opacity: 0.8;
-      background: var(--status-working);
+      opacity: 0.9;
+      background: #a7f3d0;
+      border-color: #10b981;
     }
   }
 

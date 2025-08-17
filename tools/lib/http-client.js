@@ -1,17 +1,17 @@
 /**
- * Tally HTTP Client
+ * Tallor HTTP Client
  * 
- * Handles communication with the Tally backend API
+ * Handles communication with the Tallor backend API
  */
 import http from 'http';
 
-export class TallyClient {
+export class TallorClient {
   constructor(config) {
     this.config = config;
   }
 
   /**
-   * Make HTTP request to Tally backend with retry logic
+   * Make HTTP request to Tallor backend with retry logic
    */
   async makeRequest(method, path, data, retries = 3) {
     for (let attempt = 0; attempt < retries; attempt++) {
@@ -65,11 +65,11 @@ export class TallyClient {
       req.on('error', (error) => {
         // Add more context to connection errors
         if (error.code === 'ECONNREFUSED') {
-          reject(new Error(`Cannot connect to Tally backend at ${this.config.gateway}. Is Tally app running?`));
+          reject(new Error(`Cannot connect to Tallor backend at ${this.config.gateway}. Is Tallor app running?`));
         } else if (error.code === 'ENOTFOUND') {
           reject(new Error(`Invalid gateway hostname: ${this.config.gateway}`));
         } else if (error.code === 'ETIMEDOUT') {
-          reject(new Error(`Request timeout to Tally backend`));
+          reject(new Error(`Request timeout to Tallor backend`));
         } else {
           reject(error);
         }
@@ -77,7 +77,7 @@ export class TallyClient {
 
       req.on('timeout', () => {
         req.destroy();
-        reject(new Error('Request timeout to Tally backend'));
+        reject(new Error('Request timeout to Tallor backend'));
       });
       
       if (data) {
@@ -101,7 +101,7 @@ export class TallyClient {
   }
 
   /**
-   * Create initial task in Tally
+   * Create initial task in Tallor
    */
   async createTask(taskId) {
     try {
@@ -120,9 +120,9 @@ export class TallyClient {
       });
       // Task created silently
     } catch (error) {
-      console.error(`[Tally] Failed to create task:`, error.message);
+      console.error(`[Tallor] Failed to create task:`, error.message);
       // Don't fail the entire CLI session if task creation fails
-      console.error(`[Tally] Continuing without tracking...`);
+      console.error(`[Tallor] Continuing without tracking...`);
     }
   }
 
@@ -140,7 +140,7 @@ export class TallyClient {
     } catch (error) {
       // Only log connection errors once to avoid spam
       if (!this._lastErrorLogged || Date.now() - this._lastErrorLogged > 30000) {
-        console.error(`[Tally] Failed to update task state to ${state}:`, error.message);
+        console.error(`[Tallor] Failed to update task state to ${state}:`, error.message);
         this._lastErrorLogged = Date.now();
       }
       
@@ -160,7 +160,7 @@ export class TallyClient {
       });
       // Task completed silently
     } catch (error) {
-      console.error(`[Tally] Failed to mark task done:`, error.message);
+      console.error(`[Tallor] Failed to mark task done:`, error.message);
       // Still consider the CLI session successful even if we can't mark it done
     }
   }

@@ -1,12 +1,12 @@
 [package]
-name = "tally"
+name = "tallor"
 version = "0.1.0"
-description = "Tally - AI Agent Monitor"
-authors = ["Tally Team"]
+description = "Tallor - AI Agent Monitor"
+authors = ["Tallor Team"]
 edition = "2021"
 
 [lib]
-name = "tally_lib"
+name = "tallor_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

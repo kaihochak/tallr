@@ -8,7 +8,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
 
 interface SetupWizardProps {
   isOpen: boolean;
@@ -51,7 +50,7 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ isOpen, onComplete }) => {
   }, [onComplete]);
 
   const handleCopyCommand = useCallback(() => {
-    const command = 'sudo ln -s /Applications/Tally.app/Contents/MacOS/tally /usr/local/bin/tally';
+    const command = 'sudo ln -s /Applications/Tallor.app/Contents/MacOS/tallor /usr/local/bin/tallor';
     navigator.clipboard.writeText(command);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -121,7 +120,7 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ isOpen, onComplete }) => {
               <p className="text-sm text-text-secondary">Run this command in Terminal:</p>
               <div className="relative">
                 <code className="block p-3 bg-bg-tertiary border border-border-secondary rounded-lg text-sm font-mono text-text-primary pr-12 whitespace-pre-wrap">
-                  sudo ln -s /Applications/Tally.app/Contents/MacOS/tally /usr/local/bin/tally
+                  sudo ln -s /Applications/Tallor.app/Contents/MacOS/tallor /usr/local/bin/tallor
                 </code>
                 <Button
                   variant="ghost"

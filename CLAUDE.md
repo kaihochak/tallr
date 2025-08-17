@@ -1,10 +1,10 @@
-# Tally Developer Implementation Guide
+# Tallor Developer Implementation Guide
 
-This guide provides implementation guidance for developers working on Tally. For user documentation, see [README.md](./README.md). For product requirements, see [PRD.md](./PRD.md).
+This guide provides implementation guidance for developers working on Tallor. For user documentation, see [README.md](./README.md). For product requirements, see [PRD.md](./PRD.md).
 
 ## Architecture Overview
 
-Tally follows a **3-application architecture**:
+Tallor follows a **3-application architecture**:
 
 1. **Desktop App** (Tauri v2 + React 19) - Main dashboard and notifications
 2. **CLI Wrapper** (Node.js) - Wraps AI CLIs and monitors output  
@@ -13,7 +13,7 @@ Tally follows a **3-application architecture**:
 ```
 Terminal Session          Desktop App
 ┌─────────────┐          ┌──────────────┐
-│   tally     │          │   Tauri App  │
+│   tallor    │          │   Tauri App  │
 │    (bash)   │          │              │
 └──────┬──────┘          │  ┌────────┐  │
        │                 │  │ React  │  │
@@ -214,7 +214,7 @@ npm run tauri:build
 **Manual Testing:**
 ```bash
 # Test session tracking
-cd your-project && tally claude
+cd your-project && tallor claude
 
 # Test notifications (direct API)
 curl -H "Content-Type: application/json" \
@@ -225,7 +225,7 @@ curl -H "Content-Type: application/json" \
 **Debug Mode:**
 - Frontend: `Cmd+Option+I` for React DevTools
 - Backend: Terminal logs from Rust server
-- CLI Wrapper: `DEBUG=1 tally claude` for verbose output
+- CLI Wrapper: `DEBUG=1 tallor claude` for verbose output
 
 ### File Organization
 
@@ -248,7 +248,7 @@ src-tauri/
 └── Cargo.toml           # Rust dependencies
 
 tools/
-├── tally                # Shell entry point
+├── tallor               # Shell entry point
 ├── tl-wrap.js           # Main wrapper logic
 └── lib/                 # Supporting modules
     ├── state-tracker.js # Pattern detection
@@ -431,4 +431,4 @@ async fn command_name(app: AppHandle, param: Type) -> Result<ReturnType, String>
 
 ---
 
-This guide covers the core implementation patterns for Tally. For questions or contributions, refer to the codebase structure and existing patterns as examples.
+This guide covers the core implementation patterns for Tallor. For questions or contributions, refer to the codebase structure and existing patterns as examples.

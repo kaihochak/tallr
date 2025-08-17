@@ -211,7 +211,7 @@ async fn upsert_task(
     // Send notification for PENDING state
     if req.task.state == "PENDING" {
         let notification_data = serde_json::json!({
-            "title": format!("Tally - {}", req.task.agent),
+            "title": format!("Tallor - {}", req.task.agent),
             "body": req.task.details.unwrap_or_else(|| "Agent is waiting for user input".to_string())
         });
         let _ = app_handle.emit("show-notification", &notification_data);
@@ -253,7 +253,7 @@ async fn update_task_state(
         // Send notification for PENDING state
         if req.state == "PENDING" {
             let notification_data = serde_json::json!({
-                "title": format!("Tally - {}", agent),
+                "title": format!("Tallor - {}", agent),
                 "body": req.details.unwrap_or_else(|| "Agent is waiting for user input".to_string())
             });
             let _ = app_handle.emit("show-notification", &notification_data);
@@ -457,8 +457,8 @@ async fn update_debug_data(
 }
 
 fn is_cli_installed() -> bool {
-    // Check if symlink exists at /usr/local/bin/tally
-    Path::new("/usr/local/bin/tally").exists()
+    // Check if symlink exists at /usr/local/bin/tallor
+    Path::new("/usr/local/bin/tallor").exists()
 }
 
 fn get_setup_completion_flag() -> bool {
@@ -470,7 +470,7 @@ fn get_setup_completion_flag() -> bool {
 
 fn get_app_data_dir() -> Result<std::path::PathBuf, String> {
     let home = std::env::var("HOME").map_err(|_| "Unable to find HOME directory")?;
-    Ok(std::path::PathBuf::from(home).join("Library/Application Support/Tally"))
+    Ok(std::path::PathBuf::from(home).join("Library/Application Support/Tallor"))
 }
 
 fn mark_setup_completed() -> Result<(), String> {
@@ -704,7 +704,7 @@ async fn check_cli_permissions() -> Result<bool, String> {
     }
     
     // Try to check write permissions
-    let test_file = bin_dir.join(".tally_test_write");
+    let test_file = bin_dir.join(".tallor_test_write");
     match fs::write(&test_file, "test") {
         Ok(_) => {
             // Clean up test file
@@ -726,11 +726,11 @@ async fn install_cli_globally(app: AppHandle) -> Result<(), String> {
             .parent()
             .ok_or("Failed to get parent directory")?
             .to_path_buf();
-        project_dir.join("tools").join("tally")
+        project_dir.join("tools").join("tallor")
     } else {
         // In production, use the resource directory
         let resource_path = app.path().resource_dir().map_err(|e| format!("Failed to get resource path: {}", e))?;
-        resource_path.join("tally")
+        resource_path.join("tallor")
     };
     
     // Check if CLI binary exists
@@ -748,19 +748,19 @@ async fn install_cli_globally(app: AppHandle) -> Result<(), String> {
     }
     
     // Check write permissions
-    let test_file = bin_dir.join(".tally_test_write");
+    let test_file = bin_dir.join(".tallor_test_write");
     if fs::write(&test_file, "test").is_err() {
         return Err("Permission denied. Please use the manual installation method with sudo.".to_string());
     }
     let _ = fs::remove_file(&test_file);
     
-    // Create symlink at /usr/local/bin/tally
-    let cli_dest = bin_dir.join("tally");
+    // Create symlink at /usr/local/bin/tallor
+    let cli_dest = bin_dir.join("tallor");
     
     // Remove existing symlink if it exists
     if cli_dest.exists() {
         if let Err(e) = fs::remove_file(&cli_dest) {
-            return Err(format!("Cannot remove existing CLI: {}. Please run: sudo rm /usr/local/bin/tally", e));
+            return Err(format!("Cannot remove existing CLI: {}. Please run: sudo rm /usr/local/bin/tallor", e));
         }
     }
     
@@ -884,7 +884,7 @@ fn build_tray_menu(app_handle: &AppHandle) -> Result<tauri::menu::Menu<tauri::Wr
     // Add static menu items
     menu_builder = menu_builder
         .item(
-            &MenuItemBuilder::new("Show Tally")
+            &MenuItemBuilder::new("Show Tallor")
                 .id("show_window")
                 .build(app_handle)?
         )
@@ -956,15 +956,6 @@ const TRAY_ICON_WORKING: &[u8] = include_bytes!("../icons/tray/tray-working.png"
 const TRAY_ICON_PENDING: &[u8] = include_bytes!("../icons/tray/tray-pending.png");
 const TRAY_ICON_ERROR: &[u8] = include_bytes!("../icons/tray/tray-error.png");
 
-// Function to get icon path based on state
-fn get_tray_icon_path(state: &str) -> &'static str {
-    match state {
-        "pending" => "icons/tray/tray-pending.png", // Amber/orange for waiting
-        "error" => "icons/tray/tray-error.png",     // Red for errors
-        "working" => "icons/tray/tray-working.png", // Green for active
-        _ => "icons/tray/tray-default.png",         // Default gray/neutral
-    }
-}
 
 // Function to load tray icon based on state
 fn load_tray_icon(state: &str) -> tauri::image::Image<'static> {
@@ -993,7 +984,6 @@ fn update_tray_menu(app_handle: &AppHandle) {
         
         // Update icon based on aggregate state
         let aggregate_state = get_aggregate_state();
-        let icon_path = get_tray_icon_path(aggregate_state);
         
         // Load and set the appropriate icon
         let icon = load_tray_icon(aggregate_state);
@@ -1074,7 +1064,7 @@ async fn start_http_server(app_handle: AppHandle) {
         .with_state(app_handle);
 
     let listener = TcpListener::bind("127.0.0.1:4317").await.unwrap();
-    println!("Tally gateway listening on http://127.0.0.1:4317");
+    println!("Tallor gateway listening on http://127.0.0.1:4317");
     
     axum::serve(listener, app).await.unwrap();
 }

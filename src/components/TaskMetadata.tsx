@@ -14,19 +14,19 @@ export default function TaskMetadata({ task, project, allTasks, className }: Tas
   const sessionNumber = calculateSessionNumber(task, allTasks, project);
   
   return (
-    <div className={cn("flex items-center gap-1.5 flex-1", className)}>
+    <div className={cn("flex items-center gap-3 flex-1", className)}>
       {/* Project Name with Session Number */}
-      <span className="font-bold text-text-primary text-base whitespace-nowrap overflow-hidden text-ellipsis">
+      <span className="font-bold text-text-primary text-xl whitespace-nowrap overflow-hidden text-ellipsis">
         {project?.name || "Unknown"}
         {sessionNumber && (
-          <span className="font-normal text-text-secondary text-sm ml-1.5">
+          <span className="font-medium text-text-secondary text-sm ml-1.5">
             #{sessionNumber}
           </span>
         )}
       </span>
       
       {/* Badges */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center text-text-muted">
         <Badge type="agent" name={task.agent} />
         {project?.preferredIde && (
           <>

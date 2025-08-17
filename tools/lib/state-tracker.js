@@ -104,9 +104,9 @@ export class ClaudeStateTracker {
     this.lastStateChange = now;
     
     // Use Claude states directly - no mapping needed
-    // console.log(`[Tally] Claude: ${previousState} → ${newState}`);
+    // console.log(`[Tallor] Claude: ${previousState} → ${newState}`);
     
-    // Update Tally backend with retry logic
+    // Update Tallor backend with retry logic
     const maxRetries = 3;
     let retries = 0;
     
@@ -120,7 +120,7 @@ export class ClaudeStateTracker {
         retries++;
         if (retries >= maxRetries) {
           if (this.enableDebug) {
-            console.error(`[Tally Debug] Failed to update state after ${maxRetries} retries:`, error.message);
+            console.error(`[Tallor Debug] Failed to update state after ${maxRetries} retries:`, error.message);
           }
           throw error; // Re-throw after max retries
         }
@@ -186,7 +186,7 @@ export class ClaudeStateTracker {
     } catch (error) {
       // Log errors in debug mode but prevent display interference
       if (this.enableDebug) {
-        console.error(`[Tally Debug] State detection error:`, error.message);
+        console.error(`[Tallor Debug] State detection error:`, error.message);
       }
       
       // If state change fails repeatedly, fall back to IDLE to prevent stuck states
@@ -274,7 +274,7 @@ export class ClaudeStateTracker {
    */
   async syncInitialState() {
     if (this.currentState !== 'IDLE') {
-      console.log(`[Tally] Syncing initial state: ${this.currentState}`);
+      console.log(`[Tallor] Syncing initial state: ${this.currentState}`);
       await this.client.updateTaskState(this.taskId, this.currentState, `Initial state: ${this.currentState}`);
     }
   }
