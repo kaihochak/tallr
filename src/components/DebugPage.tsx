@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ApiService, DebugData, logApiError } from '@/services/api';
 import { debug } from '@/utils/debug';
+import TaskStateBadge from './TaskStateBadge';
 
 interface DebugPageProps {
   taskId: string | null;
@@ -36,8 +37,8 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
     copyToClipboard(allData, 'all');
   };
 
-  const copyBuffer = (buffer: string, type: 'raw' | 'cleaned') => {
-    copyToClipboard(buffer, `buffer-${type}`);
+  const copyBuffer = (buffer: string) => {
+    copyToClipboard(buffer, 'buffer');
   };
 
   const copyPatternTests = () => {
@@ -126,14 +127,7 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
               </span>
             )}
             {debugData && (
-              <span className={cn(
-                "px-3 py-1 rounded-lg text-sm font-medium",
-                debugData.currentState.toLowerCase() === 'pending' && "bg-yellow-100 text-yellow-800",
-                debugData.currentState.toLowerCase() === 'working' && "bg-blue-100 text-blue-800",
-                debugData.currentState.toLowerCase() === 'idle' && "bg-gray-100 text-gray-800"
-              )}>
-                {debugData.currentState}
-              </span>
+              <TaskStateBadge state={debugData.currentState} />
             )}
           </div>
         </div>
@@ -146,7 +140,7 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
           <button
             onClick={() => setActiveTab('quick')}
             className={cn(
-              "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all gap-2",
+              "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all gap-2 cursor-pointer",
               activeTab === 'quick' 
                 ? "bg-bg-primary text-text-primary shadow-sm" 
                 : "hover:bg-bg-hover hover:text-text-primary"
@@ -158,7 +152,7 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
           <button
             onClick={() => setActiveTab('patterns')}
             className={cn(
-              "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all gap-2",
+              "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all gap-2 cursor-pointer",
               activeTab === 'patterns' 
                 ? "bg-bg-primary text-text-primary shadow-sm" 
                 : "hover:bg-bg-hover hover:text-text-primary"
@@ -170,7 +164,7 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
           <button
             onClick={() => setActiveTab('logs')}
             className={cn(
-              "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all gap-2",
+              "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all gap-2 cursor-pointer",
               activeTab === 'logs' 
                 ? "bg-bg-primary text-text-primary shadow-sm" 
                 : "hover:bg-bg-hover hover:text-text-primary"
@@ -182,7 +176,7 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
           <button
             onClick={() => setActiveTab('raw')}
             className={cn(
-              "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all gap-2",
+              "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all gap-2 cursor-pointer",
               activeTab === 'raw' 
                 ? "bg-bg-primary text-text-primary shadow-sm" 
                 : "hover:bg-bg-hover hover:text-text-primary"
@@ -226,14 +220,7 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
                   <div className="bg-bg-card p-6 rounded-lg border border-border-primary">
                     <h3 className="font-semibold text-text-primary mb-4">Current State</h3>
                     <div className="flex items-center gap-3 mb-2">
-                      <span className={cn(
-                        "px-3 py-2 rounded-lg text-sm font-medium",
-                        debugData.currentState.toLowerCase() === 'pending' && "bg-yellow-100 text-yellow-800",
-                        debugData.currentState.toLowerCase() === 'working' && "bg-blue-100 text-blue-800",
-                        debugData.currentState.toLowerCase() === 'idle' && "bg-gray-100 text-gray-800"
-                      )}>
-                        {debugData.currentState}
-                      </span>
+                      <TaskStateBadge state={debugData.currentState} className="px-3 py-2" />
                       <span className="text-sm text-text-secondary">({debugData.confidence})</span>
                     </div>
                     <div className={cn(
@@ -348,31 +335,17 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
             {/* Raw Tab */}
             {activeTab === 'raw' && (
               <div className="space-y-6 mt-0">
-                <div className="space-y-6">
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-xl font-semibold text-text-primary">Current Buffer ({debugData.currentBuffer.length} chars)</h3>
-                      <CopyButton onClick={() => copyBuffer(debugData.currentBuffer, 'raw')} copyKey="buffer-raw" />
-                    </div>
-                    <pre 
-                      className="p-4 bg-bg-card border border-border-primary rounded-lg text-sm font-mono whitespace-pre-wrap cursor-pointer hover:bg-bg-secondary transition-colors overflow-auto max-h-96" 
-                      onClick={() => copyBuffer(debugData.currentBuffer, 'raw')}
-                    >
-                      {debugData.currentBuffer || '(empty)'}
-                    </pre>
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-semibold text-text-primary">Buffer ({debugData.cleanedBuffer.length} chars)</h3>
+                    <CopyButton onClick={() => copyBuffer(debugData.cleanedBuffer)} copyKey="buffer" />
                   </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-xl font-semibold text-text-primary">Cleaned Buffer ({debugData.cleanedBuffer.length} chars)</h3>
-                      <CopyButton onClick={() => copyBuffer(debugData.cleanedBuffer, 'cleaned')} copyKey="buffer-cleaned" />
-                    </div>
-                    <pre 
-                      className="p-4 bg-bg-card border border-border-primary rounded-lg text-sm font-mono whitespace-pre-wrap cursor-pointer hover:bg-bg-secondary transition-colors overflow-auto max-h-96"
-                      onClick={() => copyBuffer(debugData.cleanedBuffer, 'cleaned')}
-                    >
-                      {debugData.cleanedBuffer || '(empty)'}
-                    </pre>
-                  </div>
+                  <pre 
+                    className="p-4 bg-bg-card border border-border-primary rounded-lg text-sm font-mono whitespace-pre-wrap cursor-pointer hover:bg-bg-secondary transition-colors overflow-auto max-h-96"
+                    onClick={() => copyBuffer(debugData.cleanedBuffer)}
+                  >
+                    {debugData.cleanedBuffer || '(empty)'}
+                  </pre>
                 </div>
               </div>
             )}

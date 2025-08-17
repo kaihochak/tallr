@@ -453,7 +453,7 @@ function App() {
       )}
       
       {/* Footer */}
-      <footer className="p-4 border-t border-border-primary bg-bg-secondary text-xs text-text-secondary flex justify-between items-center">
+      <footer className="p-4 bg-bg-primary text-xs text-text-primary flex justify-between items-center">
         <div className="flex items-center gap-4">
           <span>v0.1.0</span>
           <button 

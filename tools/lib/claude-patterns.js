@@ -4,6 +4,8 @@
  * Handles pattern matching for Claude CLI state detection
  */
 
+import stripAnsi from 'strip-ansi';
+
 /**
  * Clean ANSI codes from terminal output for STATE DETECTION
  * Aggressive cleaning to ensure reliable pattern matching
@@ -27,32 +29,15 @@ export function cleanANSIForDetection(text) {
     .trim();
 }
 
-/**
- * Clean ANSI codes from terminal output for DISPLAY
- * Preserves formatting like newlines for better user readability
- */
 export function cleanANSIForDisplay(text) {
-  return text
-    // First normalize line endings BEFORE removing other control characters
-    .replace(/\r\n/g, '\n')  // Windows line endings to Unix
-    .replace(/\r/g, '\n')    // Mac line endings to Unix
-    // Remove all ANSI escape sequences
-    .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')  // Most ANSI sequences
-    .replace(/\x1b\][0-9;]*;[^\x07]*\x07/g, '') // OSC sequences
-    .replace(/\x1b[=>]/g, '') // Application keypad
-    .replace(/\x1b[()][AB012]/g, '') // Character set sequences
-    // Remove control characters but PRESERVE newlines (\n = 0x0A)
-    // Range excludes: 0x09 (tab), 0x0A (LF), 0x0D (CR)
-    .replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '')
-    // Remove box-drawing characters
-    .replace(/[│─┌┐└┘├┤┬┴┼╭╮╰╯]/g, '')
-    // Clean up whitespace but PRESERVE newlines
-    .replace(/\t/g, '  ')    // Convert tabs to spaces
-    // DON'T collapse all whitespace - preserve line structure
-    .replace(/[ ]+/g, ' ')   // Only collapse multiple spaces, keep newlines
-    .replace(/\n[ ]+/g, '\n') // Remove leading spaces on new lines
-    .replace(/[ ]+\n/g, '\n') // Remove trailing spaces on lines
-    .replace(/\n{3,}/g, '\n\n') // Limit consecutive newlines to max 2
+  return stripAnsi(text)
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/\t/g, '  ')
+    .replace(/[ ]+/g, ' ')
+    .replace(/\n[ ]+/g, '\n')
+    .replace(/[ ]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 

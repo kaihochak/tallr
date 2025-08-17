@@ -27,7 +27,6 @@ class DebugRegistry {
     const tracker = this.getActiveTracker();
     if (!tracker) {
       return {
-        currentBuffer: 'No active CLI session',
         cleanedBuffer: 'No active CLI session',
         patternTests: [],
         currentState: 'IDLE',

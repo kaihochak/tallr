@@ -26,7 +26,6 @@ export class ClaudeStateTracker {
     
     // Debug data collection
     this.debugData = {
-      currentBuffer: '',
       cleanedBuffer: '',
       lastPatternTests: [],
       confidence: 'N/A',
@@ -142,13 +141,9 @@ export class ClaudeStateTracker {
    * Update debug buffer data (called on every data chunk)
    */
   updateDebugBuffer(recentOutput) {
-    // Update debug buffer data immediately
-    this.debugData.currentBuffer = recentOutput.slice(-3000); // Keep last 3000 chars
-    this.debugData.cleanedBuffer = cleanANSIForDisplay(this.debugData.currentBuffer);
+    this.debugData.cleanedBuffer = cleanANSIForDisplay(recentOutput.slice(-3000));
     this.lastRecentOutput = recentOutput;
     
-    // Run pattern detection on the cleaned buffer for debug purposes
-    // This won't change state, just updates pattern test results
     if (this.debugData.cleanedBuffer) {
       this.detectState(this.debugData.cleanedBuffer, this.outputContext);
     }
@@ -163,6 +158,9 @@ export class ClaudeStateTracker {
     
     // Store recent output for context
     this.lastRecentOutput = recentOutput;
+    
+    // Update debug buffer with latest output
+    this.updateDebugBuffer(recentOutput);
     
     // Add to context history
     this.outputContext.recentLines.push(trimmed);
@@ -195,7 +193,6 @@ export class ClaudeStateTracker {
    */
   getDebugData() {
     return {
-      currentBuffer: this.debugData.currentBuffer,
       cleanedBuffer: this.debugData.cleanedBuffer,
       patternTests: this.debugData.lastPatternTests,
       currentState: this.currentState,

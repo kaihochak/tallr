@@ -50,7 +50,7 @@ export default function Header({
     return theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme';
   };
   return (
-    <div className="flex items-center justify-between px-6 py-4 bg-bg-card border-b border-border-primary backdrop-blur-sm shadow-sm z-10" 
+    <div className="flex items-center justify-between px-6 py-4 bg-bg-primary border-b border-border-primary backdrop-blur-sm shadow-sm z-10" 
          style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
       <div className="flex items-center gap-0">
         <div className={`status-indicator ${aggregateState}`}></div>

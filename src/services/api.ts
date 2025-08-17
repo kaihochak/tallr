@@ -24,7 +24,6 @@ export interface TaskStateUpdateRequest {
 }
 
 export interface DebugData {
-  currentBuffer: string;
   cleanedBuffer: string;
   patternTests: Array<{
     pattern: string;

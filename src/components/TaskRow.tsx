@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import StatusIndicator from './StatusIndicator';
 import TaskMetadata from './TaskMetadata';
 import TaskDetail from "./TaskDetail";
+import TaskStateBadge from './TaskStateBadge';
 
 export default function TaskRow({
   task,
@@ -117,9 +118,7 @@ export default function TaskRow({
       {/* Main Content Row */}
       <div className="flex items-center gap-3 w-full min-w-0">
         {/* Status Badge */}
-        <span className={`task-state-badge ${task.state.toLowerCase()}`}>
-          {task.state}
-        </span>
+        <TaskStateBadge state={task.state} />
 
         {/* Task Metadata */}
         <TaskMetadata 
