@@ -203,14 +203,21 @@ async fn upsert_task(
     // Emit event to frontend
     let _ = app_handle.emit("tasks-updated", &state.clone());
 
-    // Send notification for PENDING state
-    if req.task.state == "PENDING" {
-        let notification_data = serde_json::json!({
-            "title": format!("Tallor - {}", req.task.agent),
-            "body": req.task.details.unwrap_or_else(|| "Agent is waiting for user input".to_string())
-        });
-        let _ = app_handle.emit("show-notification", &notification_data);
-    }
+    // Send notification for state changes
+    let project_name = req.project.name.clone();
+    let state_message = match req.task.state.as_str() {
+        "PENDING" => "waiting for input",
+        "WORKING" => "processing",
+        "ERROR" => "encountered an error",
+        "IDLE" => "completed",
+        _ => &req.task.state
+    };
+    
+    let notification_data = serde_json::json!({
+        "title": format!("{} - {}", project_name, req.task.agent),
+        "body": format!("Status: {} - {}", state_message, req.task.details.unwrap_or_else(|| format!("Task {}", state_message)))
+    });
+    let _ = app_handle.emit("show-notification", &notification_data);
     
     // Update tray menu
     drop(state); // Release the lock before calling update_tray_menu
@@ -230,9 +237,13 @@ async fn update_task_state(
     let mut state = APP_STATE.lock();
     
     // Check if task exists and collect needed data
-    let task_data = state.tasks.get(&req.task_id).map(|t| (t.agent.clone(), t.details.clone()));
+    let task_data = state.tasks.get(&req.task_id).map(|t| (t.agent.clone(), t.project_id.clone()));
     
-    if let Some((agent, _)) = task_data {
+    if let Some((agent, project_id)) = task_data {
+        let project_name = state.projects.get(&project_id)
+            .map(|p| p.name.clone())
+            .unwrap_or_else(|| "Unknown Project".to_string());
+            
         // Now we can mutate the task
         if let Some(task) = state.tasks.get_mut(&req.task_id) {
             task.state = req.state.clone();
@@ -244,14 +255,20 @@ async fn update_task_state(
         // Emit event to frontend
         let _ = app_handle.emit("tasks-updated", &state.clone());
 
-        // Send notification for PENDING state
-        if req.state == "PENDING" {
-            let notification_data = serde_json::json!({
-                "title": format!("Tallor - {}", agent),
-                "body": req.details.unwrap_or_else(|| "Agent is waiting for user input".to_string())
-            });
-            let _ = app_handle.emit("show-notification", &notification_data);
-        }
+        // Send notification for state changes
+        let state_message = match req.state.as_str() {
+            "PENDING" => "waiting for input",
+            "WORKING" => "processing",
+            "ERROR" => "encountered an error",
+            "IDLE" => "completed",
+            _ => &req.state
+        };
+        
+        let notification_data = serde_json::json!({
+            "title": format!("{} - {}", project_name, agent),
+            "body": format!("Status: {} - {}", state_message, req.details.unwrap_or_else(|| format!("Task {}", state_message)))
+        });
+        let _ = app_handle.emit("show-notification", &notification_data);
         
         // Update tray menu
         drop(state); // Release the lock before calling update_tray_menu
@@ -776,6 +793,20 @@ async fn get_tasks() -> AppState {
     APP_STATE.lock().clone()
 }
 
+#[tauri::command]
+async fn send_notification(app: AppHandle, title: String, body: String) -> Result<(), String> {
+    use tauri_plugin_notification::NotificationExt;
+    
+    app.notification()
+        .builder()
+        .title(title)
+        .body(body)
+        .show()
+        .map_err(|e| format!("Failed to show notification: {}", e))?;
+    
+    Ok(())
+}
+
 fn current_timestamp() -> i64 {
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
@@ -819,17 +850,19 @@ fn build_tray_menu(app_handle: &AppHandle) -> Result<tauri::menu::Menu<tauri::Wr
     // Get current app state to build session items
     let state = APP_STATE.lock();
     
-    // Add session items if any exist
-    if !state.tasks.is_empty() {
-        for (task_id, task) in &state.tasks {
+    // Add session items if any exist (filter out DONE tasks)
+    let active_tasks: Vec<_> = state.tasks.iter().filter(|(_, task)| task.state != "DONE").collect();
+    if !active_tasks.is_empty() {
+        for (task_id, task) in active_tasks {
             let project = state.projects.get(&task.project_id);
             let project_name = project.map(|p| &p.name).unwrap_or(&task.project_id);
             
             let status_icon = match task.state.as_str() {
-                "PENDING" => "🟠",
-                "WORKING" => "🟢", 
-                "ERROR" => "🔴",
-                _ => "⚪"
+                "PENDING" => "🟡",  // Yellow circle for pending
+                "WORKING" => "🔵",  // Blue circle for working
+                "ERROR" => "🔴",    // Red circle for error
+                "IDLE" => "⚫",     // Black circle for idle
+                _ => "⚪"           // White circle for unknown
             };
             
             let menu_text = format!("{} {} - {} - {}", status_icon, project_name, task.agent, task.state);
@@ -907,7 +940,10 @@ fn handle_tray_menu_event(app_handle: &AppHandle, menu_id: &str) {
 // Function to get aggregate state from current tasks
 fn get_aggregate_state() -> &'static str {
     let state = APP_STATE.lock();
-    let states: Vec<&str> = state.tasks.values().map(|t| t.state.as_str()).collect();
+    let states: Vec<&str> = state.tasks.values()
+        .filter(|t| t.state != "DONE")  // Filter out DONE tasks
+        .map(|t| t.state.as_str())
+        .collect();
     
     if states.contains(&"PENDING") {
         "pending"
@@ -1008,7 +1044,8 @@ pub fn run() {
             get_setup_status_cmd,
             mark_setup_completed_cmd,
             save_settings,
-            load_settings
+            load_settings,
+            send_notification
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

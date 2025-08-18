@@ -49,14 +49,12 @@ export function useAppState() {
 
   // Listen for notifications
   useEffect(() => {
-    const unlisten = listen<{title: string, body: string}>("show-notification", (event) => {
-      // Show browser notification as fallback
-      if (Notification.permission === "granted") {
-        new Notification(event.payload.title, {
-          body: event.payload.body,
-          icon: "/tauri.svg"
-        });
-      }
+    const unlisten = listen<{title: string, body: string}>("show-notification", async (event) => {
+      const { notificationService } = await import('../services/notificationService');
+      await notificationService.showNotification({
+        title: event.payload.title,
+        body: event.payload.body
+      });
     });
 
     return () => {
