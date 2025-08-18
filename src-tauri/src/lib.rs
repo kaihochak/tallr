@@ -23,7 +23,7 @@ fn validate_auth_header(headers: &HeaderMap) -> bool {
     // Get the expected token from environment or use a default secure token
     let expected_token = std::env::var("TALLR_TOKEN")
         .or_else(|_| std::env::var("SWITCHBOARD_TOKEN"))
-        .unwrap_or_else(|_| "tallr-secure-default".to_string());
+        .unwrap_or_else(|_| "your-secure-token-here".to_string());
     
     // Check if Authorization header exists and matches
     if let Some(auth_header) = headers.get("authorization") {
@@ -767,7 +767,7 @@ async fn install_cli_globally(app: AppHandle) -> Result<(), String> {
     } else {
         // In production, use the resource directory
         let resource_path = app.path().resource_dir().map_err(|e| format!("Failed to get resource path: {}", e))?;
-        resource_path.join("tallr")
+        resource_path.join("tools").join("tallr")
     };
     
     // Check if CLI binary exists

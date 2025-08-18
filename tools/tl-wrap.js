@@ -73,7 +73,7 @@ function generateSecureToken() {
 }
 
 const config = {
-  token: process.env.TALLR_TOKEN || process.env.SWITCHBOARD_TOKEN || 'tallr-secure-default',
+  token: process.env.TALLR_TOKEN || process.env.SWITCHBOARD_TOKEN || 'your-secure-token-here',
   gateway: process.env.TALLR_GATEWAY || 'http://127.0.0.1:4317',
   project: process.env.TL_PROJECT || 'default-project',
   repo: process.env.TL_REPO || process.cwd(),
