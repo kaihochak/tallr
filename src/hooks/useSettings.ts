@@ -10,11 +10,6 @@ interface WindowPosition {
   height?: number;
 }
 
-interface ViewModeSize {
-  width: number;
-  height: number;
-}
-
 interface AppSettings {
   alwaysOnTop: boolean;
   visibleOnAllWorkspaces: boolean;
@@ -22,11 +17,6 @@ interface AppSettings {
   preferredIde: string;
   theme: 'light' | 'dark';
   viewMode: 'full' | 'simple' | 'tally';
-  viewModeSizes?: {
-    full?: ViewModeSize;
-    simple?: ViewModeSize;
-    tally?: ViewModeSize;
-  };
 }
 
 export function useSettings() {
@@ -36,12 +26,7 @@ export function useSettings() {
     windowPosition: undefined,
     preferredIde: "cursor",
     theme: "light",
-    viewMode: "full",
-    viewModeSizes: {
-      full: { width: 480, height: 650 },
-      simple: { width: 480, height: 400 },
-      tally: { width: 320, height: 80 }
-    }
+    viewMode: "full"
   });
   
   const [isLoading, setIsLoading] = useState(true);
@@ -63,7 +48,7 @@ export function useSettings() {
         
         console.log('📁 Loaded settings from disk:', loadedSettings);
         
-        // Ensure theme, viewMode, and viewModeSizes properties exist with default values
+        // Ensure theme and viewMode properties exist with default values
         const settingsWithDefaults = {
           ...loadedSettings,
           theme: (loadedSettings.theme === 'light' || loadedSettings.theme === 'dark') 
@@ -71,12 +56,7 @@ export function useSettings() {
             : 'light' as const,
           viewMode: (['full', 'simple', 'tally'].includes(loadedSettings.viewMode))
             ? loadedSettings.viewMode
-            : 'full' as const,
-          viewModeSizes: {
-            full: loadedSettings.viewModeSizes?.full || { width: 480, height: 650 },
-            simple: loadedSettings.viewModeSizes?.simple || { width: 480, height: 400 },
-            tally: loadedSettings.viewModeSizes?.tally || { width: 320, height: 80 }
-          }
+            : 'full' as const
         };
         
         console.log('🔧 Settings with defaults applied:', settingsWithDefaults);
@@ -108,8 +88,7 @@ export function useSettings() {
     
     console.log('💾 Saving settings:', {
       newSettings,
-      updatedSettings,
-      viewModeSizes: updatedSettings.viewModeSizes
+      updatedSettings
     });
     
     try {
@@ -166,56 +145,28 @@ export function useSettings() {
     const window = getCurrentWindow();
     
     try {
-      // Get current window size to save for the current mode
-      const currentSize = await window.innerSize();
-      console.log('Current window size:', currentSize);
-      
-      // Add reasonable size limits (more permissive)
-      const constrainSize = (size: { width: number; height: number }) => ({
-        width: Math.max(120, Math.min(size.width, 2000)),  // Between 120-2000px width
-        height: Math.max(60, Math.min(size.height, 1200))   // Between 60-1200px height  
-      });
-      
-      // Save current size for the current mode (with constraints)
-      const constrainedCurrentSize = constrainSize(currentSize);
-      const updatedViewModeSizes = {
-        ...settings.viewModeSizes,
-        [currentMode]: constrainedCurrentSize
+      // Use fixed, predefined sizes for each mode
+      const fixedSizes = {
+        full: { width: 480, height: 650 },
+        simple: { width: 480, height: 400 },
+        tally: { width: 320, height: 80 }
       };
       
-      // Get the preferred size for the next mode
-      let nextModeSize = updatedViewModeSizes[nextMode];
-      if (!nextModeSize) {
-        // Use distinct defaults if no saved size exists
-        const defaultSizes = {
-          full: { width: 480, height: 650 },
-          simple: { width: 480, height: 400 },
-          tally: { width: 320, height: 80 }
-        };
-        nextModeSize = defaultSizes[nextMode];
-        console.log(`📐 Using default size for ${nextMode}:`, nextModeSize);
-      } else {
-        console.log(`💾 Using saved size for ${nextMode}:`, nextModeSize);
-      }
-      
-      // Ensure next mode size is also constrained
-      nextModeSize = constrainSize(nextModeSize);
+      const nextModeSize = fixedSizes[nextMode];
       
       console.log(`🔄 Switching from ${currentMode} to ${nextMode}`, {
-        currentSize: { width: currentSize.width, height: currentSize.height },
-        constrainedCurrentSize,
-        nextSize: nextModeSize,
-        currentViewModeSizes: settings.viewModeSizes,
-        updatedViewModeSizes
+        nextSize: nextModeSize
       });
       
-      // Update settings with new view mode and saved sizes
+      // Update settings with new view mode
       await saveSettings({ 
-        viewMode: nextMode,
-        viewModeSizes: updatedViewModeSizes
+        viewMode: nextMode
       });
       
-      // Resize window to the preferred size for the next mode
+      // Wait for React to finish layout updates before resizing
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Resize window to the fixed size for the next mode
       const newSize = new LogicalSize(nextModeSize.width, nextModeSize.height);
       await window.setSize(newSize);
       console.log('Window resized successfully to:', nextModeSize);
@@ -225,42 +176,12 @@ export function useSettings() {
       // Fallback: just update the view mode without resizing
       await saveSettings({ viewMode: nextMode });
     }
-  }, [settings.viewMode, settings.viewModeSizes, saveSettings]);
+  }, [saveSettings]);
 
   // Apply theme when settings change
   useEffect(() => {
     applyTheme(settings.theme);
   }, [settings.theme, applyTheme]);
-
-  // Handle automatic window resizing when viewMode changes (disabled - toggleViewMode handles this)
-  // useEffect(() => {
-  //   const handleWindowResize = async () => {
-  //     if (isLoading) return; // Don't resize during initial load
-  //     
-  //     const window = getCurrentWindow();
-  //     
-  //     try {
-  //       const currentSize = await window.innerSize();
-  //       const preferredSize = settings.viewModeSizes?.[settings.viewMode];
-  //       
-  //       if (preferredSize) {
-  //         // Check if current size differs significantly from preferred size
-  //         const widthDiff = Math.abs(currentSize.width - preferredSize.width);
-  //         const heightDiff = Math.abs(currentSize.height - preferredSize.height);
-  //         
-  //         if (widthDiff > 10 || heightDiff > 10) {
-  //           console.log('Auto-resizing to preferred size for', settings.viewMode, preferredSize);
-  //           const newSize = new LogicalSize(preferredSize.width, preferredSize.height);
-  //           await window.setSize(newSize);
-  //         }
-  //       }
-  //     } catch (error) {
-  //       console.error('Failed to auto-resize window:', error);
-  //     }
-  //   };
-
-  //   handleWindowResize();
-  // }, [settings.viewMode, settings.viewModeSizes, isLoading]);
 
   return {
     settings,
