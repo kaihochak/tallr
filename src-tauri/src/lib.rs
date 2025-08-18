@@ -1,6 +1,6 @@
 use axum::{
     extract::State as AxumState,
-    http::StatusCode,
+    http::{StatusCode, HeaderMap},
     response::Json,
     routing::{get, post},
     Router,
@@ -17,6 +17,26 @@ use tower_http::cors::CorsLayer;
 
 // Global application state
 static APP_STATE: Lazy<Arc<Mutex<AppState>>> = Lazy::new(|| Arc::new(Mutex::new(AppState::default())));
+
+// Authentication validation function
+fn validate_auth_header(headers: &HeaderMap) -> bool {
+    // Get the expected token from environment or use a default secure token
+    let expected_token = std::env::var("TALLOR_TOKEN")
+        .or_else(|_| std::env::var("SWITCHBOARD_TOKEN"))
+        .unwrap_or_else(|_| "tallor-secure-default".to_string());
+    
+    // Check if Authorization header exists and matches
+    if let Some(auth_header) = headers.get("authorization") {
+        if let Ok(auth_str) = auth_header.to_str() {
+            if let Some(token) = auth_str.strip_prefix("Bearer ") {
+                // Use constant-time comparison to prevent timing attacks
+                return token.len() == expected_token.len() 
+                    && token.bytes().zip(expected_token.bytes()).all(|(a, b)| a == b);
+            }
+        }
+    }
+    false
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -151,15 +171,24 @@ struct DebugUpdateRequest {
 }
 
 // Axum 0.8 handlers with modern path syntax
-async fn get_state() -> Json<AppState> {
+async fn get_state(headers: HeaderMap) -> Result<Json<AppState>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
     let state = APP_STATE.lock().clone();
-    Json(state)
+    Ok(Json(state))
 }
 
 async fn upsert_task(
+    headers: HeaderMap,
     AxumState(app_handle): AxumState<AppHandle>,
     Json(req): Json<UpsertRequest>,
 ) -> Result<Json<()>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
     let mut state = APP_STATE.lock();
     let now = current_timestamp();
     
@@ -231,9 +260,14 @@ async fn upsert_task(
 }
 
 async fn update_task_state(
+    headers: HeaderMap,
     AxumState(app_handle): AxumState<AppHandle>,
     Json(req): Json<StateUpdateRequest>,
 ) -> Result<Json<()>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
     let mut state = APP_STATE.lock();
     
     // Check if task exists and collect needed data
@@ -285,9 +319,14 @@ async fn update_task_state(
 }
 
 async fn update_task_details(
+    headers: HeaderMap,
     AxumState(app_handle): AxumState<AppHandle>,
     Json(req): Json<DetailsUpdateRequest>,
 ) -> Result<Json<()>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
     let mut state = APP_STATE.lock();
     
     if let Some(task) = state.tasks.get_mut(&req.task_id) {
@@ -305,9 +344,14 @@ async fn update_task_details(
 }
 
 async fn mark_task_done(
+    headers: HeaderMap,
     AxumState(app_handle): AxumState<AppHandle>,
     Json(req): Json<TaskDoneRequest>,
 ) -> Result<Json<()>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
     let mut state = APP_STATE.lock();
     
     if let Some(task) = state.tasks.get_mut(&req.task_id) {
@@ -334,9 +378,14 @@ async fn mark_task_done(
 }
 
 async fn delete_task(
+    headers: HeaderMap,
     AxumState(app_handle): AxumState<AppHandle>,
     Json(req): Json<TaskDeleteRequest>,
 ) -> Result<Json<()>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
     let mut state = APP_STATE.lock();
     
     if state.tasks.remove(&req.task_id).is_some() {
@@ -360,9 +409,14 @@ async fn delete_task(
 }
 
 async fn toggle_task_pin(
+    headers: HeaderMap,
     AxumState(app_handle): AxumState<AppHandle>,
     Json(req): Json<TaskPinRequest>,
 ) -> Result<Json<()>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
     let mut state = APP_STATE.lock();
     
     if let Some(task) = state.tasks.get_mut(&req.task_id) {
@@ -399,7 +453,14 @@ async fn get_setup_status() -> Json<SetupStatus> {
     })
 }
 
-async fn get_debug_patterns_for_task(axum::extract::Path(task_id): axum::extract::Path<String>) -> Result<Json<DebugData>, StatusCode> {
+async fn get_debug_patterns_for_task(
+    headers: HeaderMap,
+    axum::extract::Path(task_id): axum::extract::Path<String>
+) -> Result<Json<DebugData>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
     let state = APP_STATE.lock();
     
     match state.debug_data.get(&task_id) {
@@ -408,7 +469,11 @@ async fn get_debug_patterns_for_task(axum::extract::Path(task_id): axum::extract
     }
 }
 
-async fn get_debug_patterns() -> Result<Json<DebugData>, StatusCode> {
+async fn get_debug_patterns(headers: HeaderMap) -> Result<Json<DebugData>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
     let state = APP_STATE.lock();
     
     // Find the most recent debug data entry (highest timestamp)
@@ -441,8 +506,13 @@ async fn get_debug_patterns() -> Result<Json<DebugData>, StatusCode> {
 }
 
 async fn update_debug_data(
+    headers: HeaderMap,
     Json(req): Json<DebugUpdateRequest>,
 ) -> Result<Json<()>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
     let mut state = APP_STATE.lock();
     let task_id = req.debug_data.task_id.clone();
     state.debug_data.insert(task_id, req.debug_data);

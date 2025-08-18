@@ -34,7 +34,7 @@ interface SetupStatus {
 
 function App() {
   const { appState, isLoading } = useAppState();
-  const { settings, toggleAlwaysOnTop, toggleTheme, toggleSimpleMode } = useSettings();
+  const { settings, toggleAlwaysOnTop, toggleTheme, toggleViewMode } = useSettings();
   const [stateFilter, setStateFilter] = useState("all");
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [currentPage, setCurrentPage] = useState<'tasks' | 'debug'>('tasks');
@@ -136,25 +136,7 @@ function App() {
   const handleDeleteTask = useCallback(async (taskId: string) => {
     console.log(`Attempting to delete task: ${taskId}`);
     try {
-      const requestBody = { taskId };
-      console.log("Delete request body:", requestBody);
-      
-      const response = await fetch("http://127.0.0.1:4317/v1/tasks/delete", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      console.log(`Delete response status: ${response.status}`);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Delete response error:", errorText);
-        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
-      }
-      
+      await ApiService.deleteTask(taskId);
       console.log(`Successfully deleted task: ${taskId}`);
     } catch (error) {
       console.error("Failed to delete task:", error);
@@ -392,7 +374,7 @@ function App() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-bg-primary to-bg-secondary animate-fadeIn">
+    <div className={`${settings.viewMode === 'tally' ? 'h-auto' : 'h-screen'} flex flex-col bg-gradient-to-br from-bg-primary to-bg-secondary animate-fadeIn`}>
       {/* Header */}
       <Header 
         aggregateState={aggregateState}
@@ -402,16 +384,20 @@ function App() {
         alwaysOnTop={settings.alwaysOnTop}
         stateFilter={stateFilter}
         theme={settings.theme}
-        simpleMode={settings.simpleMode}
+        viewMode={settings.viewMode}
+        tasks={filteredTasks}
+        projects={appState.projects}
         onTogglePin={toggleAlwaysOnTop}
         onToggleDoneTasks={() => setShowDoneTasks(prev => !prev)}
         onStateFilterChange={setStateFilter}
         onToggleTheme={toggleTheme}
-        onToggleSimpleMode={toggleSimpleMode}
+        onToggleViewMode={toggleViewMode}
+        onJumpToContext={handleJumpToSpecificTask}
+        onShowDebug={handleShowDebugForTask}
       />
 
-      {/* Main Content */}
-      {currentPage === 'tasks' ? (
+      {/* Main Content - Hidden in tally mode */}
+      {currentPage === 'tasks' && settings.viewMode !== 'tally' && (
         <div className="flex-1 overflow-y-auto p-6 bg-bg-primary scrollbar-thin scrollbar-thumb-border-primary scrollbar-track-transparent scrollbar-thumb-rounded-full scrollbar-track-rounded-full hover:scrollbar-thumb-border-secondary">
           {isLoading ? (
             // Loading skeletons
@@ -423,26 +409,30 @@ function App() {
           ) : filteredTasks.length === 0 ? (
             <EmptyState />
           ) : (
-            filteredTasks.map((task) => {
-              const project = appState.projects[task.projectId];
-              
-              return (
-                <TaskRow
-                  key={task.id}
-                  task={task}
-                  project={project}
-                  simpleMode={settings.simpleMode}
-                  onDeleteTask={handleDeleteTask}
-                  onJumpToContext={handleJumpToSpecificTask}
-                  onShowDebug={handleShowDebugForTask}
-                  onTogglePin={handleTogglePin}
-                  allTasks={filteredTasks}
-                />
-              );
-            })
+            <div className="flex flex-col">
+              {filteredTasks.map((task) => {
+                const project = appState.projects[task.projectId];
+                
+                return (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    project={project}
+                    viewMode={settings.viewMode}
+                    onDeleteTask={handleDeleteTask}
+                    onJumpToContext={handleJumpToSpecificTask}
+                    onShowDebug={handleShowDebugForTask}
+                    onTogglePin={handleTogglePin}
+                    allTasks={filteredTasks}
+                  />
+                );
+              })}
+            </div>
           )}
         </div>
-      ) : (
+      )}
+      
+      {currentPage === 'debug' && settings.viewMode !== 'tally' && (
         <DebugPage 
           taskId={debugTaskId}
           task={debugTaskId ? appState.tasks[debugTaskId] || null : null}
@@ -453,8 +443,9 @@ function App() {
         />
       )}
       
-      {/* Footer */}
-      <footer className="p-4 bg-bg-primary text-xs text-text-primary flex justify-between items-center">
+      {/* Footer - Hidden in tally mode */}
+      {settings.viewMode !== 'tally' && (
+        <footer className="p-4 bg-bg-primary text-xs text-text-primary flex justify-between items-center">
         <div className="flex items-center gap-4">
           <span>v0.1.0</span>
           <button 
@@ -473,7 +464,8 @@ function App() {
             Tallor Team
           </button>
         </div>
-      </footer>
+        </footer>
+      )}
     </div>
   );
 }

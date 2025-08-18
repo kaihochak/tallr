@@ -7,6 +7,7 @@ import { getIdeCommand, promptForIdeCommand } from './lib/settings.js';
 import { MAX_BUFFER_SIZE } from './lib/patterns.js';
 import { execSync } from 'child_process';
 import http from 'http';
+import crypto from 'crypto';
 
 const IDE_MAPPINGS = {
   'Visual Studio Code': 'code',
@@ -66,8 +67,13 @@ function detectCurrentIDE() {
   return null;
 }
 
+// Generate secure token if none provided via environment
+function generateSecureToken() {
+  return crypto.randomBytes(16).toString('hex');
+}
+
 const config = {
-  token: process.env.TALLOR_TOKEN || process.env.SWITCHBOARD_TOKEN || 'devtoken',
+  token: process.env.TALLOR_TOKEN || process.env.SWITCHBOARD_TOKEN || 'tallor-secure-default',
   gateway: process.env.TALLOR_GATEWAY || 'http://127.0.0.1:4317',
   project: process.env.TL_PROJECT || 'default-project',
   repo: process.env.TL_REPO || process.cwd(),

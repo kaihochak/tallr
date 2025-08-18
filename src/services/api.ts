@@ -56,12 +56,16 @@ class ApiClient {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
+    // Get the auth token (same as CLI wrapper default)
+    const token = 'tallor-secure-default';
+
     try {
       const response = await fetch(url, {
         ...options,
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
           ...options.headers,
         },
       });
@@ -122,6 +126,11 @@ export const ApiService = {
   // Mark task as done
   async markTaskDone(taskId: string): Promise<void> {
     return apiClient.post<void>('/v1/tasks/done', { taskId });
+  },
+
+  // Delete a task
+  async deleteTask(taskId: string): Promise<void> {
+    return apiClient.post<void>('/v1/tasks/delete', { taskId });
   },
 
   // Get debug data for pattern detection
