@@ -757,22 +757,59 @@ async fn install_cli_globally(app: AppHandle) -> Result<(), String> {
     // Get the path to the CLI binary
     let cli_source = if cfg!(debug_assertions) {
         // In development, use the tools directory relative to the project root
-        // The working directory is src-tauri, so we need to go up one level
         let project_dir = std::env::current_dir()
             .map_err(|e| format!("Failed to get current dir: {}", e))?
             .parent()
             .ok_or("Failed to get parent directory")?
             .to_path_buf();
-        project_dir.join("tools").join("tallr")
+        let dev_path = project_dir.join("tools").join("tallr");
+        println!("Development CLI path: {:?}", dev_path);
+        dev_path
     } else {
-        // In production, use the resource directory
-        let resource_path = app.path().resource_dir().map_err(|e| format!("Failed to get resource path: {}", e))?;
-        resource_path.join("tools").join("tallr")
+        // In production, try multiple possible locations with detailed logging
+        let resource_path = app.path().resource_dir()
+            .map_err(|e| format!("Failed to get resource path: {}", e))?;
+        
+        println!("Resource directory: {:?}", resource_path);
+        
+        // Try multiple possible locations
+        let possible_paths = vec![
+            resource_path.join("_up_").join("tools").join("tallr"), // Actual location (Tauri relative path handling)
+            resource_path.join("tools").join("tallr"),              // Expected location
+            resource_path.join("tallr"),                            // Root of resources
+            resource_path.join("tools").join("tallr").with_extension(""), // No extension variant
+        ];
+        
+        println!("Checking possible CLI paths:");
+        for path in &possible_paths {
+            println!("  - {:?} (exists: {})", path, path.exists());
+        }
+        
+        // Find the first path that exists
+        possible_paths.into_iter()
+            .find(|path| path.exists())
+            .unwrap_or_else(|| {
+                // If none found, return the expected path for better error messages
+                resource_path.join("tools").join("tallr")
+            })
     };
     
     // Check if CLI binary exists
     if !cli_source.exists() {
         return Err(format!("CLI binary not found at: {:?}", cli_source));
+    }
+    
+    // Ensure the CLI binary is executable (important for production builds)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = cli_source.metadata()
+            .map_err(|e| format!("Failed to get CLI file metadata: {}", e))?
+            .permissions();
+        perms.set_mode(0o755); // rwxr-xr-x
+        std::fs::set_permissions(&cli_source, perms)
+            .map_err(|e| format!("Failed to set CLI executable permissions: {}", e))?;
+        println!("Set executable permissions for CLI at: {:?}", cli_source);
     }
     
     // Ensure /usr/local/bin directory exists
