@@ -57,7 +57,7 @@ class ApiClient {
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
     // Get the auth token (same as CLI wrapper default)
-    const token = 'tallor-secure-default';
+    const token = 'tallr-secure-default';
 
     try {
       const response = await fetch(url, {

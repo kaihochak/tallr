@@ -11,15 +11,15 @@ class DebugLogger {
   }
 
   isDebugEnabled() {
-    return process.env.TALLOR_DEBUG === 'true' || 
-           process.env.DEBUG?.includes('tallor') || 
+    return process.env.TALLR_DEBUG === 'true' || 
+           process.env.DEBUG?.includes('tallr') || 
            process.env.NODE_ENV === 'development';
   }
 
   parseDebugNamespaces() {
-    const debugEnv = process.env.TALLOR_DEBUG_NAMESPACES || process.env.DEBUG;
+    const debugEnv = process.env.TALLR_DEBUG_NAMESPACES || process.env.DEBUG;
     if (!debugEnv || debugEnv === 'true') {
-      return new Set(['tallor:*']); // Enable all by default
+      return new Set(['tallr:*']); // Enable all by default
     }
     return new Set(debugEnv.split(',').map(s => s.trim()));
   }
@@ -27,9 +27,9 @@ class DebugLogger {
   shouldLog(namespace) {
     if (!this.enabled) return false;
     
-    return this.namespaces.has('tallor:*') || 
+    return this.namespaces.has('tallr:*') || 
            this.namespaces.has(namespace) ||
-           this.namespaces.has('tallor') || // Allow 'tallor' to match all tallor:* namespaces
+           this.namespaces.has('tallr') || // Allow 'tallr' to match all tallr:* namespaces
            Array.from(this.namespaces).some(ns => 
              ns.endsWith('*') && namespace.startsWith(ns.slice(0, -1))
            );
@@ -59,19 +59,19 @@ class DebugLogger {
 
   // Quick access methods
   state(message, data) {
-    this.log('tallor:state', message, data);
+    this.log('tallr:state', message, data);
   }
 
   api(message, data) {
-    this.log('tallor:api', message, data);
+    this.log('tallr:api', message, data);
   }
 
   pattern(message, data) {
-    this.log('tallor:pattern', message, data);
+    this.log('tallr:pattern', message, data);
   }
 
   cli(message, data) {
-    this.log('tallor:cli', message, data);
+    this.log('tallr:cli', message, data);
   }
 }
 

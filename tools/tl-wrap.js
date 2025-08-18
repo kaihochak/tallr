@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import pty from 'node-pty';
-import { TallorClient } from './lib/http-client.js';
+import { TallrClient } from './lib/http-client.js';
 import { ClaudeStateTracker } from './lib/state-tracker.js';
 import { getIdeCommand, promptForIdeCommand } from './lib/settings.js';
 import { MAX_BUFFER_SIZE } from './lib/patterns.js';
@@ -73,8 +73,8 @@ function generateSecureToken() {
 }
 
 const config = {
-  token: process.env.TALLOR_TOKEN || process.env.SWITCHBOARD_TOKEN || 'tallor-secure-default',
-  gateway: process.env.TALLOR_GATEWAY || 'http://127.0.0.1:4317',
+  token: process.env.TALLR_TOKEN || process.env.SWITCHBOARD_TOKEN || 'tallr-secure-default',
+  gateway: process.env.TALLR_GATEWAY || 'http://127.0.0.1:4317',
   project: process.env.TL_PROJECT || 'default-project',
   repo: process.env.TL_REPO || process.cwd(),
   agent: process.env.TL_AGENT || 'cli',
@@ -84,7 +84,7 @@ const config = {
 
 const taskId = `${config.agent}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-const client = new TallorClient(config);
+const client = new TallrClient(config);
 const stateTracker = new ClaudeStateTracker(client, taskId, true); // Enable debug mode
 
 function restoreTerminal() {
@@ -136,13 +136,13 @@ async function runWithPTY(command, commandArgs) {
   });
 
   ptyProcess.on('error', async (error) => {
-    console.error(`\n[Tallor] PTY error:`, error.message);
+    console.error(`\n[Tallr] PTY error:`, error.message);
     
     try {
       restoreTerminal();
       await updateTaskAndCleanup('ERROR', `PTY error: ${error.message}`);
     } catch (cleanupError) {
-      console.error(`[Tallor] Cleanup error:`, cleanupError.message);
+      console.error(`[Tallr] Cleanup error:`, cleanupError.message);
     }
     
     const exitCode = error.code === 'ENOENT' ? 127 : 1;
@@ -150,7 +150,7 @@ async function runWithPTY(command, commandArgs) {
   });
 
   const cleanup = async (signal, exitCode) => {
-    console.log(`\n[Tallor] Received ${signal}, cleaning up PTY...`);
+    console.log(`\n[Tallr] Received ${signal}, cleaning up PTY...`);
     
     try {
       if (ptyProcess && !ptyProcess.killed) {
@@ -159,7 +159,7 @@ async function runWithPTY(command, commandArgs) {
       restoreTerminal();
       await updateTaskAndCleanup('CANCELLED', `Interactive session ${signal.toLowerCase()}`);
     } catch (cleanupError) {
-      console.error(`[Tallor] Cleanup error:`, cleanupError.message);
+      console.error(`[Tallr] Cleanup error:`, cleanupError.message);
     } finally {
       process.exit(exitCode);
     }
@@ -188,7 +188,7 @@ async function main() {
       await client.createTask(taskId);
       taskCreated = true;
     } catch (error) {
-      console.error(`[Tallor] Warning: Could not create task, continuing without tracking`);
+      console.error(`[Tallr] Warning: Could not create task, continuing without tracking`);
     }
     
     if (taskCreated) {
@@ -198,7 +198,7 @@ async function main() {
     await runWithPTY(command, commandArgs);
     
   } catch (error) {
-    console.error('[Tallor] Wrapper error:', error.message);
+    console.error('[Tallr] Wrapper error:', error.message);
     
     if (taskCreated) {
       try {
@@ -215,7 +215,7 @@ async function main() {
  * Global error handlers for unhandled errors
  */
 process.on('uncaughtException', async (error) => {
-  console.error('[Tallor] Uncaught exception:', error.message);
+  console.error('[Tallr] Uncaught exception:', error.message);
   try {
     await client.updateTaskState(taskId, 'ERROR', `Uncaught exception: ${error.message}`);
   } catch {
@@ -224,7 +224,7 @@ process.on('uncaughtException', async (error) => {
 });
 
 process.on('unhandledRejection', async (reason, promise) => {
-  console.error('[Tallor] Unhandled promise rejection:', reason);
+  console.error('[Tallr] Unhandled promise rejection:', reason);
   try {
     await client.updateTaskState(taskId, 'ERROR', `Unhandled rejection: ${reason}`);
   } catch {
@@ -234,7 +234,7 @@ process.on('unhandledRejection', async (reason, promise) => {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((error) => {
-    console.error('[Tallor] Fatal wrapper error:', error.message);
+    console.error('[Tallr] Fatal wrapper error:', error.message);
     process.exit(1);
   });
 }

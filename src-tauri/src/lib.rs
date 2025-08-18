@@ -21,9 +21,9 @@ static APP_STATE: Lazy<Arc<Mutex<AppState>>> = Lazy::new(|| Arc::new(Mutex::new(
 // Authentication validation function
 fn validate_auth_header(headers: &HeaderMap) -> bool {
     // Get the expected token from environment or use a default secure token
-    let expected_token = std::env::var("TALLOR_TOKEN")
+    let expected_token = std::env::var("TALLR_TOKEN")
         .or_else(|_| std::env::var("SWITCHBOARD_TOKEN"))
-        .unwrap_or_else(|_| "tallor-secure-default".to_string());
+        .unwrap_or_else(|_| "tallr-secure-default".to_string());
     
     // Check if Authorization header exists and matches
     if let Some(auth_header) = headers.get("authorization") {
@@ -171,13 +171,9 @@ struct DebugUpdateRequest {
 }
 
 // Axum 0.8 handlers with modern path syntax
-async fn get_state(headers: HeaderMap) -> Result<Json<AppState>, StatusCode> {
-    // Validate authentication
-    if !validate_auth_header(&headers) {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
+async fn get_state() -> Json<AppState> {
     let state = APP_STATE.lock().clone();
-    Ok(Json(state))
+    Json(state)
 }
 
 async fn upsert_task(
@@ -378,14 +374,9 @@ async fn mark_task_done(
 }
 
 async fn delete_task(
-    headers: HeaderMap,
     AxumState(app_handle): AxumState<AppHandle>,
     Json(req): Json<TaskDeleteRequest>,
 ) -> Result<Json<()>, StatusCode> {
-    // Validate authentication
-    if !validate_auth_header(&headers) {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
     let mut state = APP_STATE.lock();
     
     if state.tasks.remove(&req.task_id).is_some() {
@@ -409,14 +400,9 @@ async fn delete_task(
 }
 
 async fn toggle_task_pin(
-    headers: HeaderMap,
     AxumState(app_handle): AxumState<AppHandle>,
     Json(req): Json<TaskPinRequest>,
 ) -> Result<Json<()>, StatusCode> {
-    // Validate authentication
-    if !validate_auth_header(&headers) {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
     let mut state = APP_STATE.lock();
     
     if let Some(task) = state.tasks.get_mut(&req.task_id) {
@@ -454,13 +440,8 @@ async fn get_setup_status() -> Json<SetupStatus> {
 }
 
 async fn get_debug_patterns_for_task(
-    headers: HeaderMap,
     axum::extract::Path(task_id): axum::extract::Path<String>
 ) -> Result<Json<DebugData>, StatusCode> {
-    // Validate authentication
-    if !validate_auth_header(&headers) {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
     let state = APP_STATE.lock();
     
     match state.debug_data.get(&task_id) {
@@ -469,11 +450,7 @@ async fn get_debug_patterns_for_task(
     }
 }
 
-async fn get_debug_patterns(headers: HeaderMap) -> Result<Json<DebugData>, StatusCode> {
-    // Validate authentication
-    if !validate_auth_header(&headers) {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
+async fn get_debug_patterns() -> Result<Json<DebugData>, StatusCode> {
     let state = APP_STATE.lock();
     
     // Find the most recent debug data entry (highest timestamp)
@@ -522,8 +499,8 @@ async fn update_debug_data(
 }
 
 fn is_cli_installed() -> bool {
-    // Check if symlink exists at /usr/local/bin/tallor
-    Path::new("/usr/local/bin/tallor").exists()
+    // Check if symlink exists at /usr/local/bin/tallr
+    Path::new("/usr/local/bin/tallr").exists()
 }
 
 fn get_setup_completion_flag() -> bool {
@@ -535,7 +512,7 @@ fn get_setup_completion_flag() -> bool {
 
 fn get_app_data_dir() -> Result<std::path::PathBuf, String> {
     let home = std::env::var("HOME").map_err(|_| "Unable to find HOME directory")?;
-    Ok(std::path::PathBuf::from(home).join("Library/Application Support/Tallor"))
+    Ok(std::path::PathBuf::from(home).join("Library/Application Support/Tallr"))
 }
 
 fn mark_setup_completed() -> Result<(), String> {
@@ -764,7 +741,7 @@ async fn check_cli_permissions() -> Result<bool, String> {
     }
     
     // Try to check write permissions
-    let test_file = bin_dir.join(".tallor_test_write");
+    let test_file = bin_dir.join(".tallr_test_write");
     match fs::write(&test_file, "test") {
         Ok(_) => {
             // Clean up test file
@@ -786,11 +763,11 @@ async fn install_cli_globally(app: AppHandle) -> Result<(), String> {
             .parent()
             .ok_or("Failed to get parent directory")?
             .to_path_buf();
-        project_dir.join("tools").join("tallor")
+        project_dir.join("tools").join("tallr")
     } else {
         // In production, use the resource directory
         let resource_path = app.path().resource_dir().map_err(|e| format!("Failed to get resource path: {}", e))?;
-        resource_path.join("tallor")
+        resource_path.join("tallr")
     };
     
     // Check if CLI binary exists
@@ -808,19 +785,19 @@ async fn install_cli_globally(app: AppHandle) -> Result<(), String> {
     }
     
     // Check write permissions
-    let test_file = bin_dir.join(".tallor_test_write");
+    let test_file = bin_dir.join(".tallr_test_write");
     if fs::write(&test_file, "test").is_err() {
         return Err("Permission denied. Please use the manual installation method with sudo.".to_string());
     }
     let _ = fs::remove_file(&test_file);
     
-    // Create symlink at /usr/local/bin/tallor
-    let cli_dest = bin_dir.join("tallor");
+    // Create symlink at /usr/local/bin/tallr
+    let cli_dest = bin_dir.join("tallr");
     
     // Remove existing symlink if it exists
     if cli_dest.exists() {
         if let Err(e) = fs::remove_file(&cli_dest) {
-            return Err(format!("Cannot remove existing CLI: {}. Please run: sudo rm /usr/local/bin/tallor", e));
+            return Err(format!("Cannot remove existing CLI: {}. Please run: sudo rm /usr/local/bin/tallr", e));
         }
     }
     
@@ -959,7 +936,7 @@ fn build_tray_menu(app_handle: &AppHandle) -> Result<tauri::menu::Menu<tauri::Wr
     // Add static menu items
     menu_builder = menu_builder
         .item(
-            &MenuItemBuilder::new("Show Tallor")
+            &MenuItemBuilder::new("Show Tallr")
                 .id("show_window")
                 .build(app_handle)?
         )

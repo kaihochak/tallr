@@ -4,7 +4,7 @@
  * Provides developer-friendly debugging with namespaces and environment control
  */
 
-type DebugNamespace = 'tallor:state' | 'tallor:api' | 'tallor:pattern' | 'tallor:ui' | 'tallor:cli';
+type DebugNamespace = 'tallr:state' | 'tallr:api' | 'tallr:pattern' | 'tallr:ui' | 'tallr:cli';
 
 interface DebugConfig {
   enabled: boolean;
@@ -20,11 +20,11 @@ class DebugLogger {
       enabled: this.isDebugEnabled(),
       namespaces: this.parseDebugNamespaces(),
       colors: {
-        'tallor:state': '#4CAF50',   // Green
-        'tallor:api': '#2196F3',     // Blue  
-        'tallor:pattern': '#FF9800', // Orange
-        'tallor:ui': '#9C27B0',      // Purple
-        'tallor:cli': '#795548',     // Brown
+        'tallr:state': '#4CAF50',   // Green
+        'tallr:api': '#2196F3',     // Blue  
+        'tallr:pattern': '#FF9800', // Orange
+        'tallr:ui': '#9C27B0',      // Purple
+        'tallr:cli': '#795548',     // Brown
       }
     };
   }
@@ -32,22 +32,22 @@ class DebugLogger {
   private isDebugEnabled(): boolean {
     if (typeof window !== 'undefined') {
       // Frontend - check for development mode or localStorage
-      return import.meta.env.DEV || localStorage.getItem('tallor-debug') === 'true';
+      return import.meta.env.DEV || localStorage.getItem('tallr-debug') === 'true';
     } else {
       // Node.js - check environment variables
-      return process.env.TALLOR_DEBUG === 'true' || 
-             process.env.DEBUG?.includes('tallor') || 
+      return process.env.TALLR_DEBUG === 'true' || 
+             process.env.DEBUG?.includes('tallr') || 
              process.env.NODE_ENV === 'development';
     }
   }
 
   private parseDebugNamespaces(): Set<string> {
     const debugEnv = typeof window !== 'undefined' 
-      ? localStorage.getItem('tallor-debug-namespaces')
-      : process.env.TALLOR_DEBUG_NAMESPACES || process.env.DEBUG;
+      ? localStorage.getItem('tallr-debug-namespaces')
+      : process.env.TALLR_DEBUG_NAMESPACES || process.env.DEBUG;
 
     if (!debugEnv || debugEnv === 'true') {
-      return new Set(['tallor:*']); // Enable all by default
+      return new Set(['tallr:*']); // Enable all by default
     }
 
     return new Set(debugEnv.split(',').map(s => s.trim()));
@@ -56,7 +56,7 @@ class DebugLogger {
   private shouldLog(namespace: string): boolean {
     if (!this.config.enabled) return false;
     
-    return this.config.namespaces.has('tallor:*') || 
+    return this.config.namespaces.has('tallr:*') || 
            this.config.namespaces.has(namespace) ||
            Array.from(this.config.namespaces).some(ns => 
              ns.endsWith('*') && namespace.startsWith(ns.slice(0, -1))
@@ -102,44 +102,44 @@ class DebugLogger {
 
   // Quick access methods for common namespaces
   state(message: string, data?: any): void {
-    this.log('tallor:state', message, data);
+    this.log('tallr:state', message, data);
   }
 
   api(message: string, data?: any): void {
-    this.log('tallor:api', message, data);
+    this.log('tallr:api', message, data);
   }
 
   pattern(message: string, data?: any): void {
-    this.log('tallor:pattern', message, data);
+    this.log('tallr:pattern', message, data);
   }
 
   ui(message: string, data?: any): void {
-    this.log('tallor:ui', message, data);
+    this.log('tallr:ui', message, data);
   }
 
   cli(message: string, data?: any): void {
-    this.log('tallor:cli', message, data);
+    this.log('tallr:cli', message, data);
   }
 
   // Debug state management
   enable(): void {
     this.config.enabled = true;
     if (typeof window !== 'undefined') {
-      localStorage.setItem('tallor-debug', 'true');
+      localStorage.setItem('tallr-debug', 'true');
     }
   }
 
   disable(): void {
     this.config.enabled = false;
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('tallor-debug');
+      localStorage.removeItem('tallr-debug');
     }
   }
 
   setNamespaces(namespaces: string[]): void {
     this.config.namespaces = new Set(namespaces);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('tallor-debug-namespaces', namespaces.join(','));
+      localStorage.setItem('tallr-debug-namespaces', namespaces.join(','));
     }
   }
 
@@ -163,5 +163,5 @@ export function createDebugger(namespace: DebugNamespace) {
 
 // Make debug available globally in development
 if (typeof window !== 'undefined' && import.meta.env.DEV) {
-  (window as any).tallorDebug = debug;
+  (window as any).tallrDebug = debug;
 }

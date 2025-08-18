@@ -1,6 +1,6 @@
 # PRD.md
 
-# Tallor — MVP PRD (Simplified Core Features)
+# Tallr — MVP PRD (Simplified Core Features)
 
 ## One-liner
 A lightweight **floating window hub** that shows the live status of your **AI coding agents/CLIs** across projects, **notifies** you when any is *waiting on you*, and **jumps** you into the right IDE + terminal in one click.
@@ -27,14 +27,14 @@ A lightweight **floating window hub** that shows the live status of your **AI co
 **As a developer**, when I:
 - Open terminal in my project directory  
 - Type `claude` (my normal workflow - no prefix needed)
-- **Accept:** "my-project - Claude session" appears in Tallor window automatically
+- **Accept:** "my-project - Claude session" appears in Tallr window automatically
 - **Accept:** Session state changes (WORKING → PENDING → IDLE) appear in real-time
 - **Accept:** Zero workflow change required - all existing `claude` commands automatically tracked
 
 ### Use Case 2: Get Hybrid Notifications  
 **When Claude shows "❯ 1. Yes" (PENDING state)**, I want:
 - **Accept:** Mac desktop notification appears immediately
-- **Accept:** Task row in Tallor pulses amber until resolved
+- **Accept:** Task row in Tallr pulses amber until resolved
 - **Accept:** System tray icon changes to amber color
 - **Accept:** Clicking notification jumps to correct terminal
 
@@ -120,12 +120,12 @@ gemini "write code" # Also tracked via PATH shim
 
 **Fallback option (manual):**
 ```bash
-tallor claude        # Still works for users who prefer explicit tracking
+tallr claude        # Still works for users who prefer explicit tracking
 ```
 
 ### Local HTTP Gateway (Advanced/Manual)
 - **Bind:** `127.0.0.1:4317`  
-- **Auth:** optional Bearer `TALLOR_TOKEN` (also accepts `SWITCHBOARD_TOKEN` for compatibility)  
+- **Auth:** optional Bearer `TALLR_TOKEN` (also accepts `SWITCHBOARD_TOKEN` for compatibility)  
 - **CT:** `application/json`
 
 **1) Upsert project + task** — `POST /v1/tasks/upsert`
@@ -168,7 +168,7 @@ tallor claude        # Still works for users who prefer explicit tracking
 ## Security & Privacy
 - Localhost-only, optional bearer token.  
 - No code ingestion; only minimal metadata.  
-- JSON persistence in `~/Library/Application Support/Tallor`.  
+- JSON persistence in `~/Library/Application Support/Tallr`.  
 - No telemetry.
 
 ## Non-Functional
@@ -223,7 +223,7 @@ tallor claude        # Still works for users who prefer explicit tracking
 **PRIORITY 1: Core Session Tracking**
 - ✅ **P1.1 CLI Installation** - Setup wizard installs `tally` command correctly
 - ✅ **P1.2 Interactive Claude Sessions** - PTY wrapper preserves full Claude CLI functionality  
-- ✅ **P1.3 Session Creation** - Auto-creates tasks when `tallor claude` runs
+- ✅ **P1.3 Session Creation** - Auto-creates tasks when `tallr claude` runs
 - ✅ **P1.4 State Tracking** - Tracks state changes (IDLE → WORKING → PENDING → DONE)
 
 **PRIORITY 2: Notification System**
@@ -299,12 +299,12 @@ tallor claude        # Still works for users who prefer explicit tracking
 ### 📊 Implementation Summary
 - **✅ COMPLETED (19 features)**: Core MVP functionality working
 - **❌ OPTIONAL (5 features)**: Session persistence, visual polish, enhanced detection
-- **🎯 DESIGN DECISION**: Explicit `tallor claude` command (no PATH shims) for clear user intent
+- **🎯 DESIGN DECISION**: Explicit `tallr claude` command (no PATH shims) for clear user intent
 
 **Current Status**: **MVP Complete** - All essential features working. The explicit command approach provides better UX than transparent interception.
 
 ### 📋 Optional Future Enhancements
-1. **Session Persistence** - Save task history across app restarts to `~/Library/Application Support/Tallor/sessions.json`
+1. **Session Persistence** - Save task history across app restarts to `~/Library/Application Support/Tallr/sessions.json`
 2. **Enhanced State Detection** - Add throughput-based detection with adapters.yaml configuration
 3. **Visual Polish** - Pulsing indicators, system tray color changes, loading states
 4. **Project Deduplication** - Reuse existing projects by path instead of creating new ones

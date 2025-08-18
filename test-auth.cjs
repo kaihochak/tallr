@@ -54,7 +54,7 @@ async function testAuthentication() {
   await makeRequest('wrong-token', 'Request with wrong token');
   
   // Test 3: Default token (should work)
-  await makeRequest('tallor-secure-default', 'Request with default token');
+  await makeRequest('tallr-secure-default', 'Request with default token');
   
   console.log('\nTesting complete!');
   console.log('Expected results:');

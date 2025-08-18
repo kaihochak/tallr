@@ -256,7 +256,7 @@ function App() {
   }, []);
 
   const handleCopyCommand = useCallback(() => {
-    const command = 'sudo ln -s /Applications/Tallor.app/Contents/MacOS/tallor /usr/local/bin/tallor';
+    const command = 'sudo ln -s /Applications/Tallr.app/Contents/MacOS/tallr /usr/local/bin/tallr';
     navigator.clipboard.writeText(command);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -342,7 +342,7 @@ function App() {
                 <p className="text-sm text-text-secondary">Run this command in Terminal:</p>
                 <div className="relative">
                   <code className="block p-3 bg-bg-tertiary border border-border-secondary rounded-lg text-sm font-mono text-text-primary pr-12 whitespace-pre-wrap">
-                    sudo ln -s /Applications/Tallor.app/Contents/MacOS/tallor /usr/local/bin/tallor
+                    sudo ln -s /Applications/Tallr.app/Contents/MacOS/tallr /usr/local/bin/tallr
                   </code>
                   <Button
                     variant="ghost"
@@ -458,10 +458,10 @@ function App() {
         <div className="text-right">
           Built by{" "}
           <button 
-            onClick={() => open("https://tallor.dev")}
+            onClick={() => open("https://tallr.dev")}
             className="hover:text-accent-primary transition-colors cursor-pointer"
           >
-            Tallor Team
+            Tallr Team
           </button>
         </div>
         </footer>

@@ -14,7 +14,7 @@ export default function EmptyState() {
   const [selectedAgent, setSelectedAgent] = useState("claude");
 
   const handleCopyCommand = useCallback(() => {
-    const command = `tallor ${selectedAgent}`;
+    const command = `tallr ${selectedAgent}`;
     navigator.clipboard.writeText(command);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -24,7 +24,7 @@ export default function EmptyState() {
     <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8 animate-fadeIn">
       <h3 className="text-2xl font-semibold text-text-primary mb-3 m-0">No active sessions</h3>
       <p className="text-text-secondary text-base mb-8 m-0 max-w-[400px]">
-        Wrap your AI CLI tools with tallor to get notified when they need input
+        Wrap your AI CLI tools with tallr to get notified when they need input
       </p>
       
       <div className="bg-bg-card p-6 rounded-xl border border-border-primary shadow-sm max-w-[360px] w-full">
@@ -47,7 +47,7 @@ export default function EmptyState() {
         
         <div className="relative">
           <code className="block font-mono text-sm bg-bg-tertiary px-4 py-3 rounded-lg text-accent-primary border border-border-light pr-12">
-            tallor {selectedAgent}
+            tallr {selectedAgent}
           </code>
           <Button
             variant="ghost"

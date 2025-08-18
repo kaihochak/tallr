@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
 /**
- * Tallor CLI - Simple entry point for tracking AI CLI sessions
+ * Tallr CLI - Simple entry point for tracking AI CLI sessions
  * 
  * Usage:
- *   tallor claude --help
- *   tallor gemini "write a function"
- *   TALLOR_TOKEN=mytoken tallor claude
+ *   tallr claude --help
+ *   tallr gemini "write a function"
+ *   TALLR_TOKEN=mytoken tallr claude
  */
 
 import { fileURLToPath } from 'url';
@@ -23,20 +23,20 @@ const wrapperPath = join(__dirname, 'tl-wrap.js');
 const args = process.argv.slice(2);
 
 if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
-  console.log('Usage: tallor <command> [args...]');
+  console.log('Usage: tallr <command> [args...]');
   console.log('');
   console.log('Examples:');
-  console.log('  tallor claude --help');
-  console.log('  tallor gemini "write a function"');
-  console.log('  tallor claude');
+  console.log('  tallr claude --help');
+  console.log('  tallr gemini "write a function"');
+  console.log('  tallr claude');
   console.log('');
   console.log('Environment variables:');
-  console.log('  TALLOR_TOKEN   - Authentication token (optional)');
+  console.log('  TALLR_TOKEN   - Authentication token (optional)');
   console.log('  TL_PROJECT     - Override project name');
   console.log('  TL_REPO        - Override repo path');
   console.log('  TL_IDE         - Preferred IDE (cursor, vscode)');
   console.log('');
-  console.log('The Tallor app must be running to see tracked sessions.');
+  console.log('The Tallr app must be running to see tracked sessions.');
   process.exit(1);
 }
 

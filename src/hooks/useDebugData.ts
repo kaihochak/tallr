@@ -50,9 +50,9 @@ export function useDebugData(taskId: string | null) {
             ? `No debug data found for task "${taskId}". This task may not have any pattern detection activity.`
             : 'No active debug sessions found. Start a CLI session to see debug data.';
         } else if (apiError.message.includes('timeout')) {
-          errorMessage = 'Connection timeout. Make sure the Tallor app is running.';
+          errorMessage = 'Connection timeout. Make sure the Tallr app is running.';
         } else if (apiError.message.includes('ECONNREFUSED')) {
-          errorMessage = 'Cannot connect to Tallor backend. Make sure the app is running on port 4317.';
+          errorMessage = 'Cannot connect to Tallr backend. Make sure the app is running on port 4317.';
         }
         
         setError(errorMessage);
