@@ -40,6 +40,7 @@ export default function EmptyState() {
             </SelectTrigger>
             <SelectContent className="cursor-pointer">
               <SelectItem value="claude" className="cursor-pointer">Claude Code CLI</SelectItem>
+              <SelectItem value="codex" className="cursor-pointer">Codex CLI</SelectItem>
               <SelectItem value="gemini" className="cursor-pointer">Gemini CLI</SelectItem>
             </SelectContent>
           </Select>

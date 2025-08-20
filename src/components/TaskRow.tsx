@@ -112,7 +112,7 @@ export default function TaskRow({
       <div
         className={cn(
           "flex flex-col gap-3 p-4 mb-3 rounded-lg bg-bg-card border border-border-primary cursor-pointer transition-all duration-150 animate-slideInUp relative overflow-hidden",
-          viewMode === 'simple' ? "min-h-[50px]" : "min-h-[60px]",
+          viewMode === 'simple' ? "min-h-[64px]" : "min-h-[80px]",
           "hover:border-border-secondary hover:bg-bg-hover",
           isTaskCompleted(task.state) && "opacity-70"
         )}

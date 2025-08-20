@@ -14,7 +14,7 @@
       {
         "title": "Tallr",
         "width": 480,
-        "height": 640,
+        "height": 720,
         "minWidth": 120,
         "minHeight": 60,
         "resizable": true,

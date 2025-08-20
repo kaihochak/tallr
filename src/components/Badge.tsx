@@ -14,6 +14,8 @@ export function Badge({ type, name, className = '' }: BadgeProps) {
       switch (normalizedName) {
         case 'claude':
           return 'agent-badge claude';
+        case 'codex':
+          return 'agent-badge codex';
         case 'gemini':
           return 'agent-badge gemini';
         case 'cursor':

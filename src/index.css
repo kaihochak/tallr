@@ -99,10 +99,12 @@
     --status-pending: #d97706;
     --status-pending-bg: #fef3c7;
 
-    /* Agent brand colors - muted */
+    /* Agent brand colors - closer to brand hues */
     --agent-claude: #9d6b53;
     --agent-claude-text: #ffffff;
-    --agent-gemini: #6b7b94;
+    --agent-codex: #6366f1; /* Indigo 500 */
+    --agent-codex-text: #ffffff;
+    --agent-gemini: #1a73e8; /* Google Blue 600 */
     --agent-gemini-text: #ffffff;
     --agent-cursor: #7c7f9d;
     --agent-cursor-text: #ffffff;
@@ -179,7 +181,9 @@
     /* Agent brand colors - light mode */
     --agent-claude: #9d6b53;
     --agent-claude-text: #ffffff;
-    --agent-gemini: #6b7b94;
+    --agent-codex: #6366f1; /* Indigo 500 */
+    --agent-codex-text: #ffffff;
+    --agent-gemini: #1a73e8; /* Google Blue 600 */
     --agent-gemini-text: #ffffff;
     --agent-cursor: #7c7f9d;
     --agent-cursor-text: #ffffff;
@@ -239,10 +243,12 @@
     --color-status-pending: #f59e0b;
     --color-status-pending-bg: rgba(245, 158, 11, 0.1);
     
-    /* Agent brand colors - dark mode muted */
+    /* Agent brand colors - dark mode tuned */
     --agent-claude: #8a5a47;
     --agent-claude-text: #ffffff;
-    --agent-gemini: #5a6b84;
+    --agent-codex: #4f46e5; /* Indigo 600 for dark bg */
+    --agent-codex-text: #ffffff;
+    --agent-gemini: #4285f4; /* Google Blue */
     --agent-gemini-text: #ffffff;
     --agent-cursor: #6c6f8a;
     --agent-cursor-text: #ffffff;
@@ -414,6 +420,11 @@
   .agent-badge.gemini {
     background: var(--agent-gemini);
     color: var(--agent-gemini-text);
+  }
+
+  .agent-badge.codex {
+    background: var(--agent-codex);
+    color: var(--agent-codex-text);
   }
 
   .agent-badge.cursor {

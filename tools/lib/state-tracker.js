@@ -4,13 +4,14 @@
  * Manages Claude CLI state detection and transitions
  */
 
-import { detectClaudeState, MAX_BUFFER_SIZE } from './patterns.js';
+import { detectState, MAX_BUFFER_SIZE } from './patterns.js';
 import stripAnsi from 'strip-ansi';
 
 export class ClaudeStateTracker {
-  constructor(client, taskId, enableDebug = false) {
+  constructor(client, taskId, agent, enableDebug = false) {
     this.client = client;
     this.taskId = taskId;
+    this.agent = (agent && typeof agent === 'string') ? agent.toLowerCase() : 'claude';
     this.enableDebug = enableDebug;
     
     // State tracking
@@ -203,8 +204,8 @@ export class ClaudeStateTracker {
     if (!trimmed) return;
     
     try {
-      // SINGLE detectClaudeState call for both state change and debug
-      const detection = detectClaudeState(trimmed, this.cleanBuffer);
+      // Single detectState call (agent-aware) for both state change and debug
+      const detection = detectState(this.agent, trimmed, this.cleanBuffer);
       
       // Store debug data from SAME detection call
       if (detection.patternTests) {

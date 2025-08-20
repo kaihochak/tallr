@@ -8,6 +8,9 @@ import { MAX_BUFFER_SIZE } from './lib/patterns.js';
 import { execSync } from 'child_process';
 import http from 'http';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 
 const IDE_MAPPINGS = {
   'Visual Studio Code': 'code',
@@ -31,7 +34,7 @@ function detectCurrentIDE() {
     if (process.env.VSCODE_INJECTION === '1' || process.env.TERM_PROGRAM === 'vscode') {
       return getIdeCommand('Visual Studio Code', 'code');
     }
-    if (process.env.TERM_PROGRAM === 'cursor') {
+    if (process.env.CURSOR_AGENT || process.env.TERM_PROGRAM === 'cursor') {
       return getIdeCommand('Cursor', 'cursor');
     }
     
@@ -72,8 +75,41 @@ function generateSecureToken() {
   return crypto.randomBytes(16).toString('hex');
 }
 
+// Get auth token from file or environment
+function getAuthToken() {
+  // Check environment variables first (highest priority)
+  if (process.env.TALLR_TOKEN) {
+    return process.env.TALLR_TOKEN;
+  }
+  
+  if (process.env.SWITCHBOARD_TOKEN) {
+    return process.env.SWITCHBOARD_TOKEN;
+  }
+  
+  // Try to read from auth token file (same location as Rust backend)
+  try {
+    const appDataDir = path.join(os.homedir(), 'Library', 'Application Support', 'Tallr');
+    const tokenFile = path.join(appDataDir, 'auth.token');
+    
+    if (fs.existsSync(tokenFile)) {
+      const token = fs.readFileSync(tokenFile, 'utf8').trim();
+      if (token) {
+        return token;
+      }
+    }
+  } catch (error) {
+    // Silently fail if we can't read the token file
+    if (process.env.DEBUG) {
+      console.error('[Tallr] Failed to read auth token file:', error.message);
+    }
+  }
+  
+  // Fallback to the old default (this should eventually be removed)
+  return 'your-secure-token-here';
+}
+
 const config = {
-  token: process.env.TALLR_TOKEN || process.env.SWITCHBOARD_TOKEN || 'your-secure-token-here',
+  token: getAuthToken(),
   gateway: process.env.TALLR_GATEWAY || 'http://127.0.0.1:4317',
   project: process.env.TL_PROJECT || 'default-project',
   repo: process.env.TL_REPO || process.cwd(),
@@ -85,7 +121,7 @@ const config = {
 const taskId = `${config.agent}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 const client = new TallrClient(config);
-const stateTracker = new ClaudeStateTracker(client, taskId, true); // Enable debug mode
+const stateTracker = new ClaudeStateTracker(client, taskId, config.agent, true); // Enable debug mode
 
 function restoreTerminal() {
   if (process.stdin.setRawMode && process.stdin.isTTY) {

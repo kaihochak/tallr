@@ -217,6 +217,7 @@ Icon?
 secrets/
 private/
 auth.json
+auth.token
 config.local.*
 .vault_pass
 .password

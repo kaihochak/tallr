@@ -18,12 +18,80 @@ use tower_http::cors::CorsLayer;
 // Global application state
 static APP_STATE: Lazy<Arc<Mutex<AppState>>> = Lazy::new(|| Arc::new(Mutex::new(AppState::default())));
 
+// Global authentication token (loaded once at startup)
+static AUTH_TOKEN: Lazy<Arc<Mutex<Option<String>>>> = Lazy::new(|| Arc::new(Mutex::new(None)));
+
+// Generate a cryptographically secure random token
+fn generate_secure_token() -> String {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    let bytes: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+    hex::encode(bytes)
+}
+
+// Get or create authentication token
+fn get_or_create_auth_token() -> Result<String, String> {
+    // First check if we have it in memory
+    if let Some(token) = AUTH_TOKEN.lock().as_ref() {
+        return Ok(token.clone());
+    }
+    
+    // Check environment variables (highest priority)
+    if let Ok(token) = std::env::var("TALLR_TOKEN") {
+        AUTH_TOKEN.lock().replace(token.clone());
+        return Ok(token);
+    }
+    
+    if let Ok(token) = std::env::var("SWITCHBOARD_TOKEN") {
+        AUTH_TOKEN.lock().replace(token.clone());
+        return Ok(token);
+    }
+    
+    // Try to load from file
+    let token_file = get_auth_token_file_path()?;
+    
+    if token_file.exists() {
+        let token = fs::read_to_string(&token_file)
+            .map_err(|e| format!("Failed to read auth token file: {}", e))?
+            .trim()
+            .to_string();
+        
+        if !token.is_empty() {
+            AUTH_TOKEN.lock().replace(token.clone());
+            return Ok(token);
+        }
+    }
+    
+    // Generate new token and save it
+    let new_token = generate_secure_token();
+    
+    // Ensure directory exists
+    if let Some(parent) = token_file.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create auth token directory: {}", e))?;
+    }
+    
+    // Write token to file
+    fs::write(&token_file, &new_token)
+        .map_err(|e| format!("Failed to write auth token file: {}", e))?;
+    
+    AUTH_TOKEN.lock().replace(new_token.clone());
+    Ok(new_token)
+}
+
+// Get path to auth token file
+fn get_auth_token_file_path() -> Result<std::path::PathBuf, String> {
+    let app_data_dir = get_app_data_dir()?;
+    Ok(app_data_dir.join("auth.token"))
+}
+
 // Authentication validation function
 fn validate_auth_header(headers: &HeaderMap) -> bool {
-    // Get the expected token from environment or use a default secure token
-    let expected_token = std::env::var("TALLR_TOKEN")
-        .or_else(|_| std::env::var("SWITCHBOARD_TOKEN"))
-        .unwrap_or_else(|_| "your-secure-token-here".to_string());
+    // Get the expected token
+    let expected_token = match get_or_create_auth_token() {
+        Ok(token) => token,
+        Err(_) => return false, // Fail closed if we can't get a token
+    };
     
     // Check if Authorization header exists and matches
     if let Some(auth_header) = headers.get("authorization") {
@@ -171,9 +239,13 @@ struct DebugUpdateRequest {
 }
 
 // Axum 0.8 handlers with modern path syntax
-async fn get_state() -> Json<AppState> {
+async fn get_state(headers: HeaderMap) -> Result<Json<AppState>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
     let state = APP_STATE.lock().clone();
-    Json(state)
+    Ok(Json(state))
 }
 
 async fn upsert_task(
@@ -374,9 +446,14 @@ async fn mark_task_done(
 }
 
 async fn delete_task(
+    headers: HeaderMap,
     AxumState(app_handle): AxumState<AppHandle>,
     Json(req): Json<TaskDeleteRequest>,
 ) -> Result<Json<()>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
     let mut state = APP_STATE.lock();
     
     if state.tasks.remove(&req.task_id).is_some() {
@@ -400,9 +477,14 @@ async fn delete_task(
 }
 
 async fn toggle_task_pin(
+    headers: HeaderMap,
     AxumState(app_handle): AxumState<AppHandle>,
     Json(req): Json<TaskPinRequest>,
 ) -> Result<Json<()>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
     let mut state = APP_STATE.lock();
     
     if let Some(task) = state.tasks.get_mut(&req.task_id) {
@@ -891,6 +973,11 @@ async fn send_notification(app: AppHandle, title: String, body: String) -> Resul
     Ok(())
 }
 
+#[tauri::command]
+async fn get_auth_token() -> Result<String, String> {
+    get_or_create_auth_token()
+}
+
 fn current_timestamp() -> i64 {
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
@@ -1129,7 +1216,8 @@ pub fn run() {
             mark_setup_completed_cmd,
             save_settings,
             load_settings,
-            send_notification
+            send_notification,
+            get_auth_token
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,4 +1,5 @@
 import { AppState, Task } from '@/types';
+import { invoke } from '@tauri-apps/api/core';
 
 // API Configuration
 const API_BASE_URL = 'http://127.0.0.1:4317';
@@ -40,10 +41,29 @@ export interface DebugData {
 class ApiClient {
   private baseUrl: string;
   private timeout: number;
+  private cachedToken: string | null = null;
 
   constructor(baseUrl: string, timeout: number = DEFAULT_TIMEOUT) {
     this.baseUrl = baseUrl;
     this.timeout = timeout;
+  }
+
+  private async getAuthToken(): Promise<string> {
+    // Return cached token if available
+    if (this.cachedToken) {
+      return this.cachedToken;
+    }
+
+    try {
+      // Fetch token from Tauri backend
+      const token = await invoke<string>('get_auth_token');
+      this.cachedToken = token;
+      return token;
+    } catch (error) {
+      console.error('[API] Failed to fetch auth token:', error);
+      // Fallback to old default for backward compatibility
+      return 'your-secure-token-here';
+    }
   }
 
   private async request<T>(
@@ -56,8 +76,8 @@ class ApiClient {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
-    // Get the auth token (same as CLI wrapper default)
-    const token = 'your-secure-token-here';
+    // Get the auth token dynamically
+    const token = await this.getAuthToken();
 
     try {
       const response = await fetch(url, {
@@ -131,6 +151,11 @@ export const ApiService = {
   // Delete a task
   async deleteTask(taskId: string): Promise<void> {
     return apiClient.post<void>('/v1/tasks/delete', { taskId });
+  },
+
+  // Toggle task pin status
+  async toggleTaskPin(taskId: string, pinned: boolean): Promise<void> {
+    return apiClient.post<void>('/v1/tasks/pin', { taskId, pinned });
   },
 
   // Get debug data for pattern detection

@@ -36,4 +36,6 @@ uuid = { version = "1", features = ["v4", "serde"] }
 thiserror = "1"
 time = "0.3"
 image = "0.25"
+rand = "0.8"
+hex = "0.4"
 

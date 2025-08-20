@@ -165,17 +165,7 @@ function App() {
   // Handle toggle pin
   const handleTogglePin = useCallback(async (taskId: string, pinned: boolean) => {
     try {
-      const response = await fetch("http://127.0.0.1:4317/v1/tasks/pin", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ taskId, pinned }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+      await ApiService.toggleTaskPin(taskId, pinned);
     } catch (error) {
       console.error("Failed to toggle pin:", error);
       throw error; // Re-throw so TaskRow can handle the error display

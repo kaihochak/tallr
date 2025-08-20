@@ -147,8 +147,8 @@ export function useSettings() {
     try {
       // Use fixed, predefined sizes for each mode
       const fixedSizes = {
-        full: { width: 480, height: 650 },
-        simple: { width: 480, height: 400 },
+        full: { width: 480, height: 720 },
+        simple: { width: 480, height: 540 },
         tally: { width: 320, height: 80 }
       };
       
