@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { AppState } from '@/types';
 import { ApiService, logApiError } from '@/services/api';
 
@@ -50,11 +51,19 @@ export function useAppState() {
   // Listen for notifications
   useEffect(() => {
     const unlisten = listen<{title: string, body: string}>("show-notification", async (event) => {
-      const { notificationService } = await import('../services/notificationService');
-      await notificationService.showNotification({
-        title: event.payload.title,
-        body: event.payload.body
-      });
+      // Check if notifications are enabled in settings
+      try {
+        const settings = await invoke<any>("load_settings");
+        if (settings.notificationsEnabled !== false) { // Default to true if not set
+          const { notificationService } = await import('../services/notificationService');
+          await notificationService.showNotification({
+            title: event.payload.title,
+            body: event.payload.body
+          });
+        }
+      } catch (error) {
+        console.error("Failed to check notification settings:", error);
+      }
     });
 
     return () => {

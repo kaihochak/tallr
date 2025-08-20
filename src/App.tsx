@@ -34,8 +34,7 @@ interface SetupStatus {
 
 function App() {
   const { appState, isLoading } = useAppState();
-  const { settings, toggleAlwaysOnTop, toggleTheme, toggleViewMode } = useSettings();
-  const [stateFilter, setStateFilter] = useState("all");
+  const { settings, toggleAlwaysOnTop, toggleTheme, toggleViewMode, toggleNotifications } = useSettings();
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [currentPage, setCurrentPage] = useState<'tasks' | 'debug'>('tasks');
   const [debugTaskId, setDebugTaskId] = useState<string | null>(null);
@@ -79,7 +78,7 @@ function App() {
     const ONE_HOUR = 60 * 60 * 1000;
     
     return tasks.filter(task => {
-      const matchesState = stateFilter === "all" || task.state === stateFilter;
+      const matchesState = true;
       
       // Handle done/active toggle
       if (showDoneTasks) {
@@ -115,7 +114,7 @@ function App() {
       // Third priority: creation order (oldest first for stability)
       return a.createdAt - b.createdAt;
     });
-  }, [appState, stateFilter, showDoneTasks]);
+  }, [appState, showDoneTasks]);
 
   // Handle jump to context
   const handleJumpToContext = useCallback(async (task: Task) => {
@@ -372,14 +371,14 @@ function App() {
         doneTasks={taskCounts.doneTasks}
         showDoneTasks={showDoneTasks}
         alwaysOnTop={settings.alwaysOnTop}
-        stateFilter={stateFilter}
+        notificationsEnabled={settings.notificationsEnabled}
         theme={settings.theme}
         viewMode={settings.viewMode}
         tasks={filteredTasks}
         projects={appState.projects}
         onTogglePin={toggleAlwaysOnTop}
         onToggleDoneTasks={() => setShowDoneTasks(prev => !prev)}
-        onStateFilterChange={setStateFilter}
+        onToggleNotifications={toggleNotifications}
         onToggleTheme={toggleTheme}
         onToggleViewMode={toggleViewMode}
         onJumpToContext={handleJumpToSpecificTask}

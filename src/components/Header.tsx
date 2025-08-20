@@ -1,18 +1,13 @@
 import { 
   Pin,
-  Filter,
+  Bell,
+  BellOff,
   Sun,
   Moon,
   Rows3,
   Rows2,
   Square
 } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Task, Project } from '@/types';
 import { getTaskStateClasses } from '@/lib/sessionHelpers';
@@ -24,14 +19,14 @@ interface HeaderProps {
   doneTasks: number;
   showDoneTasks: boolean;
   alwaysOnTop: boolean;
-  stateFilter: string;
+  notificationsEnabled: boolean;
   theme: 'light' | 'dark';
   viewMode: 'full' | 'simple' | 'tally';
   tasks?: Task[];
   projects?: Record<string, Project>;
   onTogglePin: () => void;
   onToggleDoneTasks: () => void;
-  onStateFilterChange: (value: string) => void;
+  onToggleNotifications: () => void;
   onToggleTheme: () => void;
   onToggleViewMode: () => void;
   onJumpToContext?: (taskId: string) => Promise<void>;
@@ -44,14 +39,14 @@ export default function Header({
   doneTasks,
   showDoneTasks,
   alwaysOnTop,
-  stateFilter,
+  notificationsEnabled,
   theme,
   viewMode,
   tasks = [],
   projects = {},
   onTogglePin,
   onToggleDoneTasks,
-  onStateFilterChange,
+  onToggleNotifications,
   onToggleTheme,
   onToggleViewMode,
   onJumpToContext,
@@ -153,20 +148,21 @@ export default function Header({
         {/* Hide most controls in tally mode */}
         {viewMode !== 'tally' && (
           <>
-            <Select value={stateFilter} onValueChange={onStateFilterChange}>
-              <SelectTrigger 
-                className="!w-7 !h-7 !min-h-0 !p-0 !px-0 !py-0 !border-0 !rounded-md !bg-bg-primary !text-text-primary hover:!bg-bg-hover hover:!scale-105 !cursor-pointer !transition-all !duration-200 !flex !items-center !justify-center !gap-0 !shadow-none focus-visible:!ring-0 [&>svg:last-child]:!hidden"
-                size="sm"
-              >
-                <Filter className="w-4 h-4" />
-              </SelectTrigger>
-              <SelectContent className="cursor-pointer">
-                <SelectItem value="all" className="cursor-pointer">All States</SelectItem>
-                <SelectItem value="PENDING" className="cursor-pointer">Pending</SelectItem>
-                <SelectItem value="WORKING" className="cursor-pointer">Working</SelectItem>
-                <SelectItem value="IDLE" className="cursor-pointer">Idle</SelectItem>
-              </SelectContent>
-            </Select>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`w-7 h-7 cursor-pointer transition-all duration-200 hover:scale-105 ${
+                notificationsEnabled
+                  ? 'bg-bg-primary text-text-primary hover:bg-bg-hover' 
+                  : 'bg-bg-tertiary text-text-secondary hover:bg-bg-hover'
+              }`}
+              onClick={onToggleNotifications}
+              title={notificationsEnabled ? "Disable notifications" : "Enable notifications"}
+              aria-label={notificationsEnabled ? "Disable notifications" : "Enable notifications"}
+              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+            >
+              {notificationsEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -187,7 +183,7 @@ export default function Header({
           size="icon"
           className={`w-7 h-7 cursor-pointer transition-all duration-200 hover:scale-105 ${
             viewMode !== 'full'
-              ? 'bg-accent-primary text-white hover:bg-accent-primary-hover' 
+              ? 'bg-bg-tertiary text-text-secondary hover:bg-bg-hover' 
               : 'bg-bg-primary text-text-primary hover:bg-bg-hover'
           }`}
           onClick={onToggleViewMode}
@@ -204,7 +200,7 @@ export default function Header({
           size="icon"
           className={`w-7 h-7 cursor-pointer transition-all duration-200 hover:scale-105 ${
             alwaysOnTop 
-              ? 'bg-accent-primary text-white hover:bg-accent-primary-hover' 
+              ? 'bg-bg-tertiary text-text-secondary hover:bg-bg-hover' 
               : 'bg-bg-primary text-text-primary hover:bg-bg-hover'
           }`}
           onClick={onTogglePin}

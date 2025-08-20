@@ -17,6 +17,7 @@ interface AppSettings {
   preferredIde: string;
   theme: 'light' | 'dark';
   viewMode: 'full' | 'simple' | 'tally';
+  notificationsEnabled: boolean;
 }
 
 export function useSettings() {
@@ -26,7 +27,8 @@ export function useSettings() {
     windowPosition: undefined,
     preferredIde: "cursor",
     theme: "light",
-    viewMode: "full"
+    viewMode: "full",
+    notificationsEnabled: true
   });
   
   const [isLoading, setIsLoading] = useState(true);
@@ -56,7 +58,10 @@ export function useSettings() {
             : 'light' as const,
           viewMode: (['full', 'simple', 'tally'].includes(loadedSettings.viewMode))
             ? loadedSettings.viewMode
-            : 'full' as const
+            : 'full' as const,
+          notificationsEnabled: loadedSettings.notificationsEnabled !== undefined 
+            ? loadedSettings.notificationsEnabled 
+            : true
         };
         
         console.log('🔧 Settings with defaults applied:', settingsWithDefaults);
@@ -178,6 +183,12 @@ export function useSettings() {
     }
   }, [saveSettings]);
 
+  // Toggle notifications
+  const toggleNotifications = useCallback(async () => {
+    const newState = !settings.notificationsEnabled;
+    await saveSettings({ notificationsEnabled: newState });
+  }, [settings.notificationsEnabled, saveSettings]);
+
   // Apply theme when settings change
   useEffect(() => {
     applyTheme(settings.theme);
@@ -191,6 +202,7 @@ export function useSettings() {
     setPreferredIde,
     toggleTheme,
     toggleViewMode,
+    toggleNotifications,
     saveSettings
   };
 }
