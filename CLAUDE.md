@@ -61,6 +61,8 @@ tools/               # CLI wrapper
 - **DONE**: Completed (auto-remove after 30s)
 - **ERROR**: Failed (highlight in red)
 
+**State Flow**: IDLE → WORKING → PENDING → DONE/ERROR → IDLE
+
 ### State Detection Patterns
 ```javascript
 // tools/lib/patterns.js
@@ -109,6 +111,11 @@ ALWAYS prefer industry-standard packages:
 - Auth: Optional via `TALLR_TOKEN` env var
 - Endpoints: `/v1/tasks/upsert`, `/v1/tasks/state`, `/v1/tasks/done`
 
+**Example Response**:
+```json
+{"success": true, "message": "Task updated"}
+```
+
 ### Window Management
 - Always-on-top enabled by default
 - Follows desktop spaces (`visibleOnAllWorkspaces`)
@@ -123,6 +130,12 @@ Override: `export TL_IDE=cursor`
 - Include project name and task title
 - Auto-dismiss after user returns to terminal
 
+### Logging
+- Logs stored in `~/Library/Application Support/Tallr/logs/`
+- `tallr.log` - Backend operations (HTTP, state changes, errors)
+- `cli-wrapper.log` - CLI monitoring (state detection, API calls)
+- Enable verbose: `DEBUG=1` for CLI, `RUST_LOG=debug` for backend
+
 ## Development Rules
 
 ### Before Committing
@@ -135,6 +148,7 @@ Override: `export TL_IDE=cursor`
 - Manual testing with real AI tools (no mocks)
 - Use curl for HTTP gateway testing
 - Cross-terminal testing (Terminal.app, iTerm2, Warp)
+- Test state detection with `tools/examples/` scripts (see CONTRIBUTING.md)
 
 ### Error Handling
 - Never swallow errors silently
