@@ -92,7 +92,7 @@ export default function Header({
               aggregateState === 'idle' ? 'from-status-idle to-status-idle' :
               'from-accent-primary to-accent-primary-hover'
             }`}>
-              TALLR
+              Tallr
             </h1>
           </div>
           <button 

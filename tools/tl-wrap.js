@@ -159,6 +159,32 @@ async function runWithPTY(command, commandArgs) {
     env: process.env
   });
 
+  // Terminal resize handling
+  let resizeTimeout;
+  const handleResize = () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+      if (ptyProcess && !ptyProcess.killed) {
+        const cols = process.stdout.columns || 80;
+        const rows = process.stdout.rows || 30;
+        debug.cli('Terminal resized, updating PTY', { cols, rows });
+        try {
+          ptyProcess.resize(cols, rows);
+        } catch (error) {
+          debug.cliError('Failed to resize PTY', error);
+        }
+      }
+    }, 100); // Debounce resize events by 100ms
+  };
+
+  // Listen for terminal resize events
+  process.stdout.on('resize', handleResize);
+  
+  // Ensure SIGWINCH is handled (required for resize events to work properly)
+  process.on('SIGWINCH', () => {
+    // This ensures the 'resize' event fires properly on stdout
+  });
+
   // Single entry point for all PTY data processing
   ptyProcess.on('data', (data) => {
     process.stdout.write(data);
@@ -180,6 +206,10 @@ async function runWithPTY(command, commandArgs) {
 
     debug.cli('PTY process exited', { code, signal, success });
     
+    // Clean up resize listeners
+    clearTimeout(resizeTimeout);
+    process.stdout.removeListener('resize', handleResize);
+    
     await updateTaskAndCleanup(success ? 'DONE' : 'IDLE', details);
     restoreTerminal();
     process.exit(code);
@@ -188,6 +218,10 @@ async function runWithPTY(command, commandArgs) {
   ptyProcess.on('error', async (error) => {
     debug.cliError('PTY process error', error);
     console.error(`\n[Tallr] PTY error:`, error.message);
+    
+    // Clean up resize listeners
+    clearTimeout(resizeTimeout);
+    process.stdout.removeListener('resize', handleResize);
     
     try {
       restoreTerminal();
@@ -202,6 +236,10 @@ async function runWithPTY(command, commandArgs) {
 
   const cleanup = async (signal, exitCode) => {
     console.log(`\n[Tallr] Received ${signal}, cleaning up PTY...`);
+    
+    // Clean up resize listeners
+    clearTimeout(resizeTimeout);
+    process.stdout.removeListener('resize', handleResize);
     
     try {
       if (ptyProcess && !ptyProcess.killed) {

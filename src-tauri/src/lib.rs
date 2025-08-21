@@ -1349,6 +1349,7 @@ async fn start_http_server(app_handle: AppHandle) {
             CorsLayer::new()
                 .allow_origin("tauri://localhost".parse::<HeaderValue>().unwrap())
                 .allow_origin("http://127.0.0.1:1420".parse::<HeaderValue>().unwrap())
+                .allow_origin("http://localhost:1420".parse::<HeaderValue>().unwrap())
                 .allow_methods([Method::GET, Method::POST])
                 .allow_headers([CONTENT_TYPE, AUTHORIZATION])
         )
