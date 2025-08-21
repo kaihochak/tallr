@@ -105,8 +105,8 @@ function getAuthToken() {
     }
   }
   
-  // Fallback to the old default (this should eventually be removed)
-  return 'your-secure-token-here';
+  // No fallback - authentication required
+  throw new Error('Authentication required. Please start the Tallr application first.');
 }
 
 const config = {

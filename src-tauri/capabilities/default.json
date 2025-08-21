@@ -19,17 +19,17 @@
         {
           "name": "cursor",
           "cmd": "cursor",
-          "args": ["--reuse-window", {"validator": ".*"}]
+          "args": ["--reuse-window", {"validator": "^[a-zA-Z0-9/_. -]+$"}]
         },
         {
           "name": "code",
           "cmd": "code", 
-          "args": ["--reuse-window", {"validator": ".*"}]
+          "args": ["--reuse-window", {"validator": "^[a-zA-Z0-9/_. -]+$"}]
         },
         {
           "name": "osascript",
           "cmd": "osascript",
-          "args": ["-e", {"validator": ".*"}]
+          "args": ["-e", {"validator": "^tell application \"Terminal\" to do script \"cd [a-zA-Z0-9/_. -]+\"$"}]
         }
       ]
     },

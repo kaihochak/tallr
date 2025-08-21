@@ -61,8 +61,7 @@ class ApiClient {
       return token;
     } catch (error) {
       console.error('[API] Failed to fetch auth token:', error);
-      // Fallback to old default for backward compatibility
-      return 'your-secure-token-here';
+      throw new Error('Authentication token not available. Please restart the application.');
     }
   }
 

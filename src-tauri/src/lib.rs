@@ -1345,7 +1345,13 @@ async fn start_http_server(app_handle: AppHandle) {
         .route("/v1/debug/patterns", get(get_debug_patterns))
         .route("/v1/debug/patterns/{task_id}", get(get_debug_patterns_for_task))
         .route("/v1/debug/update", post(update_debug_data))
-        .layer(CorsLayer::permissive())
+        .layer(
+            CorsLayer::new()
+                .allow_origin("tauri://localhost".parse::<HeaderValue>().unwrap())
+                .allow_origin("http://127.0.0.1:1420".parse::<HeaderValue>().unwrap())
+                .allow_methods([Method::GET, Method::POST])
+                .allow_headers([CONTENT_TYPE, AUTHORIZATION])
+        )
         .with_state(app_handle);
 
     match TcpListener::bind("127.0.0.1:4317").await {
