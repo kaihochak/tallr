@@ -111,8 +111,8 @@ export default function TaskRow({
     <>
       <div
         className={cn(
-          "flex flex-col gap-3 p-4 mb-3 rounded-lg bg-bg-card border border-border-primary cursor-pointer transition-all duration-150 animate-slideInUp relative overflow-hidden",
-          viewMode === 'simple' ? "min-h-[64px]" : "min-h-[80px]",
+          "flex flex-col justify-center gap-1 px-4 py-2 mb-2 rounded-lg bg-bg-card border border-border-primary cursor-pointer transition-all duration-150 animate-slideInUp relative overflow-hidden",
+          viewMode === 'simple' ? "min-h-[36px]" : "min-h-[44px]",
           "hover:border-border-secondary hover:bg-bg-hover",
           isTaskCompleted(task.state) && "opacity-70"
         )}
@@ -131,25 +131,28 @@ export default function TaskRow({
         <StatusIndicator state={task.state} />
         
         {/* Main Content Row */}
-        <div className="flex items-center gap-3 w-full min-w-0">
-          {/* Status Badge */}
-          <TaskStateBadge state={task.state} />
+        <div className="flex items-center gap-2 w-full">
+          {/* Left Content - Can overflow */}
+          <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
+            {/* Status Badge */}
+            <TaskStateBadge state={task.state} />
 
-          {/* Task Metadata */}
-          <TaskMetadata 
-            task={task}
-            project={project}
-            allTasks={allTasks}
-          />
+            {/* Task Metadata */}
+            <TaskMetadata 
+              task={task}
+              project={project}
+              allTasks={allTasks}
+            />
+          </div>
 
-          {/* Task Actions */}
-          <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+          {/* Task Actions - Fixed position, never overflow */}
+          <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button 
                   variant="ghost" 
                   size="icon"
-                  className="w-8 h-8 text-text-tertiary hover:bg-bg-hover hover:text-text-primary cursor-pointer"
+                  className="w-7 h-7 text-text-tertiary hover:bg-bg-hover hover:text-text-primary cursor-pointer"
                   title="More actions"
                 >
                   <MoreHorizontal size={16} />

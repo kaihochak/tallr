@@ -152,9 +152,9 @@ export function useSettings() {
     try {
       // Use fixed, predefined sizes for each mode
       const fixedSizes = {
-        full: { width: 480, height: 720 },
-        simple: { width: 480, height: 540 },
-        tally: { width: 320, height: 80 }
+        full: { width: 360, height: 600 },
+        simple: { width: 360, height: 450 },
+        tally: { width: 360, height: 80 }
       };
       
       const nextModeSize = fixedSizes[nextMode];
