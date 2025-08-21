@@ -9,6 +9,7 @@ import {
   Square
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { FilterPill } from "@/components/ui/FilterPill";
 import { Task, Project } from '@/types';
 import { getTaskStateClasses } from '@/lib/sessionHelpers';
 import { cn } from '@/lib/utils';
@@ -95,19 +96,16 @@ export default function Header({
               Tallr
             </h1>
           </div>
-          <button 
-            className={`ml-3 px-3 py-1 text-xs font-medium rounded-full border-none cursor-pointer transition-all duration-200 ${
-              showDoneTasks 
-                ? 'bg-accent-primary-light text-accent-primary border border-accent-primary hover:bg-accent-primary hover:text-white' 
-                : 'bg-bg-tertiary text-text-secondary hover:bg-bg-hover hover:text-text-primary'
-            } hover:scale-105`}
+          <FilterPill
+            size="sm"
+            className="ml-3"
+            selected={showDoneTasks}
             onClick={onToggleDoneTasks}
             title={showDoneTasks ? "Show active tasks" : "Show completed tasks"}
             aria-label={showDoneTasks ? "Show active tasks" : "Show completed tasks"}
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           >
             {showDoneTasks ? `${doneTasks} done` : `${activeTasks} tasks`}
-          </button>
+          </FilterPill>
         </div>
       )}
 

@@ -6,8 +6,8 @@
 @theme {
   /* Background colors */
   --color-bg-primary: #ffffff;
-  --color-bg-secondary: #f8fafc;
-  --color-bg-tertiary: #f1f5f9;
+  --color-bg-secondary: #fafbfc;
+  --color-bg-tertiary: #f8f9fa;
   --color-bg-hover: #e2e8f0;
   --color-bg-card: #ffffff;
   --color-bg-overlay: rgba(15, 23, 42, 0.5);
@@ -151,8 +151,8 @@
   /* Manual light mode - overrides system preference when .light class is applied */
   .light {
     --color-bg-primary: #ffffff;
-    --color-bg-secondary: #f8fafc;
-    --color-bg-tertiary: #f1f5f9;
+    --color-bg-secondary: #fafbfc;
+    --color-bg-tertiary: #f8f9fa;
     --color-bg-hover: #e2e8f0;
     --color-bg-card: #ffffff;
     --color-bg-overlay: rgba(15, 23, 42, 0.5);
@@ -216,8 +216,8 @@
   /* Manual dark mode - overrides system preference when .dark class is applied */
   .dark {
     --color-bg-primary: #0a0a0a;
-    --color-bg-secondary: #111111;
-    --color-bg-tertiary: #334155;
+    --color-bg-secondary: #121212;
+    --color-bg-tertiary: #1c1c1c;
     --color-bg-hover: #0f0f0f;
     --color-bg-card: #111111;
     --color-bg-overlay: rgba(0, 0, 0, 0.7);

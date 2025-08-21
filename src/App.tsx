@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import TaskRow from "./components/TaskRow";
 import EmptyState from "./components/EmptyState";
 import Header from "./components/Header";
+import { ProjectFilterPills } from "./components/ProjectFilterPills";
 import { DebugPage } from "./components/DebugPage";
 import { ErrorDisplay } from "./components/debug/ErrorDisplay";
 import { useAppState } from "./hooks/useAppState";
@@ -41,6 +42,7 @@ function App() {
   const [currentPage, setCurrentPage] = useState<'tasks' | 'debug'>('tasks');
   const [debugTaskId, setDebugTaskId] = useState<string | null>(null);
   const [showDoneTasks, setShowDoneTasks] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   
   
   // Setup wizard state
@@ -85,6 +87,11 @@ function App() {
     return tasks.filter(task => {
       const matchesState = true;
       
+      // Filter by selected project
+      if (selectedProjectId && task.projectId !== selectedProjectId) {
+        return false;
+      }
+      
       // Handle done/active toggle
       if (showDoneTasks) {
         // Show only DONE tasks
@@ -119,7 +126,7 @@ function App() {
       // Third priority: creation order (oldest first for stability)
       return a.createdAt - b.createdAt;
     });
-  }, [appState, showDoneTasks]);
+  }, [appState, showDoneTasks, selectedProjectId]);
 
   // Handle jump to context
   const handleJumpToContext = useCallback(async (task: Task) => {
@@ -398,7 +405,7 @@ function App() {
 
       {/* Main Content - Hidden in tally mode */}
       {currentPage === 'tasks' && settings.viewMode !== 'tally' && (
-        <div className="flex-1 overflow-y-auto p-6 bg-bg-primary scrollbar-thin scrollbar-thumb-border-primary scrollbar-track-transparent scrollbar-thumb-rounded-full scrollbar-track-rounded-full hover:scrollbar-thumb-border-secondary">
+        <div className="flex-1 overflow-y-auto p-4 bg-bg-primary scrollbar-thin scrollbar-thumb-border-primary scrollbar-track-transparent scrollbar-thumb-rounded-full scrollbar-track-rounded-full hover:scrollbar-thumb-border-secondary">
           {error ? (
             // Connection error display
             <ErrorDisplay error={error} onRetry={retryConnection} />
@@ -422,6 +429,13 @@ function App() {
             )
           ) : (
             <div className="flex flex-col">
+              <ProjectFilterPills
+                projects={appState.projects}
+                tasks={appState.tasks}
+                selectedProjectId={selectedProjectId}
+                onSelectProject={setSelectedProjectId}
+                showDoneTasks={showDoneTasks}
+              />
               {filteredTasks.map((task) => {
                 const project = appState.projects[task.projectId];
                 
