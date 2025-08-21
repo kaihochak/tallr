@@ -5,6 +5,7 @@ import { TallrClient } from './lib/http-client.js';
 import { ClaudeStateTracker } from './lib/state-tracker.js';
 import { getIdeCommand, promptForIdeCommand } from './lib/settings.js';
 import { MAX_BUFFER_SIZE } from './lib/patterns.js';
+import { debug } from './lib/debug.js';
 import { execSync } from 'child_process';
 import http from 'http';
 import crypto from 'crypto';
@@ -120,6 +121,17 @@ const config = {
 
 const taskId = `${config.agent}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+// Log CLI wrapper startup
+debug.cli('Starting CLI wrapper', {
+  taskId,
+  agent: config.agent,
+  project: config.project,
+  repo: config.repo,
+  gateway: config.gateway,
+  pid: process.pid,
+  args: process.argv
+});
+
 const client = new TallrClient(config);
 const stateTracker = new ClaudeStateTracker(client, taskId, config.agent, true); // Enable debug mode
 
@@ -166,12 +178,15 @@ async function runWithPTY(command, commandArgs) {
       ? `Claude session completed successfully` 
       : `Claude session ended with code ${code}`;
 
+    debug.cli('PTY process exited', { code, signal, success });
+    
     await updateTaskAndCleanup(success ? 'DONE' : 'IDLE', details);
     restoreTerminal();
     process.exit(code);
   });
 
   ptyProcess.on('error', async (error) => {
+    debug.cliError('PTY process error', error);
     console.error(`\n[Tallr] PTY error:`, error.message);
     
     try {
@@ -219,27 +234,34 @@ async function main() {
     }
 
     const [command, ...commandArgs] = args;
+    debug.cli('Executing command', { command, args: commandArgs });
 
     try {
       await client.createTask(taskId);
       taskCreated = true;
+      debug.api('Task created successfully', { taskId });
     } catch (error) {
+      debug.apiError('Failed to create task, continuing without tracking', error);
       console.error(`[Tallr] Warning: Could not create task, continuing without tracking`);
     }
     
     if (taskCreated) {
       await stateTracker.syncInitialState();
+      debug.state('Initial state synced');
     }
 
     await runWithPTY(command, commandArgs);
     
   } catch (error) {
+    debug.cliError('Wrapper error', error);
     console.error('[Tallr] Wrapper error:', error.message);
     
     if (taskCreated) {
       try {
         await client.updateTaskState(taskId, 'ERROR', `Wrapper error: ${error.message}`);
+        debug.api('Task marked as ERROR due to wrapper error');
       } catch (cleanupError) {
+        debug.apiError('Failed to update task state during error cleanup', cleanupError);
       }
     }
     

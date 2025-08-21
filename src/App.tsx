@@ -7,9 +7,11 @@ import TaskRow from "./components/TaskRow";
 import EmptyState from "./components/EmptyState";
 import Header from "./components/Header";
 import { DebugPage } from "./components/DebugPage";
+import { ErrorDisplay } from "./components/debug/ErrorDisplay";
 import { useAppState } from "./hooks/useAppState";
 import { useSettings } from "./hooks/useSettings";
 import { debug } from "./utils/debug";
+import { logger } from "./utils/logger";
 import { ApiService } from "./services/api";
 import "./App.css";
 
@@ -33,7 +35,7 @@ interface SetupStatus {
 }
 
 function App() {
-  const { appState, isLoading } = useAppState();
+  const { appState, isLoading, error, retryConnection } = useAppState();
   const { settings, toggleAlwaysOnTop, toggleTheme, toggleViewMode, toggleNotifications } = useSettings();
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [currentPage, setCurrentPage] = useState<'tasks' | 'debug'>('tasks');
@@ -43,7 +45,7 @@ function App() {
   
   // Setup wizard state
   const [installing, setInstalling] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [setupError, setSetupError] = useState<string | null>(null);
   const [showManualInstructions, setShowManualInstructions] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -51,9 +53,12 @@ function App() {
   useEffect(() => {
     const loadSetupStatus = async () => {
       try {
+        logger.info("Loading setup status");
         const status = await invoke<SetupStatus>("get_setup_status_cmd");
         setShowSetupWizard(status.isFirstLaunch && !status.setupCompleted);
+        logger.info("Setup status loaded", { isFirstLaunch: status.isFirstLaunch, setupCompleted: status.setupCompleted });
       } catch (error) {
+        logger.error("Failed to load setup status", error);
         console.error("Failed to load setup status:", error);
       }
     };
@@ -133,11 +138,14 @@ function App() {
 
   // Handle delete task
   const handleDeleteTask = useCallback(async (taskId: string) => {
+    logger.userAction("Delete task", { taskId });
     console.log(`Attempting to delete task: ${taskId}`);
     try {
       await ApiService.deleteTask(taskId);
+      logger.info("Task deleted successfully", { taskId });
       console.log(`Successfully deleted task: ${taskId}`);
     } catch (error) {
+      logger.error("Failed to delete task", { taskId, error });
       console.error("Failed to delete task:", error);
       throw error; // Re-throw so TaskRow can handle the error display
     }
@@ -163,9 +171,12 @@ function App() {
 
   // Handle toggle pin
   const handleTogglePin = useCallback(async (taskId: string, pinned: boolean) => {
+    logger.userAction("Toggle task pin", { taskId, pinned });
     try {
       await ApiService.toggleTaskPin(taskId, pinned);
+      logger.info("Task pin toggled successfully", { taskId, pinned });
     } catch (error) {
+      logger.error("Failed to toggle pin", { taskId, pinned, error });
       console.error("Failed to toggle pin:", error);
       throw error; // Re-throw so TaskRow can handle the error display
     }
@@ -217,7 +228,7 @@ function App() {
   // Setup wizard handlers
   const handleInstall = useCallback(async () => {
     setInstalling(true);
-    setError(null);
+    setSetupError(null);
     
     try {
       // First check permissions
@@ -233,7 +244,7 @@ function App() {
     } catch (err: any) {
       console.error('Installation failed:', err);
       const errorMsg = err.toString().replace('Error: ', '');
-      setError(errorMsg);
+      setSetupError(errorMsg);
       
       // If permission denied, automatically show manual instructions
       if (errorMsg.includes('Permission denied') || errorMsg.includes('sudo')) {
@@ -298,13 +309,13 @@ function App() {
               )}
             </Button>
             
-            {error && (
+            {setupError && (
               <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
                 <div className="flex items-center gap-2 mb-2 text-destructive">
                   <AlertCircle size={16} />
                   <strong>Installation failed:</strong>
                 </div>
-                <p className="text-destructive text-sm mb-2">{error}</p>
+                <p className="text-destructive text-sm mb-2">{setupError}</p>
                 {showManualInstructions && (
                   <p className="text-destructive text-sm">Please try the manual installation method below.</p>
                 )}
@@ -388,7 +399,10 @@ function App() {
       {/* Main Content - Hidden in tally mode */}
       {currentPage === 'tasks' && settings.viewMode !== 'tally' && (
         <div className="flex-1 overflow-y-auto p-6 bg-bg-primary scrollbar-thin scrollbar-thumb-border-primary scrollbar-track-transparent scrollbar-thumb-rounded-full scrollbar-track-rounded-full hover:scrollbar-thumb-border-secondary">
-          {isLoading ? (
+          {error ? (
+            // Connection error display
+            <ErrorDisplay error={error} onRetry={retryConnection} />
+          ) : isLoading ? (
             // Loading skeletons
             <>
               <div className="h-20 mb-3 rounded-xl bg-gradient-to-r from-bg-tertiary via-bg-hover to-bg-tertiary bg-[length:2000px_100%] animate-shimmer"></div>

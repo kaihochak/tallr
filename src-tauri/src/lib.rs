@@ -15,6 +15,10 @@ use tauri_plugin_shell::ShellExt;
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
 
+// Logging imports
+use log::{debug, info, warn, error};
+use chrono::Local;
+
 // Global application state
 static APP_STATE: Lazy<Arc<Mutex<AppState>>> = Lazy::new(|| Arc::new(Mutex::new(AppState::default())));
 
