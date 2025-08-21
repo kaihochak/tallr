@@ -24,11 +24,11 @@ export function FilterPill({
     <Button
       variant="ghost"
       className={cn(
-        "h-auto font-normal rounded-full transition-all duration-200 hover:scale-105",
+        "h-auto font-normal rounded-full transition-all duration-200 hover:scale-105 border",
         sizeClasses[size],
         selected
-          ? "bg-bg-tertiary text-text-secondary hover:bg-bg-hover"
-          : "bg-bg-secondary text-text-primary hover:bg-bg-hover",
+          ? "font-bold border-2"
+          : "bg-bg-secondary text-text-primary border-transparent hover:bg-bg-hover",
         className
       )}
       style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}

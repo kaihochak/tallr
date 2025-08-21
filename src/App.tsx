@@ -435,6 +435,7 @@ function App() {
                 selectedProjectId={selectedProjectId}
                 onSelectProject={setSelectedProjectId}
                 showDoneTasks={showDoneTasks}
+                viewMode={settings.viewMode}
               />
               {filteredTasks.map((task) => {
                 const project = appState.projects[task.projectId];

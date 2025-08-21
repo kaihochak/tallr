@@ -521,3 +521,34 @@
     gap: 8px;
   }
 }
+
+/* Status pulse animations that only affect border and shadow, not text */
+.status-pulse-pending {
+  animation: status-pulse-pending 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.status-pulse-working {
+  animation: status-pulse-working 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes status-pulse-pending {
+  0%, 100% {
+    border-color: rgba(245, 158, 11, 0.6);
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    border-color: rgba(245, 158, 11, 0.9);
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.6);
+  }
+}
+
+@keyframes status-pulse-working {
+  0%, 100% {
+    border-color: rgba(59, 130, 246, 0.6);
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    border-color: rgba(59, 130, 246, 0.9);
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
+  }
+}

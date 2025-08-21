@@ -193,4 +193,17 @@ export class TallrClient {
       // Silently fail debug updates to avoid interfering with CLI operation
     }
   }
+
+  /**
+   * Get all tasks from backend for session number calculation
+   */
+  async getAllTasks() {
+    try {
+      const response = await this.makeRequest('GET', '/v1/state', null);
+      return JSON.parse(response);
+    } catch (error) {
+      // Return empty state if API call fails
+      return { tasks: {}, projects: {} };
+    }
+  }
 }
