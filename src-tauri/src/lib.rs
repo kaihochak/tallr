@@ -1076,7 +1076,7 @@ async fn write_frontend_log(level: String, message: String, context: Option<Stri
 fn current_timestamp() -> i64 {
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap()
+        .expect("System time should be after Unix epoch")
         .as_secs() as i64
 }
 
@@ -1182,7 +1182,7 @@ fn handle_tray_menu_event(app_handle: &AppHandle, menu_id: &str) {
         }
         id if id.starts_with("session_") => {
             // Handle session click - extract task ID and open IDE
-            let task_id = id.strip_prefix("session_").unwrap();
+            let task_id = id.strip_prefix("session_").expect("ID should have session_ prefix");
             
             let state = APP_STATE.lock();
             if let Some(task) = state.tasks.get(task_id) {
@@ -1347,9 +1347,9 @@ async fn start_http_server(app_handle: AppHandle) {
         .route("/v1/debug/update", post(update_debug_data))
         .layer(
             CorsLayer::new()
-                .allow_origin("tauri://localhost".parse::<HeaderValue>().unwrap())
-                .allow_origin("http://127.0.0.1:1420".parse::<HeaderValue>().unwrap())
-                .allow_origin("http://localhost:1420".parse::<HeaderValue>().unwrap())
+                .allow_origin("tauri://localhost".parse::<HeaderValue>().expect("Valid tauri origin header"))
+                .allow_origin("http://127.0.0.1:1420".parse::<HeaderValue>().expect("Valid localhost origin header"))
+                .allow_origin("http://localhost:1420".parse::<HeaderValue>().expect("Valid localhost origin header"))
                 .allow_methods([Method::GET, Method::POST])
                 .allow_headers([CONTENT_TYPE, AUTHORIZATION])
         )

@@ -48,7 +48,6 @@ export function useSettings() {
       try {
         const loadedSettings = await invoke<AppSettings>("load_settings");
         
-        console.log('📁 Loaded settings from disk:', loadedSettings);
         
         // Ensure theme and viewMode properties exist with default values
         const settingsWithDefaults = {
@@ -64,7 +63,6 @@ export function useSettings() {
             : true
         };
         
-        console.log('🔧 Settings with defaults applied:', settingsWithDefaults);
         setSettings(settingsWithDefaults);
         
         // Apply theme immediately after loading
@@ -91,15 +89,10 @@ export function useSettings() {
   const saveSettings = useCallback(async (newSettings: Partial<AppSettings>) => {
     const updatedSettings = { ...settings, ...newSettings };
     
-    console.log('💾 Saving settings:', {
-      newSettings,
-      updatedSettings
-    });
     
     try {
       await invoke("save_settings", { settings: updatedSettings });
       setSettings(updatedSettings);
-      console.log('✅ Settings saved successfully');
     } catch (error) {
       console.error("❌ Failed to save settings:", error);
     }
@@ -159,9 +152,6 @@ export function useSettings() {
       
       const nextModeSize = fixedSizes[nextMode];
       
-      console.log(`🔄 Switching from ${currentMode} to ${nextMode}`, {
-        nextSize: nextModeSize
-      });
       
       // Update settings with new view mode
       await saveSettings({ 
@@ -174,7 +164,6 @@ export function useSettings() {
       // Resize window to the fixed size for the next mode
       const newSize = new LogicalSize(nextModeSize.width, nextModeSize.height);
       await window.setSize(newSize);
-      console.log('Window resized successfully to:', nextModeSize);
       
     } catch (error) {
       console.error('Failed to resize window:', error);

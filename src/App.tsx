@@ -146,11 +146,9 @@ function App() {
   // Handle delete task
   const handleDeleteTask = useCallback(async (taskId: string) => {
     logger.userAction("Delete task", { taskId });
-    console.log(`Attempting to delete task: ${taskId}`);
     try {
       await ApiService.deleteTask(taskId);
       logger.info("Task deleted successfully", { taskId });
-      console.log(`Successfully deleted task: ${taskId}`);
     } catch (error) {
       logger.error("Failed to delete task", { taskId, error });
       console.error("Failed to delete task:", error);
@@ -202,9 +200,6 @@ function App() {
       
       await navigator.clipboard.writeText(JSON.stringify(simplifiedState, null, 2));
       debug.ui('Debug state copied to clipboard', simplifiedState);
-      
-      // Show a brief notification (could enhance this later)
-      console.log('Debug state copied to clipboard');
     } catch (error) {
       debug.ui('Failed to copy debug state', { error });
       console.error('Failed to copy debug state:', error);
