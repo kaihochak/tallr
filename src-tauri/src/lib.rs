@@ -1,6 +1,6 @@
 use axum::{
     extract::State as AxumState,
-    http::{StatusCode, HeaderMap},
+    http::{StatusCode, HeaderMap, Method, HeaderValue, header::{CONTENT_TYPE, AUTHORIZATION}},
     response::Json,
     routing::{get, post},
     Router,
@@ -56,7 +56,7 @@ fn get_or_create_auth_token() -> Result<String, String> {
     
     if token_file.exists() {
         let token = fs::read_to_string(&token_file)
-            .map_err(|e| format!("Failed to read auth token file: {}", e))?
+            .map_err(|e| format!("Failed to read auth token file: {e}"))?
             .trim()
             .to_string();
         
@@ -72,12 +72,12 @@ fn get_or_create_auth_token() -> Result<String, String> {
     // Ensure directory exists
     if let Some(parent) = token_file.parent() {
         fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create auth token directory: {}", e))?;
+            .map_err(|e| format!("Failed to create auth token directory: {e}"))?;
     }
     
     // Write token to file
     fs::write(&token_file, &new_token)
-        .map_err(|e| format!("Failed to write auth token file: {}", e))?;
+        .map_err(|e| format!("Failed to write auth token file: {e}"))?;
     
     AUTH_TOKEN.lock().replace(new_token.clone());
     Ok(new_token)
@@ -96,7 +96,7 @@ fn setup_logging() -> Result<(), String> {
     
     // Ensure logs directory exists
     fs::create_dir_all(&logs_dir)
-        .map_err(|e| format!("Failed to create logs directory: {}", e))?;
+        .map_err(|e| format!("Failed to create logs directory: {e}"))?;
     
     let log_file = logs_dir.join("tallr.log");
     
@@ -108,7 +108,7 @@ fn setup_logging() -> Result<(), String> {
         .create(true)
         .append(true)
         .open(&log_file)
-        .map_err(|e| format!("Failed to open log file: {}", e))?);
+        .map_err(|e| format!("Failed to open log file: {e}"))?);
     
     // Initialize env_logger to write to our file
     env_logger::Builder::from_default_env()
@@ -125,7 +125,7 @@ fn setup_logging() -> Result<(), String> {
         })
         .init();
     
-    info!("Logging initialized - log file: {:?}", log_file);
+    info!("Logging initialized - log file: {log_file:?}");
     Ok(())
 }
 
@@ -365,7 +365,7 @@ async fn upsert_task(
 
     // Save state to disk
     if let Err(e) = save_app_state() {
-        error!("Failed to save app state: {}", e);
+        error!("Failed to save app state: {e}");
     }
 
     Ok(Json(()))
@@ -571,15 +571,15 @@ async fn get_debug_patterns_for_task(
     headers: HeaderMap,
     axum::extract::Path(task_id): axum::extract::Path<String>
 ) -> Result<Json<DebugData>, StatusCode> {
-    warn!("DEBUG MODE: get_debug_patterns_for_task called for task: {}", task_id);
+    warn!("DEBUG MODE: get_debug_patterns_for_task called for task: {task_id}");
     
     // Validate authentication
     if !validate_auth_header(&headers) {
-        warn!("Unauthorized access attempt to /v1/debug/patterns/{}", task_id);
+        warn!("Unauthorized access attempt to /v1/debug/patterns/{task_id}");
         return Err(StatusCode::UNAUTHORIZED);
     }
     
-    debug!("Returning debug patterns for task: {}", task_id);
+    debug!("Returning debug patterns for task: {task_id}");
     let state = APP_STATE.lock();
     
     match state.debug_data.get(&task_id) {
@@ -680,8 +680,8 @@ fn get_app_data_dir() -> Result<std::path::PathBuf, String> {
 
 fn mark_setup_completed() -> Result<(), String> {
     let app_data_dir = get_app_data_dir()?;
-    fs::create_dir_all(&app_data_dir).map_err(|e| format!("Failed to create app data directory: {}", e))?;
-    fs::write(app_data_dir.join(".setup_completed"), "").map_err(|e| format!("Failed to create setup flag: {}", e))?;
+    fs::create_dir_all(&app_data_dir).map_err(|e| format!("Failed to create app data directory: {e}"))?;
+    fs::write(app_data_dir.join(".setup_completed"), "").map_err(|e| format!("Failed to create setup flag: {e}"))?;
     Ok(())
 }
 
@@ -696,14 +696,14 @@ fn save_app_state() -> Result<(), String> {
     
     // Ensure directory exists
     fs::create_dir_all(&app_data_dir)
-        .map_err(|e| format!("Failed to create app data directory: {}", e))?;
+        .map_err(|e| format!("Failed to create app data directory: {e}"))?;
     
     let sessions_file = get_sessions_file_path()?;
     let state_json = serde_json::to_string_pretty(&state)
-        .map_err(|e| format!("Failed to serialize app state: {}", e))?;
+        .map_err(|e| format!("Failed to serialize app state: {e}"))?;
     
     fs::write(&sessions_file, state_json)
-        .map_err(|e| format!("Failed to write sessions file: {}", e))?;
+        .map_err(|e| format!("Failed to write sessions file: {e}"))?;
     
     Ok(())
 }
@@ -733,7 +733,7 @@ fn load_app_state() -> Result<AppState, String> {
     }
     
     let state_content = fs::read_to_string(&sessions_file)
-        .map_err(|e| format!("Failed to read sessions file: {}", e))?;
+        .map_err(|e| format!("Failed to read sessions file: {e}"))?;
     
     if state_content.trim().is_empty() {
         return Ok(AppState::default());
@@ -744,7 +744,7 @@ fn load_app_state() -> Result<AppState, String> {
             // If JSON parsing fails, backup the corrupted file and start fresh
             let backup_path = sessions_file.with_extension("json.backup");
             let _ = fs::rename(&sessions_file, &backup_path);
-            format!("Failed to parse sessions file (backed up as {:?}): {}", backup_path, e)
+            format!("Failed to parse sessions file (backed up as {backup_path:?}): {e}")
         })?;
     
     Ok(state)
@@ -797,7 +797,7 @@ async fn open_ide_and_terminal(
                     // Try with 'open -a' on macOS
                     let open_result = app.shell()
                         .command("open")
-                        .args(&["-a", &command, &project_path])
+                        .args(["-a", &command, &project_path])
                         .spawn();
                         
                     match open_result {
@@ -806,9 +806,9 @@ async fn open_ide_and_terminal(
                             // Last resort: just open the directory
                             app.shell()
                                 .command("open")
-                                .args(&[&project_path])
+                                .args([&project_path])
                                 .spawn()
-                                .map_err(|e2| format!("Failed to open project with '{}' and fallback failed: {}", command, e2))?;
+                                .map_err(|e2| format!("Failed to open project with '{command}' and fallback failed: {e2}"))?;
                             Ok(())
                         }
                     }
@@ -819,9 +819,9 @@ async fn open_ide_and_terminal(
             // No IDE specified - just try to open with system default
             app.shell()
                 .command("open")
-                .args(&[&project_path])
+                .args([&project_path])
                 .spawn()
-                .map_err(|e| format!("Failed to open project directory: {}", e))?;
+                .map_err(|e| format!("Failed to open project directory: {e}"))?;
             Ok(())
         }
     }
@@ -835,6 +835,7 @@ struct AppSettings {
     window_position: Option<WindowPosition>,
     preferred_ide: String,
     theme: String,
+    notifications_enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -851,6 +852,7 @@ impl Default for AppSettings {
             window_position: None,
             preferred_ide: "cursor".to_string(),
             theme: "light".to_string(),
+            notifications_enabled: true,
         }
     }
 }
@@ -858,18 +860,18 @@ impl Default for AppSettings {
 #[tauri::command]
 async fn save_settings(app: AppHandle, settings: AppSettings) -> Result<(), String> {
     let app_data_dir = app.path().app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+        .map_err(|e| format!("Failed to get app data dir: {e}"))?;
     
     // Ensure directory exists
     fs::create_dir_all(&app_data_dir)
-        .map_err(|e| format!("Failed to create app data dir: {}", e))?;
+        .map_err(|e| format!("Failed to create app data dir: {e}"))?;
     
     let settings_file = app_data_dir.join("settings.json");
     let settings_json = serde_json::to_string_pretty(&settings)
-        .map_err(|e| format!("Failed to serialize settings: {}", e))?;
+        .map_err(|e| format!("Failed to serialize settings: {e}"))?;
     
     fs::write(&settings_file, settings_json)
-        .map_err(|e| format!("Failed to write settings file: {}", e))?;
+        .map_err(|e| format!("Failed to write settings file: {e}"))?;
     
     Ok(())
 }
@@ -877,7 +879,7 @@ async fn save_settings(app: AppHandle, settings: AppSettings) -> Result<(), Stri
 #[tauri::command]
 async fn load_settings(app: AppHandle) -> Result<AppSettings, String> {
     let app_data_dir = app.path().app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+        .map_err(|e| format!("Failed to get app data dir: {e}"))?;
     
     let settings_file = app_data_dir.join("settings.json");
     
@@ -886,10 +888,10 @@ async fn load_settings(app: AppHandle) -> Result<AppSettings, String> {
     }
     
     let settings_content = fs::read_to_string(&settings_file)
-        .map_err(|e| format!("Failed to read settings file: {}", e))?;
+        .map_err(|e| format!("Failed to read settings file: {e}"))?;
     
     let settings: AppSettings = serde_json::from_str(&settings_content)
-        .map_err(|e| format!("Failed to parse settings: {}", e))?;
+        .map_err(|e| format!("Failed to parse settings: {e}"))?;
     
     Ok(settings)
 }
@@ -921,19 +923,19 @@ async fn install_cli_globally(app: AppHandle) -> Result<(), String> {
     let cli_source = if cfg!(debug_assertions) {
         // In development, use the tools directory relative to the project root
         let project_dir = std::env::current_dir()
-            .map_err(|e| format!("Failed to get current dir: {}", e))?
+            .map_err(|e| format!("Failed to get current dir: {e}"))?
             .parent()
             .ok_or("Failed to get parent directory")?
             .to_path_buf();
         let dev_path = project_dir.join("tools").join("tallr");
-        debug!("Development CLI path: {:?}", dev_path);
+        debug!("Development CLI path: {dev_path:?}");
         dev_path
     } else {
         // In production, try multiple possible locations with detailed logging
         let resource_path = app.path().resource_dir()
-            .map_err(|e| format!("Failed to get resource path: {}", e))?;
+            .map_err(|e| format!("Failed to get resource path: {e}"))?;
         
-        debug!("Resource directory: {:?}", resource_path);
+        debug!("Resource directory: {resource_path:?}");
         
         // Try multiple possible locations
         let possible_paths = vec![
@@ -959,7 +961,7 @@ async fn install_cli_globally(app: AppHandle) -> Result<(), String> {
     
     // Check if CLI binary exists
     if !cli_source.exists() {
-        return Err(format!("CLI binary not found at: {:?}", cli_source));
+        return Err(format!("CLI binary not found at: {cli_source:?}"));
     }
     
     // Ensure the CLI binary is executable (important for production builds)
@@ -967,12 +969,12 @@ async fn install_cli_globally(app: AppHandle) -> Result<(), String> {
     {
         use std::os::unix::fs::PermissionsExt;
         let mut perms = cli_source.metadata()
-            .map_err(|e| format!("Failed to get CLI file metadata: {}", e))?
+            .map_err(|e| format!("Failed to get CLI file metadata: {e}"))?
             .permissions();
         perms.set_mode(0o755); // rwxr-xr-x
         std::fs::set_permissions(&cli_source, perms)
-            .map_err(|e| format!("Failed to set CLI executable permissions: {}", e))?;
-        info!("Set executable permissions for CLI at: {:?}", cli_source);
+            .map_err(|e| format!("Failed to set CLI executable permissions: {e}"))?;
+        info!("Set executable permissions for CLI at: {cli_source:?}");
     }
     
     // Ensure /usr/local/bin directory exists
@@ -980,7 +982,7 @@ async fn install_cli_globally(app: AppHandle) -> Result<(), String> {
     if !bin_dir.exists() {
         // Try to create it
         if let Err(e) = fs::create_dir_all(bin_dir) {
-            return Err(format!("Cannot create /usr/local/bin: {}. Please run: sudo mkdir -p /usr/local/bin", e));
+            return Err(format!("Cannot create /usr/local/bin: {e}. Please run: sudo mkdir -p /usr/local/bin"));
         }
     }
     
@@ -997,13 +999,13 @@ async fn install_cli_globally(app: AppHandle) -> Result<(), String> {
     // Remove existing symlink if it exists
     if cli_dest.exists() {
         if let Err(e) = fs::remove_file(&cli_dest) {
-            return Err(format!("Cannot remove existing CLI: {}. Please run: sudo rm /usr/local/bin/tallr", e));
+            return Err(format!("Cannot remove existing CLI: {e}. Please run: sudo rm /usr/local/bin/tallr"));
         }
     }
     
     // Create the symlink
     std::os::unix::fs::symlink(&cli_source, &cli_dest)
-        .map_err(|e| format!("Failed to create symlink: {}. Please use the manual installation method.", e))?;
+        .map_err(|e| format!("Failed to create symlink: {e}. Please use the manual installation method."))?;
     
     // Verify the symlink works
     if !cli_dest.exists() {
@@ -1049,7 +1051,7 @@ async fn send_notification(app: AppHandle, title: String, body: String) -> Resul
         .title(title)
         .body(body)
         .show()
-        .map_err(|e| format!("Failed to show notification: {}", e))?;
+        .map_err(|e| format!("Failed to show notification: {e}"))?;
     
     Ok(())
 }
@@ -1132,7 +1134,7 @@ fn build_tray_menu(app_handle: &AppHandle) -> Result<tauri::menu::Menu<tauri::Wr
             let menu_text = format!("{} {} - {} - {}", status_icon, project_name, task.agent, task.state);
             menu_builder = menu_builder.item(
                 &MenuItemBuilder::new(&menu_text)
-                    .id(format!("session_{}", task_id))
+                    .id(format!("session_{task_id}"))
                     .build(app_handle)?
             );
         }
@@ -1215,8 +1217,6 @@ fn get_aggregate_state() -> &'static str {
         "error"
     } else if states.contains(&"WORKING") {
         "working"
-    } else if states.is_empty() {
-        "idle"
     } else {
         "idle"
     }
@@ -1275,7 +1275,7 @@ pub fn run() {
             
             // Initialize logging
             if let Err(e) = setup_logging() {
-                eprintln!("Failed to setup logging: {}", e);
+                eprintln!("Failed to setup logging: {e}");
             }
             
             info!("Tallr application starting up");
@@ -1292,12 +1292,12 @@ pub fn run() {
                     // Save the cleaned state back to disk to persist the cleanup
                     *APP_STATE.lock() = cleaned_state.clone();
                     if let Err(e) = save_app_state() {
-                        error!("Failed to save cleaned app state: {}", e);
+                        error!("Failed to save cleaned app state: {e}");
                     }
                     
                 },
                 Err(e) => {
-                    warn!("Failed to load app state, starting with empty state: {}", e);
+                    warn!("Failed to load app state, starting with empty state: {e}");
                     // APP_STATE is already initialized with default empty state
                 }
             }
@@ -1352,11 +1352,11 @@ async fn start_http_server(app_handle: AppHandle) {
         Ok(listener) => {
             info!("HTTP server listening on 127.0.0.1:4317");
             if let Err(e) = axum::serve(listener, app).await {
-                error!("HTTP server error: {}", e);
+                error!("HTTP server error: {e}");
             }
         }
         Err(e) => {
-            error!("Failed to bind HTTP server to 127.0.0.1:4317: {}", e);
+            error!("Failed to bind HTTP server to 127.0.0.1:4317: {e}");
         }
     }
 }
