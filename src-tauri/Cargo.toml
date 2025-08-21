@@ -39,3 +39,8 @@ image = "0.25"
 rand = "0.8"
 hex = "0.4"
 
+# Logging
+log = "0.4"
+env_logger = "0.10"
+chrono = { version = "0.4", features = ["serde"] }
+

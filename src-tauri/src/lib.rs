@@ -85,6 +85,46 @@ fn get_auth_token_file_path() -> Result<std::path::PathBuf, String> {
     Ok(app_data_dir.join("auth.token"))
 }
 
+// Initialize logging
+fn setup_logging() -> Result<(), String> {
+    let app_data_dir = get_app_data_dir()?;
+    let logs_dir = app_data_dir.join("logs");
+    
+    // Ensure logs directory exists
+    fs::create_dir_all(&logs_dir)
+        .map_err(|e| format!("Failed to create logs directory: {}", e))?;
+    
+    let log_file = logs_dir.join("tallr.log");
+    
+    // Set up file logging with rotation
+    use std::io::Write;
+    
+    // Custom logger that writes to both file and console
+    let target = Box::new(std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_file)
+        .map_err(|e| format!("Failed to open log file: {}", e))?);
+    
+    // Initialize env_logger to write to our file
+    env_logger::Builder::from_default_env()
+        .target(env_logger::Target::Pipe(target))
+        .format(|buf, record| {
+            writeln!(
+                buf,
+                "{} [{}] {}: {}",
+                Local::now().format("%Y-%m-%d %H:%M:%S%.3f"),
+                record.level(),
+                record.target(),
+                record.args()
+            )
+        })
+        .init();
+    
+    info!("Logging initialized - log file: {:?}", log_file);
+    Ok(())
+}
+
 // Authentication validation function
 fn validate_auth_header(headers: &HeaderMap) -> bool {
     // Get the expected token
@@ -242,8 +282,10 @@ struct DebugUpdateRequest {
 async fn get_state(headers: HeaderMap) -> Result<Json<AppState>, StatusCode> {
     // Validate authentication
     if !validate_auth_header(&headers) {
+        warn!("Unauthorized access attempt to /v1/state");
         return Err(StatusCode::UNAUTHORIZED);
     }
+    debug!("Returning app state");
     let state = APP_STATE.lock().clone();
     Ok(Json(state))
 }
@@ -255,8 +297,11 @@ async fn upsert_task(
 ) -> Result<Json<()>, StatusCode> {
     // Validate authentication
     if !validate_auth_header(&headers) {
+        warn!("Unauthorized access attempt to /v1/tasks/upsert");
         return Err(StatusCode::UNAUTHORIZED);
     }
+    
+    info!("Upserting task: {} for project: {}", req.task.id, req.project.name);
     let mut state = APP_STATE.lock();
     let now = current_timestamp();
     
@@ -300,28 +345,23 @@ async fn upsert_task(
     // Emit event to frontend
     let _ = app_handle.emit("tasks-updated", &state.clone());
 
-    // Send notification for state changes
-    let project_name = req.project.name.clone();
-    let state_message = match req.task.state.as_str() {
-        "PENDING" => "waiting for input",
-        "WORKING" => "processing",
-        "ERROR" => "encountered an error",
-        "IDLE" => "completed",
-        _ => &req.task.state
-    };
-    
-    let notification_data = serde_json::json!({
-        "title": format!("{} - {}", project_name, req.task.agent),
-        "body": format!("Status: {} - {}", state_message, req.task.details.unwrap_or_else(|| format!("Task {}", state_message)))
-    });
-    let _ = app_handle.emit("show-notification", &notification_data);
+    // Send notification only for PENDING and ERROR states
+    if req.task.state == "PENDING" || req.task.state == "ERROR" {
+        let project_name = req.project.name.clone();
+        let notification_data = serde_json::json!({
+            "title": format!("{} - {}", project_name, req.task.agent),
+            "body": ""
+        });
+        let _ = app_handle.emit("show-notification", &notification_data);
+    }
     
     // Update tray menu
     drop(state); // Release the lock before calling update_tray_menu
     update_tray_menu(&app_handle);
 
     // Save state to disk
-    if let Err(_e) = save_app_state() {
+    if let Err(e) = save_app_state() {
+        error!("Failed to save app state: {}", e);
     }
 
     Ok(Json(()))
@@ -357,20 +397,14 @@ async fn update_task_state(
         // Emit event to frontend
         let _ = app_handle.emit("tasks-updated", &state.clone());
 
-        // Send notification for state changes
-        let state_message = match req.state.as_str() {
-            "PENDING" => "waiting for input",
-            "WORKING" => "processing",
-            "ERROR" => "encountered an error",
-            "IDLE" => "completed",
-            _ => &req.state
-        };
-        
-        let notification_data = serde_json::json!({
-            "title": format!("{} - {}", project_name, agent),
-            "body": format!("Status: {} - {}", state_message, req.details.unwrap_or_else(|| format!("Task {}", state_message)))
-        });
-        let _ = app_handle.emit("show-notification", &notification_data);
+        // Send notification only for PENDING and ERROR states
+        if req.state == "PENDING" || req.state == "ERROR" {
+            let notification_data = serde_json::json!({
+                "title": format!("{} - {}", project_name, agent),
+                "body": ""
+            });
+            let _ = app_handle.emit("show-notification", &notification_data);
+        }
         
         // Update tray menu
         drop(state); // Release the lock before calling update_tray_menu
@@ -509,21 +543,39 @@ async fn toggle_task_pin(
     }
 }
 
-async fn get_setup_status() -> Json<SetupStatus> {
+async fn get_setup_status(headers: HeaderMap) -> Result<Json<SetupStatus>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        warn!("Unauthorized access attempt to /v1/setup/status");
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    
+    debug!("Returning setup status");
     let cli_installed = is_cli_installed();
     let setup_completed = get_setup_completion_flag();
     let is_first_launch = !setup_completed;
 
-    Json(SetupStatus {
+    Ok(Json(SetupStatus {
         is_first_launch,
         cli_installed,
         setup_completed,
-    })
+    }))
 }
 
+#[cfg(debug_assertions)]
 async fn get_debug_patterns_for_task(
+    headers: HeaderMap,
     axum::extract::Path(task_id): axum::extract::Path<String>
 ) -> Result<Json<DebugData>, StatusCode> {
+    warn!("DEBUG MODE: get_debug_patterns_for_task called for task: {}", task_id);
+    
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        warn!("Unauthorized access attempt to /v1/debug/patterns/{}", task_id);
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    
+    debug!("Returning debug patterns for task: {}", task_id);
     let state = APP_STATE.lock();
     
     match state.debug_data.get(&task_id) {
@@ -532,7 +584,26 @@ async fn get_debug_patterns_for_task(
     }
 }
 
-async fn get_debug_patterns() -> Result<Json<DebugData>, StatusCode> {
+#[cfg(not(debug_assertions))]
+async fn get_debug_patterns_for_task(
+    _headers: HeaderMap,
+    _path: axum::extract::Path<String>
+) -> Result<Json<DebugData>, StatusCode> {
+    warn!("RELEASE MODE: Debug endpoint disabled - returning 404");
+    Err(StatusCode::NOT_FOUND)
+}
+
+#[cfg(debug_assertions)]
+async fn get_debug_patterns(headers: HeaderMap) -> Result<Json<DebugData>, StatusCode> {
+    warn!("DEBUG MODE: get_debug_patterns called");
+    
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        warn!("Unauthorized access attempt to /v1/debug/patterns");
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    
+    debug!("Returning most recent debug patterns");
     let state = APP_STATE.lock();
     
     // Find the most recent debug data entry (highest timestamp)
@@ -562,6 +633,12 @@ async fn get_debug_patterns() -> Result<Json<DebugData>, StatusCode> {
         },
         None => Err(StatusCode::NOT_FOUND)
     }
+}
+
+#[cfg(not(debug_assertions))]
+async fn get_debug_patterns(_headers: HeaderMap) -> Result<Json<DebugData>, StatusCode> {
+    warn!("RELEASE MODE: Debug patterns endpoint disabled - returning 404");
+    Err(StatusCode::NOT_FOUND)
 }
 
 async fn update_debug_data(
@@ -845,14 +922,14 @@ async fn install_cli_globally(app: AppHandle) -> Result<(), String> {
             .ok_or("Failed to get parent directory")?
             .to_path_buf();
         let dev_path = project_dir.join("tools").join("tallr");
-        println!("Development CLI path: {:?}", dev_path);
+        debug!("Development CLI path: {:?}", dev_path);
         dev_path
     } else {
         // In production, try multiple possible locations with detailed logging
         let resource_path = app.path().resource_dir()
             .map_err(|e| format!("Failed to get resource path: {}", e))?;
         
-        println!("Resource directory: {:?}", resource_path);
+        debug!("Resource directory: {:?}", resource_path);
         
         // Try multiple possible locations
         let possible_paths = vec![
@@ -862,9 +939,9 @@ async fn install_cli_globally(app: AppHandle) -> Result<(), String> {
             resource_path.join("tools").join("tallr").with_extension(""), // No extension variant
         ];
         
-        println!("Checking possible CLI paths:");
+        debug!("Checking possible CLI paths:");
         for path in &possible_paths {
-            println!("  - {:?} (exists: {})", path, path.exists());
+            debug!("  - {:?} (exists: {})", path, path.exists());
         }
         
         // Find the first path that exists
@@ -891,7 +968,7 @@ async fn install_cli_globally(app: AppHandle) -> Result<(), String> {
         perms.set_mode(0o755); // rwxr-xr-x
         std::fs::set_permissions(&cli_source, perms)
             .map_err(|e| format!("Failed to set CLI executable permissions: {}", e))?;
-        println!("Set executable permissions for CLI at: {:?}", cli_source);
+        info!("Set executable permissions for CLI at: {:?}", cli_source);
     }
     
     // Ensure /usr/local/bin directory exists
@@ -976,6 +1053,18 @@ async fn send_notification(app: AppHandle, title: String, body: String) -> Resul
 #[tauri::command]
 async fn get_auth_token() -> Result<String, String> {
     get_or_create_auth_token()
+}
+
+#[tauri::command]
+async fn write_frontend_log(level: String, message: String, context: Option<String>) -> Result<(), String> {
+    match level.to_lowercase().as_str() {
+        "info" => info!("[FRONTEND] {}: {}", message, context.unwrap_or_default()),
+        "warn" => warn!("[FRONTEND] {}: {}", message, context.unwrap_or_default()),
+        "error" => error!("[FRONTEND] {}: {}", message, context.unwrap_or_default()),
+        "debug" => debug!("[FRONTEND] {}: {}", message, context.unwrap_or_default()),
+        _ => info!("[FRONTEND] {}: {}", message, context.unwrap_or_default()),
+    }
+    Ok(())
 }
 
 fn current_timestamp() -> i64 {
@@ -1180,19 +1269,31 @@ pub fn run() {
         .setup(|app| {
             let app_handle = app.handle().clone();
             
+            // Initialize logging
+            if let Err(e) = setup_logging() {
+                eprintln!("Failed to setup logging: {}", e);
+            }
+            
+            info!("Tallr application starting up");
+            
             // Load persisted state on startup (with robust error handling)
             match load_app_state() {
                 Ok(loaded_state) => {
+                    info!("Loaded app state with {} projects and {} tasks", 
+                          loaded_state.projects.len(), loaded_state.tasks.len());
+                    
                     // Clean up done sessions before setting the state
                     let cleaned_state = cleanup_done_sessions(loaded_state);
                     
                     // Save the cleaned state back to disk to persist the cleanup
                     *APP_STATE.lock() = cleaned_state.clone();
-                    if let Err(_e) = save_app_state() {
+                    if let Err(e) = save_app_state() {
+                        error!("Failed to save cleaned app state: {}", e);
                     }
                     
                 },
-                Err(_e) => {
+                Err(e) => {
+                    warn!("Failed to load app state, starting with empty state: {}", e);
                     // APP_STATE is already initialized with default empty state
                 }
             }
@@ -1217,13 +1318,16 @@ pub fn run() {
             save_settings,
             load_settings,
             send_notification,
-            get_auth_token
+            get_auth_token,
+            write_frontend_log
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 
 async fn start_http_server(app_handle: AppHandle) {
+    info!("Starting HTTP server on 127.0.0.1:4317");
+    
     // Create Axum 0.8 router with modern path syntax
     let app = Router::new()
         .route("/v1/state", get(get_state))
@@ -1240,7 +1344,15 @@ async fn start_http_server(app_handle: AppHandle) {
         .layer(CorsLayer::permissive())
         .with_state(app_handle);
 
-    let listener = TcpListener::bind("127.0.0.1:4317").await.unwrap();
-    
-    axum::serve(listener, app).await.unwrap();
+    match TcpListener::bind("127.0.0.1:4317").await {
+        Ok(listener) => {
+            info!("HTTP server listening on 127.0.0.1:4317");
+            if let Err(e) = axum::serve(listener, app).await {
+                error!("HTTP server error: {}", e);
+            }
+        }
+        Err(e) => {
+            error!("Failed to bind HTTP server to 127.0.0.1:4317: {}", e);
+        }
+    }
 }

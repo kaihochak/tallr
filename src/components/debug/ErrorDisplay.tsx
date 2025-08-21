@@ -3,9 +3,10 @@ import { Button } from '@/components/ui/button';
 
 interface ErrorDisplayProps {
   error: string;
+  onRetry?: () => void | Promise<void>;
 }
 
-export function ErrorDisplay({ error }: ErrorDisplayProps) {
+export function ErrorDisplay({ error, onRetry }: ErrorDisplayProps) {
   return (
     <div className="flex items-center justify-between p-6 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive mb-6">
       <div className="flex items-center gap-3">
@@ -15,9 +16,9 @@ export function ErrorDisplay({ error }: ErrorDisplayProps) {
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => window.location.reload()}
+        onClick={onRetry || (() => window.location.reload())}
         className="text-destructive hover:text-destructive/80"
-        title="Refresh page"
+        title="Retry connection"
       >
         Retry
       </Button>

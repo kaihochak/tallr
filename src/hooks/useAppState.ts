@@ -11,6 +11,7 @@ export function useAppState() {
     updatedAt: 0 
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Listen for backend updates
   useEffect(() => {
@@ -77,11 +78,28 @@ export function useAppState() {
       try {
         const data = await ApiService.getState();
         setAppState(data);
+        setError(null); // Clear any previous errors
         setIsLoading(false);
       } catch (error) {
         const apiError = error instanceof Error ? error : new Error('Unknown error');
         logApiError('/v1/state', apiError);
         console.error("Failed to load tasks:", apiError);
+        
+        // Set user-friendly error messages
+        let errorMessage = apiError.message;
+        if (apiError.message.includes('ECONNREFUSED') || apiError.message.includes('fetch')) {
+          errorMessage = 'Cannot connect to Tallr backend. Make sure the app is running.';
+        } else if (apiError.message.includes('timeout')) {
+          errorMessage = 'Connection timeout. Please check your connection.';
+        } else if (apiError.message.includes('401') || apiError.message.includes('Unauthorized')) {
+          errorMessage = 'Authentication failed. Please restart the app.';
+        } else if (apiError.message.includes('500')) {
+          errorMessage = 'Server error. Please try again.';
+        } else {
+          errorMessage = 'Failed to load tasks. Please try again.';
+        }
+        
+        setError(errorMessage);
         setIsLoading(false);
       }
     };
@@ -89,9 +107,38 @@ export function useAppState() {
     loadTasks();
   }, []);
 
+  // Retry function to attempt reconnection
+  const retryConnection = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const data = await ApiService.getState();
+      setAppState(data);
+      setError(null);
+      setIsLoading(false);
+    } catch (error) {
+      const apiError = error instanceof Error ? error : new Error('Unknown error');
+      logApiError('/v1/state', apiError);
+      console.error("Retry failed:", apiError);
+      
+      let errorMessage = 'Failed to reconnect. Please try again.';
+      if (apiError.message.includes('ECONNREFUSED') || apiError.message.includes('fetch')) {
+        errorMessage = 'Cannot connect to Tallr backend. Make sure the app is running.';
+      } else if (apiError.message.includes('timeout')) {
+        errorMessage = 'Connection timeout. Please check your connection.';
+      }
+      
+      setError(errorMessage);
+      setIsLoading(false);
+    }
+  };
+
   return {
     appState,
     setAppState,
-    isLoading
+    isLoading,
+    error,
+    retryConnection
   };
 }
