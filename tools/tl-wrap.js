@@ -6,6 +6,7 @@ import { ClaudeStateTracker } from './lib/state-tracker.js';
 import { getIdeCommand, promptForIdeCommand } from './lib/settings.js';
 import { MAX_BUFFER_SIZE } from './lib/patterns.js';
 import { debug } from './lib/debug.js';
+import { showLogo } from './logo.js';
 import { execSync } from 'child_process';
 import http from 'http';
 import crypto from 'crypto';
@@ -270,6 +271,10 @@ async function main() {
       console.error('Usage: node tl-wrap.js <command> [args...]');
       process.exit(1);
     }
+
+    // Show logo on startup
+    showLogo();
+    console.log('\n'); // Add some spacing
 
     const [command, ...commandArgs] = args;
     debug.cli('Executing command', { command, args: commandArgs });
