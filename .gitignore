@@ -277,3 +277,6 @@ pnpm-lock.yaml
 .cache/
 .eslintcache
 .stylelintcache
+
+# Claude Code
+.claude/

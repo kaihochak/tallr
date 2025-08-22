@@ -1,17 +1,11 @@
 <div align="center">
-  <img src="public/tallr-icon.svg" alt="Tallr Logo" width="120" height="120">
-  
-  # Tallr
-
-  **AI CLI session monitoring and task management dashboard**
+  <img src="public/tallr-icon.png" alt="Tallr Logo" width="350">
 
   [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
   [![Tauri](https://img.shields.io/badge/Tauri-24C8D8?style=flat-square&logo=tauri&logoColor=fff)](https://tauri.app/)
   [![React](https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=000)](https://reactjs.org/)
   [![Rust](https://img.shields.io/badge/Rust-000000?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 </div>
-
----
 
 ## Overview
 
@@ -22,8 +16,6 @@ It detects when your AI CLI is working, waiting, or needs input so you can stay 
 <!--
 ![Tallr Dashboard](./screenshots/dashboard.png)
 -->
-
----
 
 ## Install (Users)
 
@@ -38,8 +30,6 @@ Steps:
 
 First run on macOS: if you see a Gatekeeper warning, right-click **Tallr.app** → Open → Open.
 
----
-
 ## Build (Developers)
 
 **Quick Start**
@@ -50,8 +40,6 @@ npm run tauri:dev
 
 For full development setup, testing, debugging, and contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
----
-
 ## Features
 
 - Real-time monitoring of AI CLI sessions  
@@ -59,8 +47,6 @@ For full development setup, testing, debugging, and contribution guidelines, see
 - Session dashboard with expandable details  
 - IDE auto-detection (VS Code, Cursor, Zed, JetBrains, Windsurf, etc.)  
 - Always-on-top window and keyboard shortcuts  
-
----
 
 ## Basic Usage
 
@@ -77,8 +63,6 @@ The dashboard shows when your AI is working, waiting, or needs input. You'll get
 
 **Supported AI tools:** Claude, Gemini, and Codex.
 
----
-
 ## Configuration
 
 ### IDE Detection
@@ -88,15 +72,11 @@ Tallr auto-detects your IDE, but some IDEs (like Cursor) are identified as VS Co
 export TL_IDE=cursor  # or code, zed, webstorm
 ```
 
----
-
 ## Links
 
 - 🐛 [Report Issues](https://github.com/kaihochak/tallr/issues)
 - 💬 [Discussions](https://github.com/kaihochak/tallr/discussions)
 - 🔒 [Security Policy](SECURITY.md)
-
----
 
 ## Contributing
 
@@ -107,8 +87,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for:
 - Testing and debugging workflows
 - Code standards and conventions
 - Pull request process
-
----
 
 ## License
 
