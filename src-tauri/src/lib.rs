@@ -1330,7 +1330,10 @@ pub fn run() {
 }
 
 async fn start_http_server(app_handle: AppHandle) {
-    info!("Starting HTTP server on 127.0.0.1:4317");
+    // Allow port configuration via environment variable
+    let port = std::env::var("TALLR_PORT").unwrap_or_else(|_| "4317".to_string());
+    let addr = format!("127.0.0.1:{}", port);
+    info!("Starting HTTP server on {}", addr);
     
     // Create Axum 0.8 router with modern path syntax
     let app = Router::new()
@@ -1355,15 +1358,15 @@ async fn start_http_server(app_handle: AppHandle) {
         )
         .with_state(app_handle);
 
-    match TcpListener::bind("127.0.0.1:4317").await {
+    match TcpListener::bind(&addr).await {
         Ok(listener) => {
-            info!("HTTP server listening on 127.0.0.1:4317");
+            info!("HTTP server listening on {}", addr);
             if let Err(e) = axum::serve(listener, app).await {
                 error!("HTTP server error: {e}");
             }
         }
         Err(e) => {
-            error!("Failed to bind HTTP server to 127.0.0.1:4317: {e}");
+            error!("Failed to bind HTTP server to {}: {e}", addr);
         }
     }
 }

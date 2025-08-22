@@ -2,7 +2,9 @@ import { AppState, Task } from '@/types';
 import { invoke } from '@tauri-apps/api/core';
 
 // API Configuration
-const API_BASE_URL = 'http://127.0.0.1:4317';
+const DEFAULT_PORT = '4317';
+const PORT = import.meta.env.VITE_TALLR_PORT || DEFAULT_PORT;
+const API_BASE_URL = `http://127.0.0.1:${PORT}`;
 const DEFAULT_TIMEOUT = 5000; // 5 seconds
 
 // API Response Types
@@ -51,12 +53,15 @@ class ApiClient {
   private async getAuthToken(): Promise<string> {
     // Return cached token if available
     if (this.cachedToken) {
+      console.log('[API] Using cached auth token');
       return this.cachedToken;
     }
 
     try {
+      console.log('[API] Fetching auth token from Tauri backend...');
       // Fetch token from Tauri backend
       const token = await invoke<string>('get_auth_token');
+      console.log('[API] Auth token received:', token ? `${token.substring(0, 8)}...` : 'empty');
       this.cachedToken = token;
       return token;
     } catch (error) {
@@ -65,11 +70,17 @@ class ApiClient {
     }
   }
 
+  // Clear cached token to force a fresh fetch on next request
+  clearAuthToken(): void {
+    this.cachedToken = null;
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
+    console.log('[API] Making request to:', url);
     
     // Create abort controller for timeout
     const controller = new AbortController();
@@ -178,6 +189,11 @@ export const ApiService = {
     } catch {
       return false;
     }
+  },
+
+  // Clear cached auth token (useful for retry scenarios)
+  clearAuthToken(): void {
+    apiClient.clearAuthToken();
   },
 };
 

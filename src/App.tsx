@@ -470,12 +470,9 @@ function App() {
         <footer className="p-4 bg-bg-primary text-xs text-text-primary flex justify-between items-center">
         <div className="flex items-center gap-4">
           <span>v0.1.0</span>
-          <button 
-            onClick={() => open("https://github.com/anthropics/claude-code/issues")}
-            className="hover:text-accent-primary transition-colors cursor-pointer"
-          >
-            Submit Support
-          </button>
+          <span className="text-text-secondary">
+            Port: {import.meta.env.VITE_TALLR_PORT || '4317'}
+          </span>
         </div>
         <div className="text-right">
           Built by{" "}

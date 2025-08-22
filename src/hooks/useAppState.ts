@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { AppState } from '@/types';
 import { ApiService, logApiError } from '@/services/api';
+import { notificationService } from '@/services/notificationService';
 
 export function useAppState() {
   const [appState, setAppState] = useState<AppState>({ 
@@ -56,7 +57,6 @@ export function useAppState() {
       try {
         const settings = await invoke<any>("load_settings");
         if (settings.notificationsEnabled !== false) { // Default to true if not set
-          const { notificationService } = await import('../services/notificationService');
           await notificationService.showNotification({
             title: event.payload.title,
             body: event.payload.body
@@ -75,8 +75,11 @@ export function useAppState() {
   // Load initial data
   useEffect(() => {
     const loadTasks = async () => {
+      console.log('[DEBUG] Starting to load tasks...');
       try {
+        console.log('[DEBUG] About to call ApiService.getState()');
         const data = await ApiService.getState();
+        console.log('[DEBUG] Received data:', data);
         setAppState(data);
         setError(null); // Clear any previous errors
         setIsLoading(false);
@@ -91,12 +94,12 @@ export function useAppState() {
           errorMessage = 'Cannot connect to Tallr backend. Make sure the app is running.';
         } else if (apiError.message.includes('timeout')) {
           errorMessage = 'Connection timeout. Please check your connection.';
-        } else if (apiError.message.includes('401') || apiError.message.includes('Unauthorized')) {
-          errorMessage = 'Authentication failed. Please restart the app.';
+        } else if (apiError.message.includes('401') || apiError.message.includes('Unauthorized') || apiError.message.includes('HTTP 401')) {
+          errorMessage = 'Authentication failed. Click retry to get a fresh token.';
         } else if (apiError.message.includes('500')) {
           errorMessage = 'Server error. Please try again.';
         } else {
-          errorMessage = 'Failed to load tasks. Please try again.';
+          errorMessage = `Failed to load tasks: ${apiError.message}`;
         }
         
         setError(errorMessage);
@@ -111,6 +114,9 @@ export function useAppState() {
   const retryConnection = async () => {
     setIsLoading(true);
     setError(null);
+    
+    // Clear cached auth token to force fresh authentication
+    ApiService.clearAuthToken();
     
     try {
       const data = await ApiService.getState();
@@ -127,6 +133,10 @@ export function useAppState() {
         errorMessage = 'Cannot connect to Tallr backend. Make sure the app is running.';
       } else if (apiError.message.includes('timeout')) {
         errorMessage = 'Connection timeout. Please check your connection.';
+      } else if (apiError.message.includes('401') || apiError.message.includes('Unauthorized') || apiError.message.includes('HTTP 401')) {
+        errorMessage = 'Authentication failed. Click retry to get a fresh token.';
+      } else {
+        errorMessage = `Failed to reconnect: ${apiError.message}`;
       }
       
       setError(errorMessage);
