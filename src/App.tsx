@@ -9,8 +9,10 @@ import Header from "./components/Header";
 import { ProjectFilterPills } from "./components/ProjectFilterPills";
 import { DebugPage } from "./components/DebugPage";
 import { ErrorDisplay } from "./components/debug/ErrorDisplay";
+import { ConnectionStatus } from "./components/ConnectionStatus";
 import { useAppState } from "./hooks/useAppState";
 import { useSettings } from "./hooks/useSettings";
+import { useConnectionHealth } from "./hooks/useConnectionHealth";
 import { debug } from "./utils/debug";
 import { logger } from "./utils/logger";
 import { ApiService } from "./services/api";
@@ -38,6 +40,7 @@ interface SetupStatus {
 function App() {
   const { appState, isLoading, error, retryConnection } = useAppState();
   const { settings, toggleAlwaysOnTop, toggleTheme, toggleViewMode, toggleNotifications } = useSettings();
+  const { health: connectionHealth, checkConnection } = useConnectionHealth();
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [currentPage, setCurrentPage] = useState<'tasks' | 'debug'>('tasks');
   const [debugTaskId, setDebugTaskId] = useState<string | null>(null);
@@ -470,9 +473,16 @@ function App() {
         <footer className="p-4 bg-bg-primary text-xs text-text-primary flex justify-between items-center">
         <div className="flex items-center gap-4">
           <span>v0.1.0</span>
-          <span className="text-text-secondary">
-            Port: {import.meta.env.VITE_TALLR_PORT || '4317'}
-          </span>
+          <div className="flex items-center gap-2">
+            <ConnectionStatus 
+              health={connectionHealth}
+              onRetry={checkConnection}
+              className="w-5 h-5"
+            />
+            <span className="text-text-secondary">
+              Port: {import.meta.env.VITE_TALLR_PORT || '4317'}
+            </span>
+          </div>
         </div>
         <div className="text-right">
           Built by{" "}
