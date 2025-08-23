@@ -72,14 +72,47 @@ export function useAppState() {
     };
   }, []);
 
+  // Listen for real-time task updates from Tauri events
+  useEffect(() => {
+    const listeners: Promise<any>[] = [];
+
+    // Listen for task updates
+    listeners.push(listen('task-updated', (event: any) => {
+      setAppState(prev => {
+        const updatedTasks = { ...prev.tasks };
+        updatedTasks[event.payload.id] = event.payload;
+        return {
+          ...prev,
+          tasks: updatedTasks,
+          updated_at: Date.now()
+        };
+      });
+    }));
+
+    // Listen for task deletions
+    listeners.push(listen('task-deleted', (event: any) => {
+      const deletedTaskId = event.payload;
+      setAppState(prev => {
+        const updatedTasks = { ...prev.tasks };
+        delete updatedTasks[deletedTaskId];
+        return {
+          ...prev,
+          tasks: updatedTasks,
+          updated_at: Date.now()
+        };
+      });
+    }));
+
+    return () => {
+      listeners.forEach(unlisten => unlisten.then(fn => fn()));
+    };
+  }, []);
+
   // Load initial data
   useEffect(() => {
     const loadTasks = async () => {
-      console.log('[DEBUG] Starting to load tasks...');
       try {
-        console.log('[DEBUG] About to call ApiService.getState()');
         const data = await ApiService.getState();
-        console.log('[DEBUG] Received data:', data);
         setAppState(data);
         setError(null); // Clear any previous errors
         setIsLoading(false);

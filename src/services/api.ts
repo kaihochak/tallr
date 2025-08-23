@@ -1,8 +1,8 @@
 import { AppState, Task } from '@/types';
 import { invoke } from '@tauri-apps/api/core';
 
-// API Configuration
-const DEFAULT_PORT = '4317';
+// API Configuration - different ports for dev vs prod
+const DEFAULT_PORT = import.meta.env.DEV ? '4317' : '4318'; // Dev: 4317, Prod: 4318
 const PORT = import.meta.env.VITE_TALLR_PORT || DEFAULT_PORT;
 const API_BASE_URL = `http://127.0.0.1:${PORT}`;
 const DEFAULT_TIMEOUT = 5000; // 5 seconds
@@ -39,162 +39,78 @@ export interface DebugData {
   taskId: string;
 }
 
-// HTTP Client with timeout and error handling
-class ApiClient {
-  private baseUrl: string;
-  private timeout: number;
-  private cachedToken: string | null = null;
 
-  constructor(baseUrl: string, timeout: number = DEFAULT_TIMEOUT) {
-    this.baseUrl = baseUrl;
-    this.timeout = timeout;
-  }
-
-  private async getAuthToken(): Promise<string> {
-    // Return cached token if available
-    if (this.cachedToken) {
-      console.log('[API] Using cached auth token');
-      return this.cachedToken;
-    }
-
-    try {
-      console.log('[API] Fetching auth token from Tauri backend...');
-      // Fetch token from Tauri backend
-      const token = await invoke<string>('get_auth_token');
-      console.log('[API] Auth token received:', token ? `${token.substring(0, 8)}...` : 'empty');
-      this.cachedToken = token;
-      return token;
-    } catch (error) {
-      console.error('[API] Failed to fetch auth token:', error);
-      throw new Error('Authentication token not available. Please restart the application.');
-    }
-  }
-
-  // Clear cached token to force a fresh fetch on next request
-  clearAuthToken(): void {
-    this.cachedToken = null;
-  }
-
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
-    console.log('[API] Making request to:', url);
-    
-    // Create abort controller for timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-    // Get the auth token dynamically
-    const token = await this.getAuthToken();
-
-    try {
-      const response = await fetch(url, {
-        ...options,
-        signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          ...options.headers,
-        },
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      clearTimeout(timeoutId);
-      
-      if (error instanceof Error) {
-        if (error.name === 'AbortError') {
-          throw new Error(`Request timeout after ${this.timeout}ms`);
-        }
-        throw error;
-      }
-      
-      throw new Error('Unknown error occurred');
-    }
-  }
-
-  async get<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, { method: 'GET' });
-  }
-
-  async post<T>(endpoint: string, body?: any): Promise<T> {
-    return this.request<T>(endpoint, {
-      method: 'POST',
-      body: body ? JSON.stringify(body) : undefined,
-    });
-  }
-}
-
-// Create API client instance
-const apiClient = new ApiClient(API_BASE_URL);
-
-// API Service Methods
+// Modern API Service using Tauri commands (frontend) and HTTP fallback (health check)
 export const ApiService = {
-  // Get application state
+  // Get application state via Tauri command
   async getState(): Promise<AppState> {
-    return apiClient.get<AppState>('/v1/state');
-  },
-
-  // Upsert a task
-  async upsertTask(request: TaskUpsertRequest): Promise<void> {
-    return apiClient.post<void>('/v1/tasks/upsert', request);
-  },
-
-  // Update task state
-  async updateTaskState(request: TaskStateUpdateRequest): Promise<void> {
-    return apiClient.post<void>('/v1/tasks/state', request);
-  },
-
-  // Mark task as done
-  async markTaskDone(taskId: string): Promise<void> {
-    return apiClient.post<void>('/v1/tasks/done', { taskId });
-  },
-
-  // Delete a task
-  async deleteTask(taskId: string): Promise<void> {
-    return apiClient.post<void>('/v1/tasks/delete', { taskId });
-  },
-
-  // Toggle task pin status
-  async toggleTaskPin(taskId: string, pinned: boolean): Promise<void> {
-    return apiClient.post<void>('/v1/tasks/pin', { taskId, pinned });
-  },
-
-  // Get debug data for pattern detection
-  async getDebugData(taskId?: string): Promise<DebugData> {
-    const url = taskId ? `/v1/debug/patterns/${taskId}` : '/v1/debug/patterns';
-    logApiCall(url, 'GET');
     try {
-      const result = await apiClient.get<DebugData>(url);
-      return result;
+      return await invoke<AppState>('get_tasks');
     } catch (error) {
-      logApiError(url, error instanceof Error ? error : new Error('Unknown error'));
-      throw error;
+      console.error('[API] Failed to get state via Tauri:', error);
+      throw new Error('Failed to get application state');
     }
   },
 
-  // Health check for the local server
-  async healthCheck(): Promise<boolean> {
+  // Update task state via Tauri command
+  async updateTaskState(request: TaskStateUpdateRequest): Promise<void> {
     try {
-      await apiClient.get('/v1/state');
-      return true;
-    } catch {
-      return false;
+      await invoke('frontend_update_task_state', {
+        taskId: request.taskId,
+        state: request.state,
+        details: undefined
+      });
+    } catch (error) {
+      console.error('[API] Failed to update task state via Tauri:', error);
+      throw new Error('Failed to update task state');
     }
   },
 
-  // Clear cached auth token (useful for retry scenarios)
-  clearAuthToken(): void {
-    apiClient.clearAuthToken();
+  // Mark task as done via Tauri command
+  async markTaskDone(taskId: string): Promise<void> {
+    try {
+      await invoke('frontend_mark_task_done', {
+        taskId,
+        details: undefined
+      });
+    } catch (error) {
+      console.error('[API] Failed to mark task done via Tauri:', error);
+      throw new Error('Failed to mark task done');
+    }
   },
+
+  // Delete a task via Tauri command
+  async deleteTask(taskId: string): Promise<void> {
+    try {
+      await invoke('frontend_delete_task', { taskId });
+    } catch (error) {
+      console.error('[API] Failed to delete task via Tauri:', error);
+      throw new Error('Failed to delete task');
+    }
+  },
+
+  // Toggle task pin status via Tauri command
+  async toggleTaskPin(taskId: string, pinned: boolean): Promise<void> {
+    try {
+      await invoke('frontend_toggle_task_pin', { taskId, pinned });
+    } catch (error) {
+      console.error('[API] Failed to toggle task pin via Tauri:', error);
+      throw new Error('Failed to toggle task pin');
+    }
+  },
+
+  // Get debug data via Tauri command
+  async getDebugData(taskId?: string): Promise<DebugData> {
+    try {
+      const result = await invoke<any>('frontend_get_debug_data', { taskId });
+      return result as DebugData;
+    } catch (error) {
+      console.error('[API] Failed to get debug data via Tauri:', error);
+      throw new Error('Failed to get debug data');
+    }
+  },
+
+
 };
 
 // Error handling utilities

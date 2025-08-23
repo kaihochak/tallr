@@ -9,7 +9,6 @@ import { debug } from './lib/debug.js';
 import { showLogo } from './logo.js';
 import { execSync } from 'child_process';
 import http from 'http';
-import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -72,47 +71,69 @@ function detectCurrentIDE() {
   return null;
 }
 
-// Generate secure token if none provided via environment
-function generateSecureToken() {
-  return crypto.randomBytes(16).toString('hex');
-}
 
 // Get auth token from file or environment
 function getAuthToken() {
+  console.log('[CLI AUTH] Starting token resolution...');
+  
   // Check environment variables first (highest priority)
   if (process.env.TALLR_TOKEN) {
+    console.log('[CLI AUTH] ✅ Using TALLR_TOKEN from environment:', process.env.TALLR_TOKEN.substring(0, 8) + '...');
     return process.env.TALLR_TOKEN;
   }
   
-  if (process.env.SWITCHBOARD_TOKEN) {
-    return process.env.SWITCHBOARD_TOKEN;
-  }
+  
+  console.log('[CLI AUTH] No environment tokens found, checking file...');
   
   // Try to read from auth token file (same location as Rust backend)
   try {
     const appDataDir = path.join(os.homedir(), 'Library', 'Application Support', 'Tallr');
     const tokenFile = path.join(appDataDir, 'auth.token');
     
+    console.log('[CLI AUTH] Checking token file:', tokenFile);
+    console.log('[CLI AUTH] File exists:', fs.existsSync(tokenFile));
+    
     if (fs.existsSync(tokenFile)) {
       const token = fs.readFileSync(tokenFile, 'utf8').trim();
+      console.log('[CLI AUTH] Token file contents length:', token.length);
       if (token) {
+        console.log('[CLI AUTH] ✅ Using token from file:', token.substring(0, 8) + '...');
         return token;
+      } else {
+        console.log('[CLI AUTH] ❌ Token file is empty');
       }
+    } else {
+      console.log('[CLI AUTH] ❌ Token file does not exist');
     }
   } catch (error) {
-    // Silently fail if we can't read the token file
+    console.error('[CLI AUTH] ❌ Failed to read auth token file:', error.message);
     if (process.env.DEBUG) {
-      console.error('[Tallr] Failed to read auth token file:', error.message);
+      console.error('[CLI AUTH] Full error details:', error);
     }
   }
   
   // No fallback - authentication required
+  console.error('[CLI AUTH] ❌ No valid auth token found');
   throw new Error('Authentication required. Please start the Tallr application first.');
+}
+
+// Simple dev-only gateway for testing
+function detectTallrGateway() {
+  if (process.env.TALLR_GATEWAY) {
+    console.log('[CLI GATEWAY] Using environment gateway:', process.env.TALLR_GATEWAY);
+    return process.env.TALLR_GATEWAY;
+  }
+  
+  // For now, always use dev port 4317
+  const gateway = 'http://127.0.0.1:4317';
+  console.log('[CLI GATEWAY] Using dev port 4317');
+  
+  return gateway;
 }
 
 const config = {
   token: getAuthToken(),
-  gateway: process.env.TALLR_GATEWAY || 'http://127.0.0.1:4317',
+  gateway: detectTallrGateway(),
   project: process.env.TL_PROJECT || 'default-project',
   repo: process.env.TL_REPO || process.cwd(),
   agent: process.env.TL_AGENT || 'cli',
@@ -136,6 +157,9 @@ debug.cli('Starting CLI wrapper', {
 const client = new TallrClient(config);
 const stateTracker = new ClaudeStateTracker(client, taskId, config.agent, true); // Enable debug mode
 
+// Start health pings IMMEDIATELY - before any other operations
+client.startHealthPings(10000); // Ping every 10 seconds
+
 function restoreTerminal() {
   if (process.stdin.setRawMode && process.stdin.isTTY) {
     process.stdin.setRawMode(false);
@@ -144,9 +168,9 @@ function restoreTerminal() {
 
 async function updateTaskAndCleanup(state, details) {
   stateTracker.stopDebugUpdates();
+  client.stopHealthPings();
   await client.updateTaskState(taskId, state, details);
 }
-
 
 /**
  * PTY approach for interactive CLIs - minimal passthrough
@@ -277,7 +301,10 @@ async function main() {
     console.log('\n'); // Add some spacing
 
     const [command, ...commandArgs] = args;
+    console.log('[TALLR] ✅ CLI wrapper main() function started');
     debug.cli('Executing command', { command, args: commandArgs });
+
+    // Health pings already started at file initialization
 
     try {
       await client.createTask(taskId);

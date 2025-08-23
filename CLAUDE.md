@@ -107,9 +107,12 @@ ALWAYS prefer industry-standard packages:
 ## Critical Context
 
 ### HTTP Gateway
-- Port: **4317** (localhost only)
-- Auth: Optional via `TALLR_TOKEN` env var
-- Endpoints: `/v1/tasks/upsert`, `/v1/tasks/state`, `/v1/tasks/done`
+- **Dev Port**: 4317 (development builds)
+- **Prod Port**: 4318 (production builds)
+- **Localhost only**: 127.0.0.1 binding
+- **Auth**: Optional via `TALLR_TOKEN` env var
+- **No Fallback Ports**: Health checks and connections should be deterministic - detect environment and connect to correct port immediately
+- **Endpoints**: `/v1/tasks/upsert`, `/v1/tasks/state`, `/v1/tasks/done`, `/v1/debug/update`
 
 **Example Response**:
 ```json
@@ -168,9 +171,10 @@ Override: `export TL_IDE=cursor`
 ## Quick Fixes
 
 **State not updating?**
-- Check HTTP server on :4317
+- Check HTTP server on correct port (dev: 4317, prod: 4318)
 - Verify Tauri event listeners
 - Ensure PTY output parsing
+- Check for port conflicts - no fallback logic should mask real issues
 
 **IDE not opening?**
 - Check Terminal automation permissions

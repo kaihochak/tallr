@@ -8,26 +8,79 @@ import http from 'http';
 export class TallrClient {
   constructor(config) {
     this.config = config;
+    this._isOnline = true;
+    this._currentGateway = config.gateway;
   }
 
   /**
-   * Make HTTP request to Tallr backend with retry logic
+   * Check if backend is reachable
    */
-  async makeRequest(method, path, data, retries = 3) {
+  async healthCheck() {
+    try {
+      await this._makeRequestSingle('GET', '/v1/health', null);
+      this._isOnline = true;
+      return true;
+    } catch (error) {
+      this._isOnline = false;
+      console.log('[CLI HEALTH] ❌ Health check failed:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Start periodic health pings to maintain connection status
+   */
+  startHealthPings(intervalMs = 10000) {
+    // Don't start multiple intervals
+    if (this._healthInterval) {
+      console.log('[CLI HEALTH] Health pings already running');
+      return;
+    }
+
+    console.log(`[CLI HEALTH] 🚀 Starting health pings every ${intervalMs}ms`);
+    
+    this._healthInterval = setInterval(async () => {
+      try {
+        await this.healthCheck();
+      } catch (error) {
+        // Health check failed, but we continue pinging
+        console.log('[CLI HEALTH] ❌ Health ping exception:', error.message);
+      }
+    }, intervalMs);
+    
+    console.log('[CLI HEALTH] ✅ Health ping interval created successfully');
+  }
+
+  /**
+   * Stop periodic health pings
+   */
+  stopHealthPings() {
+    if (this._healthInterval) {
+      clearInterval(this._healthInterval);
+      this._healthInterval = null;
+    }
+  }
+
+
+  /**
+   * Make HTTP request to Tallr backend with simple retry logic
+   */
+  async makeRequest(method, path, data, retries = 2) {
     for (let attempt = 0; attempt < retries; attempt++) {
       try {
-        return await this._makeRequestSingle(method, path, data);
+        const result = await this._makeRequestSingle(method, path, data);
+        this._isOnline = true;
+        return result;
       } catch (error) {
         const isLastAttempt = attempt === retries - 1;
-        const isRetriableError = this._isRetriableError(error);
         
-        if (isLastAttempt || !isRetriableError) {
+        if (isLastAttempt) {
+          this._isOnline = false;
           throw error;
         }
         
-        // Wait before retry (exponential backoff: 200ms, 400ms, 800ms)
-        const delay = 200 * Math.pow(2, attempt);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        // Simple 500ms retry delay
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
   }
@@ -37,13 +90,14 @@ export class TallrClient {
    */
   _makeRequestSingle(method, path, data) {
     return new Promise((resolve, reject) => {
-      const url = new URL(path, this.config.gateway);
+      const url = new URL(path, this._currentGateway);
+      
       const options = {
         hostname: url.hostname,
         port: url.port,
         path: url.pathname,
         method: method,
-        timeout: 5000, // 5 second timeout
+        timeout: 5000,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.config.token}`
@@ -63,11 +117,8 @@ export class TallrClient {
       });
 
       req.on('error', (error) => {
-        // Add more context to connection errors
         if (error.code === 'ECONNREFUSED') {
-          reject(new Error(`Cannot connect to Tallr backend at ${this.config.gateway}. Is Tallr app running?`));
-        } else if (error.code === 'ENOTFOUND') {
-          reject(new Error(`Invalid gateway hostname: ${this.config.gateway}`));
+          reject(new Error(`Cannot connect to Tallr backend at ${this._currentGateway}. Is Tallr app running?`));
         } else if (error.code === 'ETIMEDOUT') {
           reject(new Error(`Request timeout to Tallr backend`));
         } else {
@@ -88,17 +139,6 @@ export class TallrClient {
     });
   }
 
-  /**
-   * Check if error is retriable
-   */
-  _isRetriableError(error) {
-    // Retry on network errors, timeouts, and 5xx server errors
-    return error.code === 'ECONNREFUSED' || 
-           error.code === 'ETIMEDOUT' ||
-           error.code === 'ENOTFOUND' ||
-           error.message.includes('timeout') ||
-           (error.message.includes('HTTP 5'));
-  }
 
   /**
    * Create initial task in Tallr
@@ -127,24 +167,24 @@ export class TallrClient {
   }
 
   /**
-   * Update task state with better error handling
+   * Update task state
    */
   async updateTaskState(taskId, state, details) {
+    if (typeof taskId !== 'string' || typeof state !== 'string') {
+      throw new Error('Invalid state update parameters');
+    }
+    
+    const payload = {
+      taskId: taskId,
+      state: state,
+      details: details || null
+    };
+    
     try {
-      await this.makeRequest('POST', '/v1/tasks/state', {
-        taskId: taskId,
-        state: state,
-        details: details
-      });
-      // State updated silently
+      await this.makeRequest('POST', '/v1/tasks/state', payload);
     } catch (error) {
-      // Only log connection errors once to avoid spam
-      if (!this._lastErrorLogged || Date.now() - this._lastErrorLogged > 30000) {
-        console.error(`[Tallr] Failed to update task state to ${state}:`, error.message);
-        this._lastErrorLogged = Date.now();
-      }
-      
-      // Re-throw for retry logic in state tracker
+      // Simple error logging
+      console.error(`[Tallr] Failed to update task state:`, error.message);
       throw error;
     }
   }
@@ -184,10 +224,17 @@ export class TallrClient {
    * Update debug data for pattern detection debugging
    */
   async updateDebugData(debugData) {
+    // Validate debug data structure
+    if (!debugData || typeof debugData !== 'object') {
+      return; // Skip invalid debug data
+    }
+    
+    const payload = {
+      debugData: debugData  // Match backend's camelCase expectation (serde rename_all)
+    };
+    
     try {
-      await this.makeRequest('POST', '/v1/debug/update', {
-        debug_data: debugData  // Match backend's snake_case expectation
-      });
+      await this.makeRequest('POST', '/v1/debug/update', payload);
       // Debug data updated silently
     } catch (error) {
       // Silently fail debug updates to avoid interfering with CLI operation
@@ -205,5 +252,15 @@ export class TallrClient {
       // Return empty state if API call fails
       return { tasks: {}, projects: {} };
     }
+  }
+
+  /**
+   * Get connection status for UI
+   */
+  getConnectionStatus() {
+    return {
+      isOnline: this._isOnline,
+      gateway: this._currentGateway
+    };
   }
 }

@@ -46,10 +46,6 @@ fn get_or_create_auth_token() -> Result<String, String> {
         return Ok(token);
     }
     
-    if let Ok(token) = std::env::var("SWITCHBOARD_TOKEN") {
-        AUTH_TOKEN.lock().replace(token.clone());
-        return Ok(token);
-    }
     
     // Try to load from file
     let token_file = get_auth_token_file_path()?;
@@ -175,6 +171,7 @@ struct AppState {
     tasks: HashMap<String, Task>,
     debug_data: HashMap<String, DebugData>,
     updated_at: i64,
+    last_cli_ping: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -564,6 +561,28 @@ async fn get_setup_status(headers: HeaderMap) -> Result<Json<SetupStatus>, Statu
         cli_installed,
         setup_completed,
     }))
+}
+
+async fn health_check(headers: HeaderMap) -> Result<Json<serde_json::Value>, StatusCode> {
+    info!("🩺 Health check endpoint called");
+    
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        warn!("❌ Health check: Unauthorized access attempt to /v1/health");
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    
+    info!("✅ Health check: Authentication successful");
+    
+    // Update last CLI ping timestamp
+    let current_time = current_timestamp();
+    let mut state = APP_STATE.lock();
+    state.last_cli_ping = Some(current_time);
+    info!("📝 Health check: Updated last_cli_ping to {}", current_time);
+    drop(state);
+    
+    info!("🩺 Health check: Ping processed successfully");
+    Ok(Json(serde_json::json!({"status": "ok", "timestamp": current_time})))
 }
 
 #[cfg(debug_assertions)]
@@ -1062,6 +1081,41 @@ async fn get_auth_token() -> Result<String, String> {
 }
 
 #[tauri::command]
+async fn get_cli_connectivity() -> serde_json::Value {
+    info!("🔍 Frontend requesting CLI connectivity status");
+    
+    let state = APP_STATE.lock();
+    let last_ping = state.last_cli_ping;
+    let current_time = current_timestamp();
+    drop(state);
+    
+    info!("📊 Connectivity data: last_ping={:?}, current_time={}", last_ping, current_time);
+    
+    let is_connected = match last_ping {
+        Some(ping_time) => {
+            let time_diff = current_time - ping_time;
+            let connected = time_diff < 30;
+            info!("⏱️  Time since last ping: {}s, Connected: {}", time_diff, connected);
+            connected
+        },
+        None => {
+            info!("❌ No ping received yet, marking as disconnected");
+            false
+        }
+    };
+    
+    let result = serde_json::json!({
+        "connected": is_connected,
+        "lastPing": last_ping,
+        "currentTime": current_time
+    });
+    
+    info!("📡 Returning connectivity result: {:?}", result);
+    
+    result
+}
+
+#[tauri::command]
 async fn write_frontend_log(level: String, message: String, context: Option<String>) -> Result<(), String> {
     match level.to_lowercase().as_str() {
         "info" => info!("[FRONTEND] {}: {}", message, context.unwrap_or_default()),
@@ -1071,6 +1125,119 @@ async fn write_frontend_log(level: String, message: String, context: Option<Stri
         _ => info!("[FRONTEND] {}: {}", message, context.unwrap_or_default()),
     }
     Ok(())
+}
+
+// Frontend-specific Tauri commands (replacing HTTP calls)
+
+#[tauri::command]
+async fn frontend_update_task_state(
+    app_handle: AppHandle,
+    task_id: String,
+    state: String,
+    details: Option<String>
+) -> Result<(), String> {
+    let mut app_state = APP_STATE.lock();
+    
+    if let Some(task) = app_state.tasks.get_mut(&task_id) {
+        task.state = state.clone();
+        if let Some(details) = details {
+            task.details = Some(details);
+        }
+        task.updated_at = current_timestamp();
+        
+        // Emit event for real-time updates
+        let _ = app_handle.emit("task-updated", &*task);
+        
+        info!("Frontend updated task {} state to {}", task_id, state);
+        Ok(())
+    } else {
+        Err(format!("Task {} not found", task_id))
+    }
+}
+
+#[tauri::command]
+async fn frontend_mark_task_done(
+    app_handle: AppHandle,
+    task_id: String,
+    details: Option<String>
+) -> Result<(), String> {
+    let mut app_state = APP_STATE.lock();
+    
+    if let Some(task) = app_state.tasks.get_mut(&task_id) {
+        task.state = "DONE".to_string();
+        if let Some(details) = details {
+            task.details = Some(details);
+        } else {
+            task.details = Some("Completed by user".to_string());
+        }
+        task.updated_at = current_timestamp();
+        
+        // Emit event for real-time updates
+        let _ = app_handle.emit("task-updated", &*task);
+        
+        info!("Frontend marked task {} as done", task_id);
+        Ok(())
+    } else {
+        Err(format!("Task {} not found", task_id))
+    }
+}
+
+#[tauri::command]
+async fn frontend_delete_task(
+    app_handle: AppHandle,
+    task_id: String
+) -> Result<(), String> {
+    let mut app_state = APP_STATE.lock();
+    
+    if app_state.tasks.remove(&task_id).is_some() {
+        app_state.updated_at = current_timestamp();
+        
+        // Emit event for real-time updates
+        let _ = app_handle.emit("task-deleted", task_id.clone());
+        
+        info!("Frontend deleted task {}", task_id);
+        Ok(())
+    } else {
+        Err(format!("Task {} not found", task_id))
+    }
+}
+
+#[tauri::command]
+async fn frontend_toggle_task_pin(
+    app_handle: AppHandle,
+    task_id: String,
+    pinned: bool
+) -> Result<(), String> {
+    let mut app_state = APP_STATE.lock();
+    
+    if let Some(task) = app_state.tasks.get_mut(&task_id) {
+        task.pinned = pinned;
+        task.updated_at = current_timestamp();
+        
+        // Emit event for real-time updates
+        let _ = app_handle.emit("task-updated", &*task);
+        
+        info!("Frontend {} task {}", if pinned { "pinned" } else { "unpinned" }, task_id);
+        Ok(())
+    } else {
+        Err(format!("Task {} not found", task_id))
+    }
+}
+
+#[tauri::command]
+async fn frontend_get_debug_data(task_id: Option<String>) -> Result<serde_json::Value, String> {
+    let app_state = APP_STATE.lock();
+    
+    if let Some(task_id) = task_id {
+        if let Some(debug_data) = app_state.debug_data.get(&task_id) {
+            Ok(serde_json::to_value(debug_data).unwrap_or(serde_json::Value::Null))
+        } else {
+            Err(format!("Debug data for task {} not found", task_id))
+        }
+    } else {
+        // Return all debug data
+        Ok(serde_json::to_value(&app_state.debug_data).unwrap_or(serde_json::Value::Null))
+    }
 }
 
 fn current_timestamp() -> i64 {
@@ -1323,17 +1490,29 @@ pub fn run() {
             load_settings,
             send_notification,
             get_auth_token,
-            write_frontend_log
+            get_cli_connectivity,
+            write_frontend_log,
+            frontend_update_task_state,
+            frontend_mark_task_done,
+            frontend_delete_task,
+            frontend_toggle_task_pin,
+            frontend_get_debug_data
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 
 async fn start_http_server(app_handle: AppHandle) {
-    // Allow port configuration via environment variable
-    let port = std::env::var("TALLR_PORT").unwrap_or_else(|_| "4317".to_string());
-    let addr = format!("127.0.0.1:{}", port);
-    info!("Starting HTTP server on {}", addr);
+    // Allow port configuration via environment variable, with different defaults for dev/prod
+    let default_port = if cfg!(debug_assertions) {
+        "4317" // Dev build uses 4317
+    } else {
+        "4318" // Prod build uses 4318
+    };
+    
+    let mut port = std::env::var("TALLR_PORT").unwrap_or_else(|_| default_port.to_string());
+    let mut addr = format!("127.0.0.1:{}", port);
+    info!("Starting HTTP server on {} ({})", addr, if cfg!(debug_assertions) { "dev" } else { "prod" });
     
     // Create Axum 0.8 router with modern path syntax
     let app = Router::new()
@@ -1345,9 +1524,11 @@ async fn start_http_server(app_handle: AppHandle) {
         .route("/v1/tasks/delete", post(delete_task))
         .route("/v1/tasks/pin", post(toggle_task_pin))
         .route("/v1/setup/status", get(get_setup_status))
-        .route("/v1/debug/patterns", get(get_debug_patterns))
-        .route("/v1/debug/patterns/{task_id}", get(get_debug_patterns_for_task))
-        .route("/v1/debug/update", post(update_debug_data))
+        .route("/v1/health", get(health_check))
+        // Debug endpoints temporarily commented out to reduce noise
+        // .route("/v1/debug/patterns", get(get_debug_patterns))
+        // .route("/v1/debug/patterns/{task_id}", get(get_debug_patterns_for_task))
+        // .route("/v1/debug/update", post(update_debug_data))
         .layer(
             CorsLayer::new()
                 .allow_origin("tauri://localhost".parse::<HeaderValue>().expect("Valid tauri origin header"))
@@ -1358,15 +1539,49 @@ async fn start_http_server(app_handle: AppHandle) {
         )
         .with_state(app_handle);
 
-    match TcpListener::bind(&addr).await {
-        Ok(listener) => {
-            info!("HTTP server listening on {}", addr);
-            if let Err(e) = axum::serve(listener, app).await {
-                error!("HTTP server error: {e}");
+    // Try to bind to the configured port, with fallback ports if needed
+    let original_port = port.clone();
+    let mut attempts = 0;
+    let max_attempts = 5;
+    
+    loop {
+        match TcpListener::bind(&addr).await {
+            Ok(listener) => {
+                if port != original_port {
+                    warn!("Original port {} was busy, using port {} instead", original_port, port);
+                }
+                info!("HTTP server listening on {}", addr);
+                
+                if let Err(e) = axum::serve(listener, app).await {
+                    error!("HTTP server error: {e}");
+                }
+                break;
             }
-        }
-        Err(e) => {
-            error!("Failed to bind HTTP server to {}: {e}", addr);
+            Err(e) => {
+                attempts += 1;
+                
+                if attempts >= max_attempts {
+                    error!("Failed to start HTTP server after {} attempts. Last error: {}", max_attempts, e);
+                    error!("Please ensure no other instances of Tallr are running or try setting TALLR_PORT environment variable to a different port.");
+                    break;
+                }
+                
+                // If address is in use, try next port
+                if e.kind() == std::io::ErrorKind::AddrInUse {
+                    let current_port: u16 = port.parse().unwrap_or(4317);
+                    let next_port = current_port + attempts;
+                    port = next_port.to_string();
+                    addr = format!("127.0.0.1:{}", port);
+                    
+                    warn!("Port {} is in use, trying port {} (attempt {}/{})", current_port, next_port, attempts, max_attempts);
+                    
+                    // Small delay before retry
+                    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                } else {
+                    error!("Failed to bind HTTP server to {}: {e}", addr);
+                    break;
+                }
+            }
         }
     }
 }
