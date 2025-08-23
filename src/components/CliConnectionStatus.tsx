@@ -14,7 +14,6 @@ export function CliConnectionStatus() {
   const checkConnection = async () => {
     try {
       const data = await invoke<CliConnectionData>('get_cli_connectivity');
-      console.log('[FRONTEND] CLI connectivity data:', data);
       setConnectionData(data);
     } catch (error) {
       console.error('[FRONTEND] Failed to check CLI connectivity:', error);

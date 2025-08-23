@@ -74,36 +74,21 @@ function detectCurrentIDE() {
 
 // Get auth token from file or environment
 function getAuthToken() {
-  console.log('[CLI AUTH] Starting token resolution...');
-  
   // Check environment variables first (highest priority)
   if (process.env.TALLR_TOKEN) {
-    console.log('[CLI AUTH] ✅ Using TALLR_TOKEN from environment:', process.env.TALLR_TOKEN.substring(0, 8) + '...');
     return process.env.TALLR_TOKEN;
   }
-  
-  
-  console.log('[CLI AUTH] No environment tokens found, checking file...');
   
   // Try to read from auth token file (same location as Rust backend)
   try {
     const appDataDir = path.join(os.homedir(), 'Library', 'Application Support', 'Tallr');
     const tokenFile = path.join(appDataDir, 'auth.token');
     
-    console.log('[CLI AUTH] Checking token file:', tokenFile);
-    console.log('[CLI AUTH] File exists:', fs.existsSync(tokenFile));
-    
     if (fs.existsSync(tokenFile)) {
       const token = fs.readFileSync(tokenFile, 'utf8').trim();
-      console.log('[CLI AUTH] Token file contents length:', token.length);
       if (token) {
-        console.log('[CLI AUTH] ✅ Using token from file:', token.substring(0, 8) + '...');
         return token;
-      } else {
-        console.log('[CLI AUTH] ❌ Token file is empty');
       }
-    } else {
-      console.log('[CLI AUTH] ❌ Token file does not exist');
     }
   } catch (error) {
     console.error('[CLI AUTH] ❌ Failed to read auth token file:', error.message);
@@ -113,22 +98,17 @@ function getAuthToken() {
   }
   
   // No fallback - authentication required
-  console.error('[CLI AUTH] ❌ No valid auth token found');
   throw new Error('Authentication required. Please start the Tallr application first.');
 }
 
 // Simple dev-only gateway for testing
 function detectTallrGateway() {
   if (process.env.TALLR_GATEWAY) {
-    console.log('[CLI GATEWAY] Using environment gateway:', process.env.TALLR_GATEWAY);
     return process.env.TALLR_GATEWAY;
   }
   
   // For now, always use dev port 4317
-  const gateway = 'http://127.0.0.1:4317';
-  console.log('[CLI GATEWAY] Using dev port 4317');
-  
-  return gateway;
+  return 'http://127.0.0.1:4317';
 }
 
 const config = {
@@ -260,7 +240,6 @@ async function runWithPTY(command, commandArgs) {
   });
 
   const cleanup = async (signal, exitCode) => {
-    console.log(`\n[Tallr] Received ${signal}, cleaning up PTY...`);
     
     // Clean up resize listeners
     clearTimeout(resizeTimeout);
@@ -298,10 +277,8 @@ async function main() {
 
     // Show logo on startup
     showLogo();
-    console.log('\n'); // Add some spacing
 
     const [command, ...commandArgs] = args;
-    console.log('[TALLR] ✅ CLI wrapper main() function started');
     debug.cli('Executing command', { command, args: commandArgs });
 
     // Health pings already started at file initialization
@@ -312,7 +289,6 @@ async function main() {
       debug.api('Task created successfully', { taskId });
     } catch (error) {
       debug.apiError('Failed to create task, continuing without tracking', error);
-      console.error(`[Tallr] Warning: Could not create task, continuing without tracking`);
     }
     
     if (taskCreated) {

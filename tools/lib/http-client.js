@@ -22,7 +22,6 @@ export class TallrClient {
       return true;
     } catch (error) {
       this._isOnline = false;
-      console.log('[CLI HEALTH] ❌ Health check failed:', error.message);
       return false;
     }
   }
@@ -33,22 +32,16 @@ export class TallrClient {
   startHealthPings(intervalMs = 10000) {
     // Don't start multiple intervals
     if (this._healthInterval) {
-      console.log('[CLI HEALTH] Health pings already running');
       return;
     }
-
-    console.log(`[CLI HEALTH] 🚀 Starting health pings every ${intervalMs}ms`);
     
     this._healthInterval = setInterval(async () => {
       try {
         await this.healthCheck();
       } catch (error) {
         // Health check failed, but we continue pinging
-        console.log('[CLI HEALTH] ❌ Health ping exception:', error.message);
       }
     }, intervalMs);
-    
-    console.log('[CLI HEALTH] ✅ Health ping interval created successfully');
   }
 
   /**
