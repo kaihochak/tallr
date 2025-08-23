@@ -101,13 +101,13 @@ function getAuthToken() {
   throw new Error('Authentication required. Please start the Tallr application first.');
 }
 
-// Simple dev-only gateway for testing
+// Simple gateway detection for Tallr backend
 function detectTallrGateway() {
   if (process.env.TALLR_GATEWAY) {
     return process.env.TALLR_GATEWAY;
   }
   
-  // For now, always use dev port 4317
+  // Use consistent port 4317 for both dev and prod
   return 'http://127.0.0.1:4317';
 }
 

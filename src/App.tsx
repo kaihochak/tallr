@@ -479,7 +479,7 @@ function App() {
             <span>v0.1.0</span>
             <CliConnectionStatus />
             <span className="text-text-secondary">
-              Port: {import.meta.env.VITE_TALLR_PORT || (import.meta.env.DEV ? '4317' : '4318')}
+              Port: {import.meta.env.VITE_TALLR_PORT || (import.meta.env.DEV ? '4317' : '4317')}
             </span>
           </div>
           <div className="text-right">

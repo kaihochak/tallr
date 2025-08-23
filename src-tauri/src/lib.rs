@@ -1521,12 +1521,8 @@ pub fn run() {
 }
 
 async fn start_http_server(app_handle: AppHandle) {
-    // Allow port configuration via environment variable, with different defaults for dev/prod
-    let default_port = if cfg!(debug_assertions) {
-        "4317" // Dev build uses 4317
-    } else {
-        "4318" // Prod build uses 4318
-    };
+    // Allow port configuration via environment variable, use 4317 for both dev/prod
+    let default_port = "4317"; // Both dev and prod use 4317
     
     let mut port = std::env::var("TALLR_PORT").unwrap_or_else(|_| default_port.to_string());
     let mut addr = format!("127.0.0.1:{}", port);
