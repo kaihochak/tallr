@@ -412,7 +412,8 @@ async fn update_task_state(
         update_tray_menu(&app_handle);
 
         // Save state to disk
-        if let Err(_e) = save_app_state() {
+        if let Err(e) = save_app_state() {
+                eprintln!("Failed to save app state: {}", e);
             }
 
         Ok(Json(()))
@@ -471,7 +472,8 @@ async fn mark_task_done(
         update_tray_menu(&app_handle);
 
         // Save state to disk
-        if let Err(_e) = save_app_state() {
+        if let Err(e) = save_app_state() {
+                eprintln!("Failed to save app state: {}", e);
             }
 
         Ok(Json(()))
@@ -502,7 +504,8 @@ async fn delete_task(
         update_tray_menu(&app_handle);
 
         // Save state to disk
-        if let Err(_e) = save_app_state() {
+        if let Err(e) = save_app_state() {
+                eprintln!("Failed to save app state: {}", e);
             }
 
         Ok(Json(()))
@@ -535,7 +538,8 @@ async fn toggle_task_pin(
         update_tray_menu(&app_handle);
 
         // Save state to disk
-        if let Err(_e) = save_app_state() {
+        if let Err(e) = save_app_state() {
+                eprintln!("Failed to save app state: {}", e);
             }
 
         Ok(Json(()))
@@ -568,17 +572,17 @@ async fn health_check(headers: HeaderMap) -> Result<Json<serde_json::Value>, Sta
     
     // Validate authentication
     if !validate_auth_header(&headers) {
-        warn!("❌ Health check: Unauthorized access attempt to /v1/health");
+        warn!("Health check: Unauthorized access attempt to /v1/health");
         return Err(StatusCode::UNAUTHORIZED);
     }
     
-    info!("✅ Health check: Authentication successful");
+    info!("Health check: Authentication successful");
     
     // Update last CLI ping timestamp
     let current_time = current_timestamp();
     let mut state = APP_STATE.lock();
     state.last_cli_ping = Some(current_time);
-    info!("📝 Health check: Updated last_cli_ping to {}", current_time);
+    info!("Health check: Updated last_cli_ping to {}", current_time);
     drop(state);
     
     info!("🩺 Health check: Ping processed successfully");
@@ -1161,24 +1165,24 @@ async fn get_auth_token() -> Result<String, String> {
 
 #[tauri::command]
 async fn get_cli_connectivity() -> serde_json::Value {
-    info!("🔍 Frontend requesting CLI connectivity status");
+    info!("Frontend requesting CLI connectivity status");
     
     let state = APP_STATE.lock();
     let last_ping = state.last_cli_ping;
     let current_time = current_timestamp();
     drop(state);
     
-    info!("📊 Connectivity data: last_ping={:?}, current_time={}", last_ping, current_time);
+    info!("Connectivity data: last_ping={:?}, current_time={}", last_ping, current_time);
     
     let is_connected = match last_ping {
         Some(ping_time) => {
             let time_diff = current_time - ping_time;
             let connected = time_diff < 30;
-            info!("⏱️  Time since last ping: {}s, Connected: {}", time_diff, connected);
+            info!("Time since last ping: {}s, Connected: {}", time_diff, connected);
             connected
         },
         None => {
-            info!("❌ No ping received yet, marking as disconnected");
+            info!("No ping received yet, marking as disconnected");
             false
         }
     };
@@ -1189,7 +1193,7 @@ async fn get_cli_connectivity() -> serde_json::Value {
         "currentTime": current_time
     });
     
-    info!("📡 Returning connectivity result: {:?}", result);
+    info!("Returning connectivity result: {:?}", result);
     
     result
 }

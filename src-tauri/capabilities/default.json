@@ -11,80 +11,73 @@
     "core:window:allow-set-size",
     "core:window:allow-inner-size",
     "opener:default",
-    "shell:allow-execute",
-    "shell:allow-open",
     {
       "identifier": "shell:allow-execute",
       "allow": [
         {
           "name": "cursor",
           "cmd": "cursor",
-          "args": [{"validator": ".*"}]
+          "args": [{"validator": "^[a-zA-Z0-9/_. -]+$"}]
         },
         {
           "name": "code",
           "cmd": "code",
-          "args": [{"validator": ".*"}]
+          "args": [{"validator": "^[a-zA-Z0-9/_. -]+$"}]
         },
         {
           "name": "zed",
           "cmd": "zed",
-          "args": [{"validator": ".*"}]
+          "args": [{"validator": "^[a-zA-Z0-9/_. -]+$"}]
         },
         {
           "name": "webstorm",
           "cmd": "webstorm",
-          "args": [{"validator": ".*"}]
+          "args": [{"validator": "^[a-zA-Z0-9/_. -]+$"}]
         },
         {
           "name": "idea",
           "cmd": "idea",
-          "args": [{"validator": ".*"}]
+          "args": [{"validator": "^[a-zA-Z0-9/_. -]+$"}]
         },
         {
           "name": "pycharm",
           "cmd": "pycharm",
-          "args": [{"validator": ".*"}]
+          "args": [{"validator": "^[a-zA-Z0-9/_. -]+$"}]
         },
         {
           "name": "phpstorm",
           "cmd": "phpstorm",
-          "args": [{"validator": ".*"}]
+          "args": [{"validator": "^[a-zA-Z0-9/_. -]+$"}]
         },
         {
           "name": "rubymine",
           "cmd": "rubymine",
-          "args": [{"validator": ".*"}]
+          "args": [{"validator": "^[a-zA-Z0-9/_. -]+$"}]
         },
         {
           "name": "clion",
           "cmd": "clion",
-          "args": [{"validator": ".*"}]
+          "args": [{"validator": "^[a-zA-Z0-9/_. -]+$"}]
         },
         {
           "name": "goland",
           "cmd": "goland",
-          "args": [{"validator": ".*"}]
+          "args": [{"validator": "^[a-zA-Z0-9/_. -]+$"}]
         },
         {
           "name": "rider",
           "cmd": "rider",
-          "args": [{"validator": ".*"}]
+          "args": [{"validator": "^[a-zA-Z0-9/_. -]+$"}]
         },
         {
           "name": "windsurf",
           "cmd": "windsurf",
-          "args": [{"validator": ".*"}]
+          "args": [{"validator": "^[a-zA-Z0-9/_. -]+$"}]
         },
         {
           "name": "open",
           "cmd": "open",
-          "args": [{"validator": ".*"}]
-        },
-        {
-          "name": "osascript",
-          "cmd": "osascript",
-          "args": ["-e", {"validator": "^tell application \"Terminal\" to do script \"cd [a-zA-Z0-9/_. -]+\"$"}]
+          "args": [{"validator": "^[a-zA-Z0-9/_. -]+$"}]
         }
       ]
     },
