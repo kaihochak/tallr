@@ -46,7 +46,7 @@ const asciiBase = [
 "    █████   ░░████████ █████ █████ █████    ",
 "   ░░░░░     ░░░░░░░░ ░░░░░ ░░░░░ ░░░░░     ",
 "",
-" AI Session Monitor  •  https://github.com/kaihochak/tallr",
+" AI CLI Session Monitor  •  https://github.com/kaihochak/tallr",
 ];
 
 // ===== Render =====

@@ -15,7 +15,6 @@ import { useSettings } from "./hooks/useSettings";
 import { debug } from "./utils/debug";
 import { logger } from "./utils/logger";
 import { ApiService } from "./services/api";
-import "./App.css";
 
 interface Task {
   id: string;
