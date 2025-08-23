@@ -729,9 +729,27 @@ fn save_app_state() -> Result<(), String> {
 
 fn cleanup_done_sessions(mut state: AppState) -> AppState {
     let initial_task_count = state.tasks.len();
+    let now = current_timestamp();
+    let one_hour_ms = 60 * 60 * 1000;
     
-    // Remove all tasks with "DONE" state
-    state.tasks.retain(|_, task| task.state != "DONE");
+    // Remove tasks with "DONE" state or old IDLE tasks
+    state.tasks.retain(|_, task| {
+        // Remove DONE tasks
+        if task.state == "DONE" {
+            return false;
+        }
+        
+        // Remove IDLE tasks older than 1 hour
+        if task.state == "IDLE" {
+            // Use updated_at as fallback since completed_at doesn't exist in backend Task struct
+            let task_time = std::cmp::max(task.updated_at, task.created_at);
+            if (now - task_time) > one_hour_ms {
+                return false;
+            }
+        }
+        
+        true
+    });
     
     let cleaned_task_count = state.tasks.len();
     let removed_count = initial_task_count - cleaned_task_count;
@@ -1525,10 +1543,9 @@ async fn start_http_server(app_handle: AppHandle) {
         .route("/v1/tasks/pin", post(toggle_task_pin))
         .route("/v1/setup/status", get(get_setup_status))
         .route("/v1/health", get(health_check))
-        // Debug endpoints temporarily commented out to reduce noise
-        // .route("/v1/debug/patterns", get(get_debug_patterns))
-        // .route("/v1/debug/patterns/{task_id}", get(get_debug_patterns_for_task))
-        // .route("/v1/debug/update", post(update_debug_data))
+        .route("/v1/debug/patterns", get(get_debug_patterns))
+        .route("/v1/debug/patterns/{task_id}", get(get_debug_patterns_for_task))
+        .route("/v1/debug/update", post(update_debug_data))
         .layer(
             CorsLayer::new()
                 .allow_origin("tauri://localhost".parse::<HeaderValue>().expect("Valid tauri origin header"))

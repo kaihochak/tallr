@@ -44,8 +44,8 @@ function App() {
   const [debugTaskId, setDebugTaskId] = useState<string | null>(null);
   const [showDoneTasks, setShowDoneTasks] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  
-  
+
+
   // Setup wizard state
   const [installing, setInstalling] = useState(false);
   const [setupError, setSetupError] = useState<string | null>(null);
@@ -84,15 +84,15 @@ function App() {
     const tasks = Object.values(appState.tasks);
     const now = Date.now();
     const ONE_HOUR = 60 * 60 * 1000;
-    
+
     return tasks.filter(task => {
       const matchesState = true;
-      
+
       // Filter by selected project
       if (selectedProjectId && task.projectId !== selectedProjectId) {
         return false;
       }
-      
+
       // Handle done/active toggle
       if (showDoneTasks) {
         // Show only DONE tasks
@@ -104,26 +104,32 @@ function App() {
         if (task.state === "DONE") {
           return false;
         }
-        
+
         // Filter out IDLE tasks older than 1 hour to prevent UI clutter
+        // if (task.state === "IDLE") {
+        //   const taskTime = task.completedAt || task.createdAt || 0;
+        //   if (taskTime && (now - taskTime) > ONE_HOUR) {
+        //     return false;
+        //   }
         if (task.state === "IDLE" && task.completedAt && (now - task.completedAt) > ONE_HOUR) {
           return false;
+
         }
       }
-      
+
       return matchesState;
     }).sort((a, b) => {
       // First priority: pinned tasks at top
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
-      
+
       // Second priority: state priority (PENDING, WORKING, IDLE)
       const statePriority = { PENDING: 0, WORKING: 1, IDLE: 2, DONE: 3 };
       const aPriority = statePriority[a.state as keyof typeof statePriority] ?? 4;
       const bPriority = statePriority[b.state as keyof typeof statePriority] ?? 4;
-      
+
       if (aPriority !== bPriority) return aPriority - bPriority;
-      
+
       // Third priority: creation order (oldest first for stability)
       return a.createdAt - b.createdAt;
     });
@@ -198,7 +204,7 @@ function App() {
         recentHistory: debugData.detectionHistory.slice(-3),
         timestamp: new Date().toISOString()
       };
-      
+
       await navigator.clipboard.writeText(JSON.stringify(simplifiedState, null, 2));
       debug.ui('Debug state copied to clipboard', simplifiedState);
     } catch (error) {
@@ -215,8 +221,8 @@ function App() {
         e.preventDefault();
         toggleAlwaysOnTop();
       }
-      
-      
+
+
       // Command+Shift+C to copy debug state to clipboard (dev only)
       if (import.meta.env.DEV && e.metaKey && e.shiftKey && e.key.toLowerCase() === "c") {
         e.preventDefault();
@@ -232,14 +238,14 @@ function App() {
   const handleInstall = useCallback(async () => {
     setInstalling(true);
     setSetupError(null);
-    
+
     try {
       // First check permissions
       const hasPermission = await invoke<boolean>('check_cli_permissions');
       if (!hasPermission) {
         throw new Error('Permission denied. Please use the manual installation method with sudo.');
       }
-      
+
       // Perform installation
       await invoke('install_cli_globally');
       // Installation complete - go straight to main app
@@ -248,7 +254,7 @@ function App() {
       console.error('Installation failed:', err);
       const errorMsg = err.toString().replace('Error: ', '');
       setSetupError(errorMsg);
-      
+
       // If permission denied, automatically show manual instructions
       if (errorMsg.includes('Permission denied') || errorMsg.includes('sudo')) {
         setShowManualInstructions(true);
@@ -294,8 +300,8 @@ function App() {
                 Get notified when your AI sessions need input.
               </p>
             </div>
-            
-            <Button 
+
+            <Button
               onClick={handleInstall}
               disabled={installing}
               className="w-full h-12 text-base font-medium"
@@ -311,7 +317,7 @@ function App() {
                 </>
               )}
             </Button>
-            
+
             {setupError && (
               <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
                 <div className="flex items-center gap-2 mb-2 text-destructive">
@@ -326,7 +332,7 @@ function App() {
             )}
 
             <div className="flex justify-center">
-              <Button 
+              <Button
                 variant="outline"
                 onClick={() => setShowManualInstructions(!showManualInstructions)}
                 className="text-sm"
@@ -361,7 +367,7 @@ function App() {
                   You'll be prompted for your password to create the symlink.
                 </p>
                 <div className="flex justify-center pt-2">
-                  <Button 
+                  <Button
                     onClick={handleSetupComplete}
                     className="text-sm"
                   >
@@ -379,7 +385,7 @@ function App() {
   return (
     <div className={`${settings.viewMode === 'tally' ? 'h-auto' : 'h-screen'} flex flex-col bg-gradient-to-br from-bg-primary to-bg-secondary animate-fadeIn`}>
       {/* Header */}
-      <Header 
+      <Header
         aggregateState={aggregateState}
         activeTasks={taskCounts.activeTasks}
         doneTasks={taskCounts.doneTasks}
@@ -435,7 +441,7 @@ function App() {
               />
               {filteredTasks.map((task) => {
                 const project = appState.projects[task.projectId];
-                
+
                 return (
                   <TaskRow
                     key={task.id}
@@ -454,37 +460,37 @@ function App() {
           )}
         </div>
       )}
-      
+
       {currentPage === 'debug' && settings.viewMode !== 'tally' && (
-        <DebugPage 
+        <DebugPage
           taskId={debugTaskId}
           task={debugTaskId ? appState.tasks[debugTaskId] || null : null}
           onBack={() => {
             setDebugTaskId(null);
             setCurrentPage('tasks');
-          }} 
+          }}
         />
       )}
-      
+
       {/* Footer - Hidden in tally mode */}
       {settings.viewMode !== 'tally' && (
         <footer className="p-4 bg-bg-primary text-xs text-text-primary flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <span>v0.1.0</span>
-          <CliConnectionStatus />
-          <span className="text-text-secondary">
-            Port: {import.meta.env.VITE_TALLR_PORT || (import.meta.env.DEV ? '4317' : '4318')}
-          </span>
-        </div>
-        <div className="text-right">
-          Built by{" "}
-          <button 
-            onClick={() => open("https://tallr.dev")}
-            className="hover:text-accent-primary transition-colors cursor-pointer"
-          >
-            Tallr Team
-          </button>
-        </div>
+          <div className="flex items-center gap-4">
+            <span>v0.1.0</span>
+            <CliConnectionStatus />
+            <span className="text-text-secondary">
+              Port: {import.meta.env.VITE_TALLR_PORT || (import.meta.env.DEV ? '4317' : '4318')}
+            </span>
+          </div>
+          <div className="text-right">
+            Built by{" "}
+            <button
+              onClick={() => open("https://tallr.dev")}
+              className="hover:text-accent-primary transition-colors cursor-pointer"
+            >
+              Tallr Team
+            </button>
+          </div>
         </footer>
       )}
     </div>

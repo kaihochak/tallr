@@ -1,11 +1,8 @@
 import { AppState, Task } from '@/types';
 import { invoke } from '@tauri-apps/api/core';
 
-// API Configuration - different ports for dev vs prod
-const DEFAULT_PORT = import.meta.env.DEV ? '4317' : '4318'; // Dev: 4317, Prod: 4318
-const PORT = import.meta.env.VITE_TALLR_PORT || DEFAULT_PORT;
-const API_BASE_URL = `http://127.0.0.1:${PORT}`;
-const DEFAULT_TIMEOUT = 5000; // 5 seconds
+// API Configuration for dev/prod environment detection
+// Note: Tauri commands are used for all API calls, not HTTP
 
 // API Response Types
 export interface ApiResponse<T = any> {

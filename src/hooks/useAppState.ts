@@ -148,8 +148,7 @@ export function useAppState() {
     setIsLoading(true);
     setError(null);
     
-    // Clear cached auth token to force fresh authentication
-    ApiService.clearAuthToken();
+    // Refresh state to ensure we have latest data
     
     try {
       const data = await ApiService.getState();
