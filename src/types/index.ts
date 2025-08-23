@@ -13,7 +13,7 @@ export interface Task {
   projectId: string;
   agent: string;
   title: string;
-  state: string;
+  state: TaskState;
   details?: string;
   createdAt: number;
   updatedAt: number;
@@ -30,7 +30,7 @@ export interface AppState {
 export interface TaskRowProps {
   task: Task;
   project: Project | undefined;
-  viewMode: 'full' | 'simple' | 'tally';
+  viewMode: ViewMode;
   onDeleteTask: (taskId: string) => Promise<void>;
   onJumpToContext: (taskId: string) => Promise<void>;
   onShowDebug: (taskId: string) => void;
@@ -40,3 +40,4 @@ export interface TaskRowProps {
 
 export type TaskState = 'PENDING' | 'WORKING' | 'IDLE' | 'DONE' | 'ERROR';
 export type BadgeType = 'agent' | 'ide';
+export type ViewMode = 'full' | 'simple' | 'tally';

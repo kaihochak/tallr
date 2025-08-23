@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { AppState } from '@/types';
+import { AppState, TaskState } from '@/types';
+import { TASK_STATE_PRIORITY, ONE_HOUR } from '@/lib/constants';
 
 interface UseFilteredTasksParams {
   appState: AppState;
@@ -15,7 +16,6 @@ export function useFilteredTasks({
   return useMemo(() => {
     const tasks = Object.values(appState.tasks);
     const now = Date.now();
-    const ONE_HOUR = 60 * 60 * 1000;
 
     return tasks.filter(task => {
       // Filter by selected project
@@ -46,9 +46,8 @@ export function useFilteredTasks({
       if (!a.pinned && b.pinned) return 1;
 
       // Second priority: state priority (PENDING, WORKING, IDLE)
-      const statePriority = { PENDING: 0, WORKING: 1, IDLE: 2, DONE: 3 };
-      const aPriority = statePriority[a.state as keyof typeof statePriority] ?? 4;
-      const bPriority = statePriority[b.state as keyof typeof statePriority] ?? 4;
+      const aPriority = TASK_STATE_PRIORITY[a.state as TaskState] ?? 4;
+      const bPriority = TASK_STATE_PRIORITY[b.state as TaskState] ?? 4;
 
       if (aPriority !== bPriority) return aPriority - bPriority;
 

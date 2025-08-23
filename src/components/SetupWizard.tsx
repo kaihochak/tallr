@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Download, Terminal, Copy, Check, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { COPY_TIMEOUT, SYMLINK_COMMAND } from '@/lib/constants';
 
 interface SetupWizardProps {
   onSetupComplete: () => void;
@@ -43,10 +44,9 @@ export function SetupWizard({ onSetupComplete }: SetupWizardProps) {
   }, [onSetupComplete]);
 
   const handleCopyCommand = useCallback(() => {
-    const command = 'sudo ln -s /Applications/Tallr.app/Contents/MacOS/tallr /usr/local/bin/tallr';
-    navigator.clipboard.writeText(command);
+    navigator.clipboard.writeText(SYMLINK_COMMAND);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), COPY_TIMEOUT);
   }, []);
 
   return (

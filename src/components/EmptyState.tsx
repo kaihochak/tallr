@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { COPY_TIMEOUT, AGENT_OPTIONS } from '@/lib/constants';
 
 export default function EmptyState() {
   const [copied, setCopied] = useState(false);
@@ -17,7 +18,7 @@ export default function EmptyState() {
     const command = `tallr ${selectedAgent}`;
     navigator.clipboard.writeText(command);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), COPY_TIMEOUT);
   }, [selectedAgent]);
 
   return (
@@ -39,9 +40,11 @@ export default function EmptyState() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="cursor-pointer">
-              <SelectItem value="claude" className="cursor-pointer">Claude Code CLI</SelectItem>
-              <SelectItem value="codex" className="cursor-pointer">Codex CLI</SelectItem>
-              <SelectItem value="gemini" className="cursor-pointer">Gemini CLI</SelectItem>
+              {AGENT_OPTIONS.map(option => (
+                <SelectItem key={option.value} value={option.value} className="cursor-pointer">
+                  {option.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

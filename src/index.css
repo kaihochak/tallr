@@ -222,6 +222,22 @@
     --ide-zed: #6b8463;
     --ide-default: #94a3b8;
     
+    /* Agent text colors - dark mode */
+    --agent-claude-text: #ffffff;
+    --agent-codex-text: #ffffff;
+    --agent-gemini-text: #ffffff;
+    --agent-cursor-text: #ffffff;
+    --agent-default-text: #ffffff;
+    
+    /* IDE text colors - dark mode */
+    --ide-vscode-text: #ffffff;
+    --ide-code-text: #ffffff;
+    --ide-cursor-text: #ffffff;
+    --ide-windsurf-text: #ffffff;
+    --ide-webstorm-text: #ffffff;
+    --ide-zed-text: #ffffff;
+    --ide-default-text: #ffffff;
+    
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.2);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3);

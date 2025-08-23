@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { X } from 'lucide-react';
 import type { Project, Task } from '@/types';
 import { FilterPill } from '@/components/ui/FilterPill';
+import { getHighestPriorityState } from '@/lib/taskHelpers';
 
 interface ProjectFilterPillsProps {
   projects: Record<string, Project>;
@@ -50,16 +51,8 @@ export function ProjectFilterPills({
         (showDoneTasks ? task.state === 'DONE' : task.state !== 'DONE')
       );
       
-      // Priority order: PENDING > WORKING > IDLE > DONE
-      if (projectTasks.some(task => task.state === 'PENDING')) {
-        states[project.id] = 'pending';
-      } else if (projectTasks.some(task => task.state === 'WORKING')) {
-        states[project.id] = 'working';
-      } else if (projectTasks.some(task => task.state === 'IDLE')) {
-        states[project.id] = 'idle';
-      } else {
-        states[project.id] = 'idle';
-      }
+      const highestState = getHighestPriorityState(projectTasks);
+      states[project.id] = highestState.toLowerCase();
     });
     
     return states;

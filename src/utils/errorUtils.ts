@@ -1,7 +1,7 @@
 /**
  * Maps API errors to user-friendly messages
  */
-export function getErrorMessage(error: Error | string, context?: string): string {
+export function getErrorMessage(error: Error | string, context?: string, isRetry = false): string {
   const errorMessage = error instanceof Error ? error.message : error;
   
   // Connection errors
@@ -24,6 +24,11 @@ export function getErrorMessage(error: Error | string, context?: string): string
     return 'Server error. Please try again.';
   }
   
+  // Retry-specific handling
+  if (isRetry) {
+    return `Failed to reconnect: ${errorMessage}`;
+  }
+  
   // Generic error with context
   if (context) {
     return `${context}: ${errorMessage}`;
@@ -34,27 +39,10 @@ export function getErrorMessage(error: Error | string, context?: string): string
 
 /**
  * Maps retry-specific errors to user-friendly messages
+ * @deprecated Use getErrorMessage(error, context, true) instead
  */
 export function getRetryErrorMessage(error: Error | string): string {
-  const errorMessage = error instanceof Error ? error.message : error;
-  
-  // Connection errors
-  if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('fetch')) {
-    return 'Cannot connect to Tallr backend. Make sure the app is running.';
-  }
-  
-  // Timeout errors
-  if (errorMessage.includes('timeout')) {
-    return 'Connection timeout. Please check your connection.';
-  }
-  
-  // Authentication errors
-  if (errorMessage.includes('401') || errorMessage.includes('Unauthorized') || errorMessage.includes('HTTP 401')) {
-    return 'Authentication failed. Click retry to get a fresh token.';
-  }
-  
-  // Default retry message
-  return `Failed to reconnect: ${errorMessage}`;
+  return getErrorMessage(error, undefined, true);
 }
 
 /**
