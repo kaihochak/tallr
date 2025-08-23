@@ -19,12 +19,67 @@
         {
           "name": "cursor",
           "cmd": "cursor",
-          "args": ["--reuse-window", {"validator": "^[a-zA-Z0-9/_. -]+$"}]
+          "args": [{"validator": ".*"}]
         },
         {
           "name": "code",
-          "cmd": "code", 
-          "args": ["--reuse-window", {"validator": "^[a-zA-Z0-9/_. -]+$"}]
+          "cmd": "code",
+          "args": [{"validator": ".*"}]
+        },
+        {
+          "name": "zed",
+          "cmd": "zed",
+          "args": [{"validator": ".*"}]
+        },
+        {
+          "name": "webstorm",
+          "cmd": "webstorm",
+          "args": [{"validator": ".*"}]
+        },
+        {
+          "name": "idea",
+          "cmd": "idea",
+          "args": [{"validator": ".*"}]
+        },
+        {
+          "name": "pycharm",
+          "cmd": "pycharm",
+          "args": [{"validator": ".*"}]
+        },
+        {
+          "name": "phpstorm",
+          "cmd": "phpstorm",
+          "args": [{"validator": ".*"}]
+        },
+        {
+          "name": "rubymine",
+          "cmd": "rubymine",
+          "args": [{"validator": ".*"}]
+        },
+        {
+          "name": "clion",
+          "cmd": "clion",
+          "args": [{"validator": ".*"}]
+        },
+        {
+          "name": "goland",
+          "cmd": "goland",
+          "args": [{"validator": ".*"}]
+        },
+        {
+          "name": "rider",
+          "cmd": "rider",
+          "args": [{"validator": ".*"}]
+        },
+        {
+          "name": "windsurf",
+          "cmd": "windsurf",
+          "args": [{"validator": ".*"}]
+        },
+        {
+          "name": "open",
+          "cmd": "open",
+          "args": [{"validator": ".*"}]
         },
         {
           "name": "osascript",

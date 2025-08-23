@@ -235,5 +235,3 @@ Look for issues labeled `good first issue` or `help wanted` to get started. Thes
 - **Direct Contact**: Reach out to maintainers
 
 ---
-
-Thank you for contributing to Tallr! Your efforts help make AI development workflows better for everyone. 🚀

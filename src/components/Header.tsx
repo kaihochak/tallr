@@ -95,6 +95,11 @@ export default function Header({
             }`}>
               Tallr
             </h1>
+            {import.meta.env.DEV && (
+              <span className="px-2 py-0.5 text-xs font-semibold bg-orange-500/20 text-orange-600 dark:text-orange-400 rounded border border-orange-500/30">
+                DEV
+              </span>
+            )}
           </div>
           <FilterPill
             size="sm"

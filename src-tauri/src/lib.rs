@@ -816,9 +816,12 @@ async fn open_ide_and_terminal(
     project_path: String,
     ide: Option<String>,
 ) -> Result<(), String> {
+    info!("open_ide_and_terminal called with project_path: {:?}, ide: {:?}", project_path, ide);
+    
     match ide {
         Some(ide_cmd) if !ide_cmd.is_empty() => {
             let (command, args) = get_ide_command_and_args(&ide_cmd, &project_path);
+            info!("Trying to open with IDE command: {} {:?}", command, args);
             
             // Try to open with the IDE command
             let result = app.shell()
@@ -827,9 +830,12 @@ async fn open_ide_and_terminal(
                 .spawn();
                 
             match result {
-                Ok(_) => Ok(()),
-                Err(_e) => {
-                    // If the IDE command fails, try alternative approaches
+                Ok(_) => {
+                    info!("Successfully opened IDE with command: {}", command);
+                    Ok(())
+                }
+                Err(e) => {
+                    warn!("IDE command '{}' failed: {}. Trying fallback.", command, e);
                     
                     // Try with 'open -a' on macOS
                     let open_result = app.shell()
@@ -838,14 +844,30 @@ async fn open_ide_and_terminal(
                         .spawn();
                         
                     match open_result {
-                        Ok(_) => Ok(()),
-                        Err(_) => {
+                        Ok(_) => {
+                            info!("Successfully opened IDE with 'open -a' fallback");
+                            Ok(())
+                        }
+                        Err(e2) => {
+                            warn!("'open -a' fallback failed: {}. Trying directory fallback.", e2);
+                            
                             // Last resort: just open the directory
                             app.shell()
                                 .command("open")
                                 .args([&project_path])
                                 .spawn()
-                                .map_err(|e2| format!("Failed to open project with '{command}' and fallback failed: {e2}"))?;
+                                .map_err(|e3| {
+                                    let error_msg = format!(
+                                        "All methods failed to open project:\n\
+                                        1. IDE command '{}': {}\n\
+                                        2. 'open -a' fallback: {}\n\
+                                        3. Directory fallback: {}",
+                                        command, e, e2, e3
+                                    );
+                                    error!("{}", error_msg);
+                                    error_msg
+                                })?;
+                            info!("Opened project directory as fallback");
                             Ok(())
                         }
                     }
@@ -853,12 +875,18 @@ async fn open_ide_and_terminal(
             }
         }
         _ => {
+            info!("No IDE specified, opening project directory with system default");
             // No IDE specified - just try to open with system default
             app.shell()
                 .command("open")
                 .args([&project_path])
                 .spawn()
-                .map_err(|e| format!("Failed to open project directory: {e}"))?;
+                .map_err(|e| {
+                    let error_msg = format!("Failed to open project directory: {}", e);
+                    error!("{}", error_msg);
+                    error_msg
+                })?;
+            info!("Successfully opened project directory");
             Ok(())
         }
     }
@@ -968,38 +996,60 @@ async fn install_cli_globally(app: AppHandle) -> Result<(), String> {
         debug!("Development CLI path: {dev_path:?}");
         dev_path
     } else {
-        // In production, try multiple possible locations with detailed logging
+        // In production, the binary is in the MacOS directory, not Resources
         let resource_path = app.path().resource_dir()
             .map_err(|e| format!("Failed to get resource path: {e}"))?;
         
         debug!("Resource directory: {resource_path:?}");
         
-        // Try multiple possible locations
-        let possible_paths = vec![
-            resource_path.join("_up_").join("tools").join("tallr"), // Actual location (Tauri relative path handling)
-            resource_path.join("tools").join("tallr"),              // Expected location
-            resource_path.join("tallr"),                            // Root of resources
-            resource_path.join("tools").join("tallr").with_extension(""), // No extension variant
-        ];
+        // The correct path for production builds: Contents/MacOS/tallr
+        let macos_path = resource_path
+            .parent()  // Contents
+            .ok_or("Failed to get Contents directory")?
+            .join("MacOS")
+            .join("tallr");
         
-        debug!("Checking possible CLI paths:");
-        for path in &possible_paths {
-            debug!("  - {:?} (exists: {})", path, path.exists());
+        debug!("Checking MacOS directory path: {:?} (exists: {})", macos_path, macos_path.exists());
+        
+        if macos_path.exists() {
+            debug!("Found CLI binary in MacOS directory");
+            macos_path
+        } else {
+            // Fallback: try resource-based paths for alternative build configurations
+            let possible_paths = vec![
+                resource_path.join("_up_").join("tools").join("tallr"), // Legacy location
+                resource_path.join("tools").join("tallr"),              // Alternative location
+                resource_path.join("tallr"),                            // Root of resources
+            ];
+            
+            debug!("MacOS path not found, trying fallback paths:");
+            for path in &possible_paths {
+                debug!("  - {:?} (exists: {})", path, path.exists());
+            }
+            
+            // Find the first fallback path that exists
+            possible_paths.into_iter()
+                .find(|path| path.exists())
+                .unwrap_or_else(|| {
+                    // If none found, return the MacOS path for better error messages
+                    warn!("CLI binary not found in any expected location");
+                    macos_path
+                })
         }
-        
-        // Find the first path that exists
-        possible_paths.into_iter()
-            .find(|path| path.exists())
-            .unwrap_or_else(|| {
-                // If none found, return the expected path for better error messages
-                resource_path.join("tools").join("tallr")
-            })
     };
     
     // Check if CLI binary exists
     if !cli_source.exists() {
-        return Err(format!("CLI binary not found at: {cli_source:?}"));
+        let build_type = if cfg!(debug_assertions) { "development" } else { "production" };
+        return Err(format!(
+            "CLI binary not found at: {cli_source:?}\n\
+            Build type: {build_type}\n\
+            This indicates a packaging issue. The CLI binary should be bundled with the application.\n\
+            Please report this issue with your build configuration."
+        ));
     }
+    
+    info!("Found CLI binary at: {cli_source:?}");
     
     // Ensure the CLI binary is executable (important for production builds)
     #[cfg(unix)]
@@ -1041,13 +1091,24 @@ async fn install_cli_globally(app: AppHandle) -> Result<(), String> {
     }
     
     // Create the symlink
+    info!("Creating symlink from {cli_source:?} to {cli_dest:?}");
     std::os::unix::fs::symlink(&cli_source, &cli_dest)
-        .map_err(|e| format!("Failed to create symlink: {e}. Please use the manual installation method."))?;
+        .map_err(|e| format!(
+            "Failed to create symlink from {cli_source:?} to {cli_dest:?}: {e}\n\
+            Please use the manual installation method:\n\
+            sudo ln -s {cli_source:?} {cli_dest:?}"
+        ))?;
     
     // Verify the symlink works
     if !cli_dest.exists() {
-        return Err("Symlink creation failed. Please use the manual installation method.".to_string());
+        return Err(format!(
+            "Symlink verification failed: {cli_dest:?} does not exist after creation.\n\
+            Please use the manual installation method:\n\
+            sudo ln -s {cli_source:?} {cli_dest:?}"
+        ));
     }
+    
+    info!("Successfully created and verified CLI symlink at: {cli_dest:?}");
     
     // Mark setup as completed
     mark_setup_completed()?;
