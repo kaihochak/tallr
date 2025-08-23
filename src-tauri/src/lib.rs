@@ -1254,6 +1254,13 @@ async fn frontend_mark_task_done(
         // Emit event for real-time updates
         let _ = app_handle.emit("task-updated", &*task);
         
+        drop(app_state); // Drop lock before saving
+        
+        // Save state to disk
+        if let Err(e) = save_app_state() {
+            error!("Failed to save app state after marking task done: {e}");
+        }
+        
         info!("Frontend marked task {} as done", task_id);
         Ok(())
     } else {
@@ -1273,6 +1280,13 @@ async fn frontend_delete_task(
         
         // Emit event for real-time updates
         let _ = app_handle.emit("task-deleted", task_id.clone());
+        
+        drop(app_state); // Drop lock before saving
+        
+        // Save state to disk
+        if let Err(e) = save_app_state() {
+            error!("Failed to save app state after task deletion: {e}");
+        }
         
         info!("Frontend deleted task {}", task_id);
         Ok(())

@@ -76,13 +76,16 @@ export const ApiService = {
     }
   },
 
-  // Delete a task via Tauri command
+  // Mark a task as done (formerly delete task) via Tauri command
   async deleteTask(taskId: string): Promise<void> {
     try {
-      await invoke('frontend_delete_task', { taskId });
+      await invoke('frontend_mark_task_done', { 
+        taskId,
+        details: "Marked as done by user"
+      });
     } catch (error) {
-      console.error('[API] Failed to delete task via Tauri:', error);
-      throw new Error('Failed to delete task');
+      console.error('[API] Failed to mark task done via Tauri:', error);
+      throw new Error('Failed to mark task done');
     }
   },
 

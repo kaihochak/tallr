@@ -66,8 +66,8 @@ export default function TaskRow({
           break;
       }
     } catch (error) {
-      console.error(`Failed to ${action} task:`, error);
-      alert(`Failed to ${action} session. Please try again.`);
+      console.error(`Failed to ${action === 'delete' ? 'mark task as done' : action + ' task'}:`, error);
+      alert(`Failed to ${action === 'delete' ? 'mark session as done' : action + ' session'}. Please try again.`);
     }
   }, [task.id, task.agent, task.pinned, project?.name, onJumpToContext, onShowDebug, onTogglePin, onDeleteTask]);
 
@@ -76,8 +76,8 @@ export default function TaskRow({
       await onDeleteTask(task.id);
       setShowDeleteDialog(false);
     } catch (error) {
-      console.error("Failed to delete task:", error);
-      alert("Failed to delete session. Please try again.");
+      console.error("Failed to mark task as done:", error);
+      alert("Failed to mark session as done. Please try again.");
     }
   }, [task.id, onDeleteTask]);
 
@@ -176,10 +176,10 @@ export default function TaskRow({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
                   onSelect={() => handleDropdownAction('delete')}
-                  className="text-destructive focus:text-destructive cursor-pointer"
+                  className="text-green-600 focus:text-green-600 cursor-pointer"
                 >
                   <Trash2 size={14} className="mr-2" />
-                  Delete
+                  Mark Done
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -202,9 +202,9 @@ export default function TaskRow({
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
           <DialogHeader>
-            <DialogTitle>Delete Session</DialogTitle>
+            <DialogTitle>Mark Session as Done</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete the "{task.agent}" session in {project?.name || "Unknown"}?
+              Are you sure you want to mark the "{task.agent}" session in {project?.name || "Unknown"} as completed?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="pointer-events-auto">
@@ -219,14 +219,14 @@ export default function TaskRow({
               Cancel
             </Button>
             <Button 
-              variant="destructive" 
-              className="pointer-events-auto cursor-pointer"
+              variant="default" 
+              className="pointer-events-auto cursor-pointer bg-green-600 hover:bg-green-700"
               onClick={(e) => {
                 e.stopPropagation();
                 handleConfirmDelete();
               }}
             >
-              Delete
+              Mark Done
             </Button>
           </DialogFooter>
         </DialogContent>

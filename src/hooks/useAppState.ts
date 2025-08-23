@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { AppState } from '@/types';
 import { ApiService, logApiError } from '@/services/api';
 import { notificationService } from '@/services/notificationService';
+import { getErrorMessage, getRetryErrorMessage, logError } from '@/utils/errorUtils';
 
 export function useAppState() {
   const [appState, setAppState] = useState<AppState>({ 
@@ -72,33 +73,30 @@ export function useAppState() {
     };
   }, []);
 
-  // Listen for real-time task updates from Tauri events
+  // Listen for individual task events (in addition to the bulk updates above)
   useEffect(() => {
     const listeners: Promise<any>[] = [];
 
-    // Listen for task updates
-    listeners.push(listen('task-updated', (event: any) => {
-      setAppState(prev => {
-        const updatedTasks = { ...prev.tasks };
-        updatedTasks[event.payload.id] = event.payload;
-        return {
-          ...prev,
-          tasks: updatedTasks,
-          updated_at: Date.now()
-        };
-      });
+    // Listen for single task updates
+    listeners.push(listen('task-updated', (event: { payload: any }) => {
+      setAppState(prev => ({
+        ...prev,
+        tasks: {
+          ...prev.tasks,
+          [event.payload.id]: event.payload
+        },
+        updatedAt: Date.now()
+      }));
     }));
 
     // Listen for task deletions
-    listeners.push(listen('task-deleted', (event: any) => {
-      const deletedTaskId = event.payload;
+    listeners.push(listen('task-deleted', (event: { payload: string }) => {
       setAppState(prev => {
-        const updatedTasks = { ...prev.tasks };
-        delete updatedTasks[deletedTaskId];
+        const { [event.payload]: deleted, ...remainingTasks } = prev.tasks;
         return {
           ...prev,
-          tasks: updatedTasks,
-          updated_at: Date.now()
+          tasks: remainingTasks,
+          updatedAt: Date.now()
         };
       });
     }));
@@ -119,22 +117,9 @@ export function useAppState() {
       } catch (error) {
         const apiError = error instanceof Error ? error : new Error('Unknown error');
         logApiError('/v1/state', apiError);
-        console.error("Failed to load tasks:", apiError);
+        logError('useAppState.loadTasks', apiError);
         
-        // Set user-friendly error messages
-        let errorMessage = apiError.message;
-        if (apiError.message.includes('ECONNREFUSED') || apiError.message.includes('fetch')) {
-          errorMessage = 'Cannot connect to Tallr backend. Make sure the app is running.';
-        } else if (apiError.message.includes('timeout')) {
-          errorMessage = 'Connection timeout. Please check your connection.';
-        } else if (apiError.message.includes('401') || apiError.message.includes('Unauthorized') || apiError.message.includes('HTTP 401')) {
-          errorMessage = 'Authentication failed. Click retry to get a fresh token.';
-        } else if (apiError.message.includes('500')) {
-          errorMessage = 'Server error. Please try again.';
-        } else {
-          errorMessage = `Failed to load tasks: ${apiError.message}`;
-        }
-        
+        const errorMessage = getErrorMessage(apiError, 'Failed to load tasks');
         setError(errorMessage);
         setIsLoading(false);
       }
@@ -158,19 +143,9 @@ export function useAppState() {
     } catch (error) {
       const apiError = error instanceof Error ? error : new Error('Unknown error');
       logApiError('/v1/state', apiError);
-      console.error("Retry failed:", apiError);
+      logError('useAppState.retryConnection', apiError);
       
-      let errorMessage = 'Failed to reconnect. Please try again.';
-      if (apiError.message.includes('ECONNREFUSED') || apiError.message.includes('fetch')) {
-        errorMessage = 'Cannot connect to Tallr backend. Make sure the app is running.';
-      } else if (apiError.message.includes('timeout')) {
-        errorMessage = 'Connection timeout. Please check your connection.';
-      } else if (apiError.message.includes('401') || apiError.message.includes('Unauthorized') || apiError.message.includes('HTTP 401')) {
-        errorMessage = 'Authentication failed. Click retry to get a fresh token.';
-      } else {
-        errorMessage = `Failed to reconnect: ${apiError.message}`;
-      }
-      
+      const errorMessage = getRetryErrorMessage(apiError);
       setError(errorMessage);
       setIsLoading(false);
     }

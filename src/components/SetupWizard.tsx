@@ -1,45 +1,38 @@
-import React, { useState, useCallback } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { useState, useCallback } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { Download, Terminal, Copy, Check, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 
 interface SetupWizardProps {
-  isOpen: boolean;
-  onComplete: () => void;
+  onSetupComplete: () => void;
 }
 
-const SetupWizard: React.FC<SetupWizardProps> = ({ isOpen, onComplete }) => {
+export function SetupWizard({ onSetupComplete }: SetupWizardProps) {
   const [installing, setInstalling] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [setupError, setSetupError] = useState<string | null>(null);
   const [showManualInstructions, setShowManualInstructions] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const handleInstall = useCallback(async () => {
     setInstalling(true);
-    setError(null);
-    
+    setSetupError(null);
+
     try {
       // First check permissions
       const hasPermission = await invoke<boolean>('check_cli_permissions');
       if (!hasPermission) {
         throw new Error('Permission denied. Please use the manual installation method with sudo.');
       }
-      
+
       // Perform installation
       await invoke('install_cli_globally');
       // Installation complete - go straight to main app
-      onComplete();
-    } catch (err: any) {
+      onSetupComplete();
+    } catch (err: unknown) {
       console.error('Installation failed:', err);
-      const errorMsg = err.toString().replace('Error: ', '');
-      setError(errorMsg);
-      
+      const errorMsg = (err instanceof Error ? err.message : String(err)).replace('Error: ', '');
+      setSetupError(errorMsg);
+
       // If permission denied, automatically show manual instructions
       if (errorMsg.includes('Permission denied') || errorMsg.includes('sudo')) {
         setShowManualInstructions(true);
@@ -47,7 +40,7 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ isOpen, onComplete }) => {
     } finally {
       setInstalling(false);
     }
-  }, [onComplete]);
+  }, [onSetupComplete]);
 
   const handleCopyCommand = useCallback(() => {
     const command = 'sudo ln -s /Applications/Tallr.app/Contents/MacOS/tallr /usr/local/bin/tallr';
@@ -57,20 +50,17 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ isOpen, onComplete }) => {
   }, []);
 
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-semibold text-center">
-            Install CLI Tools
-          </DialogTitle>
-        </DialogHeader>
-        
-        <div className="space-y-6">
-          <p className="text-center text-text-secondary">
-            Get notified when your AI sessions need input.
-          </p>
-          
-          <Button 
+    <div className="h-screen flex flex-col bg-gradient-to-br from-bg-primary to-bg-secondary animate-fadeIn">
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="max-w-lg w-full space-y-6">
+          <div className="text-center space-y-4">
+            <h1 className="text-3xl font-bold text-text-primary">Install CLI Tools</h1>
+            <p className="text-text-secondary">
+              Get notified when your AI sessions need input.
+            </p>
+          </div>
+
+          <Button
             onClick={handleInstall}
             disabled={installing}
             className="w-full h-12 text-base font-medium"
@@ -86,14 +76,14 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ isOpen, onComplete }) => {
               </>
             )}
           </Button>
-          
-          {error && (
+
+          {setupError && (
             <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
               <div className="flex items-center gap-2 mb-2 text-destructive">
                 <AlertCircle size={16} />
                 <strong>Installation failed:</strong>
               </div>
-              <p className="text-destructive text-sm mb-2">{error}</p>
+              <p className="text-destructive text-sm mb-2">{setupError}</p>
               {showManualInstructions && (
                 <p className="text-destructive text-sm">Please try the manual installation method below.</p>
               )}
@@ -101,7 +91,7 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ isOpen, onComplete }) => {
           )}
 
           <div className="flex justify-center">
-            <Button 
+            <Button
               variant="outline"
               onClick={() => setShowManualInstructions(!showManualInstructions)}
               className="text-sm"
@@ -135,12 +125,18 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ isOpen, onComplete }) => {
               <p className="text-xs text-text-tertiary">
                 You'll be prompted for your password to create the symlink.
               </p>
+              <div className="flex justify-center pt-2">
+                <Button
+                  onClick={onSetupComplete}
+                  className="text-sm"
+                >
+                  Continue to App
+                </Button>
+              </div>
             </div>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
-};
-
-export default SetupWizard;
+}
