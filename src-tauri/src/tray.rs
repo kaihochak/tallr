@@ -115,11 +115,34 @@ fn handle_tray_menu_event(app_handle: &AppHandle, menu_id: &str) {
                     // Use existing open_ide_and_terminal logic
                     let project_path = project.repo_path.clone();
                     let preferred_ide = Some(project.preferred_ide.clone());
+                    let project_name = project.name.clone();
                     
-                    // Spawn the IDE opening in a separate task
+                    // Spawn the IDE opening in a separate task with proper error handling
                     let app_handle_clone = app_handle.clone();
+                    let app_handle_for_notification = app_handle.clone();
                     tauri::async_runtime::spawn(async move {
-                        let _ = open_ide_and_terminal(app_handle_clone, project_path, preferred_ide).await;
+                        match open_ide_and_terminal(app_handle_clone, project_path, preferred_ide).await {
+                            Ok(()) => {
+                                log::info!("Successfully opened IDE for project: {}", project_name);
+                            }
+                            Err(e) => {
+                                log::error!("Failed to open IDE for project '{}': {}", project_name, e);
+                                
+                                // Show system notification about the failure
+                                let notification_title = "Failed to Open IDE".to_string();
+                                let notification_body = format!("Could not open IDE for project '{}': {}", project_name, e);
+                                
+                                tauri::async_runtime::spawn(async move {
+                                    if let Err(notify_error) = crate::commands::send_notification(
+                                        app_handle_for_notification, 
+                                        notification_title, 
+                                        notification_body
+                                    ).await {
+                                        log::warn!("Failed to show failure notification: {}", notify_error);
+                                    }
+                                });
+                            }
+                        }
                     });
                 }
             }

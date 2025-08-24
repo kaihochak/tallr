@@ -14,6 +14,7 @@ import { useSettings } from "./hooks/useSettings";
 import { useFilteredTasks, useTaskCounts } from "./hooks/useFilteredTasks";
 import { debug } from "./utils/debug";
 import { logger } from "./utils/logger";
+import { notificationService } from "./services/notificationService";
 import { ApiService } from "./services/api";
 
 interface Task {
@@ -52,6 +53,14 @@ function App() {
         const status = await invoke<SetupStatus>("get_setup_status_cmd");
         setShowSetupWizard(status.isFirstLaunch && !status.setupCompleted);
         logger.info("Setup status loaded", { isFirstLaunch: status.isFirstLaunch, setupCompleted: status.setupCompleted });
+        
+        // Initialize notifications
+        try {
+          await notificationService.initialize();
+          logger.info("Notification service initialized", { enabled: notificationService.isEnabled() });
+        } catch (notifyError) {
+          logger.warn("Failed to initialize notification service", notifyError);
+        }
       } catch (error) {
         logger.error("Failed to load setup status", error);
       }
@@ -59,8 +68,6 @@ function App() {
 
     loadSetupStatus();
   }, []);
-
-
 
   // Calculate task counts
   const taskCounts = useTaskCounts(appState);
@@ -76,16 +83,32 @@ function App() {
   const handleJumpToContext = useCallback(async (task: Task) => {
     const project = appState.projects[task.projectId];
     if (!project) return;
-
+    
     try {
+      logger.info(`Attempting to jump to project: ${project.name}`);
+      
       await invoke("open_ide_and_terminal", {
         projectPath: project.repoPath,
         ide: project.preferredIde
       });
-    } catch (error) {
-      logger.error("Failed to open IDE and terminal", error);
+      
+      logger.info(`✅ Successfully opened IDE for project: ${project.name}`);
+    } catch (error: any) {
+      const errorMessage = error?.message || error || 'Unknown error';
+      logger.error(`Failed to open IDE and terminal for ${project.name}`, error);
+      
+      try {
+        await notificationService.showNotification({
+          title: "Failed to Open IDE",
+          body: `Could not open ${project.preferredIde || 'IDE'} for ${project.name}: ${errorMessage}`
+        });
+      } catch (notifyError) {
+        console.warn('Failed to show failure notification:', notifyError);
+      }
     }
   }, [appState.projects]);
+
+
 
   // Handle mark task as done (formerly delete task)
   const handleDeleteTask = useCallback(async (taskId: string) => {
@@ -106,6 +129,7 @@ function App() {
       await handleJumpToContext(task);
     }
   }, [appState.tasks, handleJumpToContext]);
+
 
   // Handle show debug for specific task
   const handleShowDebugForTask = useCallback((taskId: string) => {
