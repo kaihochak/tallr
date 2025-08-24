@@ -137,6 +137,7 @@ export class ClaudeStateTracker {
     try {
       await this.client.updateTaskState(this.taskId, newState, details);
     } catch (error) {
+      // Intentionally ignore backend communication errors to prevent CLI disruption
     }
   }
 
@@ -234,7 +235,6 @@ export class ClaudeStateTracker {
           const shouldAcceptIdleTransition = this.shouldAcceptIdleTransition(detection.confidence);
           if (shouldAcceptIdleTransition) {
             await this.changeState(detection.state, recentContext, detection.confidence);
-          } else {
           }
           // Otherwise ignore IDLE transition to maintain active state persistence
         } else {

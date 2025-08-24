@@ -8,7 +8,6 @@ import { MAX_BUFFER_SIZE } from './lib/patterns.js';
 import { debug } from './lib/debug.js';
 import { showLogo } from './logo.js';
 import { execSync } from 'child_process';
-import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
