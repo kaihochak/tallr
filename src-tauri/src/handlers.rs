@@ -83,7 +83,7 @@ pub async fn upsert_task(
         let project_name = req.project.name.clone();
         let notification_data = serde_json::json!({
             "title": format!("{} - {}", project_name, req.task.agent),
-            "body": ""
+            "body": req.task.state
         });
         let _ = app_handle.emit("show-notification", &notification_data);
     }
@@ -140,7 +140,7 @@ pub async fn update_task_state(
         if req.state == "PENDING" || req.state == "ERROR" {
             let notification_data = serde_json::json!({
                 "title": format!("{} - {}", project_name, agent_name),
-                "body": req.details.unwrap_or_default()
+                "body": req.state
             });
             let _ = app_handle.emit("show-notification", &notification_data);
         }
