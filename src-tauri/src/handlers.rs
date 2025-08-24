@@ -1,0 +1,438 @@
+use axum::{
+    extract::State as AxumState,
+    http::{StatusCode, HeaderMap},
+    response::Json,
+};
+use log::{debug, info, warn, error};
+use tauri::{AppHandle, Emitter};
+use crate::types::*;
+use crate::auth::validate_auth_header;
+use crate::state::{APP_STATE, save_app_state};
+use crate::utils::current_timestamp;
+
+/// GET /v1/state - Return current application state
+pub async fn get_state(headers: HeaderMap) -> Result<Json<AppState>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        warn!("Unauthorized access attempt to /v1/state");
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    debug!("Returning app state");
+    let state = APP_STATE.lock().clone();
+    Ok(Json(state))
+}
+
+/// POST /v1/tasks/upsert - Create or update task and project
+pub async fn upsert_task(
+    headers: HeaderMap,
+    AxumState(app_handle): AxumState<AppHandle>,
+    Json(req): Json<UpsertRequest>,
+) -> Result<Json<()>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        warn!("Unauthorized access attempt to /v1/tasks/upsert");
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    
+    info!("Upserting task: {} for project: {}", req.task.id, req.project.name);
+    let mut state = APP_STATE.lock();
+    let now = current_timestamp();
+    
+    // Check if project with same repo_path already exists
+    let project_id = state.projects
+        .iter()
+        .find(|(_, p)| p.repo_path == req.project.repo_path)
+        .map(|(id, _)| id.clone())
+        .unwrap_or_else(|| {
+            // Create new project if not found
+            let new_id = uuid::Uuid::new_v4().to_string();
+            let project = Project {
+                id: new_id.clone(),
+                name: req.project.name.clone(),
+                repo_path: req.project.repo_path.clone(),
+                preferred_ide: req.project.preferred_ide.unwrap_or_else(|| "".to_string()),
+                github_url: req.project.github_url,
+                created_at: now,
+                updated_at: now,
+            };
+            state.projects.insert(new_id.clone(), project);
+            new_id
+        });
+
+    // Create or update task (preserve existing pinned status if task exists)
+    let existing_pinned = state.tasks.get(&req.task.id).map(|t| t.pinned).unwrap_or(false);
+    let task = Task {
+        id: req.task.id.clone(),
+        project_id,
+        agent: req.task.agent.clone(),  // Clone to avoid move
+        title: req.task.title,
+        state: req.task.state.clone(),
+        details: req.task.details.clone(),
+        created_at: now,
+        updated_at: now,
+        pinned: existing_pinned,
+    };
+    state.tasks.insert(req.task.id.clone(), task.clone());
+    state.updated_at = now;
+
+    // Emit event to frontend
+    let _ = app_handle.emit("tasks-updated", &state.clone());
+
+    // Send notification only for PENDING and ERROR states
+    if req.task.state == "PENDING" || req.task.state == "ERROR" {
+        let project_name = req.project.name.clone();
+        let notification_data = serde_json::json!({
+            "title": format!("{} - {}", project_name, req.task.agent),
+            "body": ""
+        });
+        let _ = app_handle.emit("show-notification", &notification_data);
+    }
+    
+    // Update tray menu
+    drop(state); // Release the lock before calling update_tray_menu
+    crate::tray::update_tray_menu(&app_handle);
+
+    // Save state to disk
+    if let Err(e) = save_app_state() {
+        error!("Failed to save app state: {e}");
+    }
+
+    Ok(Json(()))
+}
+
+/// POST /v1/tasks/state - Update task state
+pub async fn update_task_state(
+    headers: HeaderMap,
+    AxumState(app_handle): AxumState<AppHandle>,
+    Json(req): Json<StateUpdateRequest>,
+) -> Result<Json<()>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        warn!("Unauthorized access attempt to /v1/tasks/state");
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    let mut state = APP_STATE.lock();
+    
+    // Check if task exists and collect needed data
+    let (project_name, agent_name) = if let Some(task) = state.tasks.get(&req.task_id) {
+        if let Some(project) = state.projects.get(&task.project_id) {
+            (project.name.clone(), task.agent.clone())
+        } else {
+            warn!("Project not found for task {}", req.task_id);
+            ("Unknown".to_string(), "Unknown".to_string())
+        }
+    } else {
+        warn!("Task not found for state update: {}", req.task_id);
+        return Err(StatusCode::NOT_FOUND);
+    };
+
+    // Update the task state
+    if let Some(task) = state.tasks.get_mut(&req.task_id) {
+        task.state = req.state.clone();
+        task.details = req.details.clone();
+        task.updated_at = current_timestamp();
+        state.updated_at = current_timestamp();
+
+        // Emit event to frontend
+        let _ = app_handle.emit("tasks-updated", &state.clone());
+
+        // Send notification only for PENDING and ERROR states
+        if req.state == "PENDING" || req.state == "ERROR" {
+            let notification_data = serde_json::json!({
+                "title": format!("{} - {}", project_name, agent_name),
+                "body": req.details.unwrap_or_default()
+            });
+            let _ = app_handle.emit("show-notification", &notification_data);
+        }
+    }
+    
+    // Update tray menu
+    drop(state); // Release the lock before calling update_tray_menu
+    crate::tray::update_tray_menu(&app_handle);
+
+    // Save state to disk
+    if let Err(e) = save_app_state() {
+        error!("Failed to save app state: {e}");
+    }
+
+    Ok(Json(()))
+}
+
+/// POST /v1/tasks/details - Update task details
+pub async fn update_task_details(
+    headers: HeaderMap,
+    AxumState(app_handle): AxumState<AppHandle>,
+    Json(req): Json<DetailsUpdateRequest>,
+) -> Result<Json<()>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        warn!("Unauthorized access attempt to /v1/tasks/details");
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    let mut state = APP_STATE.lock();
+    
+    if let Some(task) = state.tasks.get_mut(&req.task_id) {
+        task.details = Some(req.details);
+        task.updated_at = current_timestamp();
+        state.updated_at = current_timestamp();
+
+        // Emit event to frontend
+        let _ = app_handle.emit("tasks-updated", &state.clone());
+        
+        // Save state to disk
+        drop(state); // Release the lock before calling save_app_state
+        if let Err(e) = save_app_state() {
+            error!("Failed to save app state: {e}");
+        }
+    }
+    
+    Ok(Json(()))
+}
+
+/// POST /v1/tasks/done - Mark task as done
+pub async fn mark_task_done(
+    headers: HeaderMap,
+    AxumState(app_handle): AxumState<AppHandle>,
+    Json(req): Json<TaskDoneRequest>,
+) -> Result<Json<()>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        warn!("Unauthorized access attempt to /v1/tasks/done");
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    let mut state = APP_STATE.lock();
+    
+    if let Some(task) = state.tasks.get_mut(&req.task_id) {
+        task.state = "DONE".to_string();
+        task.details = req.details;
+        task.updated_at = current_timestamp();
+        let task_title = task.title.clone();
+        state.updated_at = current_timestamp();
+
+        info!("Marked task as done: {} ({})", task_title, req.task_id);
+
+        // Emit event to frontend
+        let _ = app_handle.emit("tasks-updated", &state.clone());
+        
+        // Update tray menu
+        drop(state); // Release the lock before calling update_tray_menu
+        crate::tray::update_tray_menu(&app_handle);
+
+        // Save state to disk
+        if let Err(e) = save_app_state() {
+            error!("Failed to save app state: {e}");
+        }
+    }
+    
+    Ok(Json(()))
+}
+
+/// DELETE /v1/tasks/:id - Delete task
+pub async fn delete_task(
+    headers: HeaderMap,
+    AxumState(app_handle): AxumState<AppHandle>,
+    Json(req): Json<TaskDeleteRequest>,
+) -> Result<Json<()>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        warn!("Unauthorized access attempt to /v1/tasks/delete");
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    let mut state = APP_STATE.lock();
+    
+    if state.tasks.remove(&req.task_id).is_some() {
+        state.updated_at = current_timestamp();
+        info!("Deleted task: {}", req.task_id);
+
+        // Emit event to frontend
+        let _ = app_handle.emit("tasks-updated", &state.clone());
+        
+        // Update tray menu
+        drop(state); // Release the lock before calling update_tray_menu
+        crate::tray::update_tray_menu(&app_handle);
+
+        // Save state to disk
+        if let Err(e) = save_app_state() {
+            error!("Failed to save app state: {e}");
+        }
+    }
+    
+    Ok(Json(()))
+}
+
+/// POST /v1/tasks/pin - Pin/unpin task
+pub async fn pin_task(
+    headers: HeaderMap,
+    AxumState(app_handle): AxumState<AppHandle>,
+    Json(req): Json<TaskPinRequest>,
+) -> Result<Json<()>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        warn!("Unauthorized access attempt to /v1/tasks/pin");
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    let mut state = APP_STATE.lock();
+    
+    if let Some(task) = state.tasks.get_mut(&req.task_id) {
+        task.pinned = req.pinned;
+        task.updated_at = current_timestamp();
+        let task_title = task.title.clone();
+        state.updated_at = current_timestamp();
+
+        info!("{} task: {} ({})", 
+              if req.pinned { "Pinned" } else { "Unpinned" },
+              task_title, req.task_id);
+
+        // Emit event to frontend
+        let _ = app_handle.emit("tasks-updated", &state.clone());
+        
+        // Save state to disk
+        drop(state); // Release the lock before calling save_app_state
+        if let Err(e) = save_app_state() {
+            error!("Failed to save app state: {e}");
+        }
+    }
+    
+    Ok(Json(()))
+}
+
+/// GET /v1/setup/status - Get setup status
+pub async fn get_setup_status(headers: HeaderMap) -> Result<Json<SetupStatus>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        warn!("Unauthorized access attempt to /v1/setup/status");
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    
+    let is_first_launch = !crate::utils::get_setup_completion_flag();
+    let cli_installed = crate::utils::is_cli_installed();
+    let setup_completed = crate::utils::get_setup_completion_flag();
+    
+    let status = SetupStatus {
+        is_first_launch,
+        cli_installed,
+        setup_completed,
+    };
+    
+    Ok(Json(status))
+}
+
+/// GET /v1/health - Health check endpoint
+pub async fn health_check(headers: HeaderMap) -> Result<Json<serde_json::Value>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        warn!("Unauthorized access attempt to /v1/health");
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    
+    // Update last CLI ping timestamp
+    let current_time = current_timestamp();
+    let mut state = APP_STATE.lock();
+    state.last_cli_ping = Some(current_time);
+    info!("Health check: Updated last_cli_ping to {current_time}");
+    
+    let response = serde_json::json!({
+        "status": "ok",
+        "timestamp": current_time,
+        "tasks": state.tasks.len(),
+        "projects": state.projects.len()
+    });
+    
+    drop(state); // Release lock before saving
+    
+    // Save state to persist CLI ping
+    if let Err(e) = save_app_state() {
+        error!("Failed to save app state after health check: {e}");
+    }
+    
+    Ok(Json(response))
+}
+
+/// GET /v1/debug/patterns/:task_id - Get debug patterns for specific task
+pub async fn get_debug_patterns_for_task(
+    headers: HeaderMap,
+    axum::extract::Path(task_id): axum::extract::Path<String>,
+) -> Result<Json<DebugData>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        warn!("Unauthorized access attempt to /v1/debug/patterns/{task_id}");
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    
+    debug!("Returning debug patterns for task: {task_id}");
+    let state = APP_STATE.lock();
+    
+    match state.debug_data.get(&task_id) {
+        Some(debug_data) => Ok(Json(debug_data.clone())),
+        None => {
+            // Return empty debug data structure
+            let empty_debug = DebugData {
+                cleaned_buffer: String::new(),
+                current_state: "IDLE".to_string(),
+                detection_history: Vec::new(),
+                task_id: task_id.clone(),
+                pattern_tests: None,
+                confidence: None,
+                is_active: None,
+            };
+            Ok(Json(empty_debug))
+        }
+    }
+}
+
+/// GET /v1/debug/patterns - Get most recent debug patterns
+pub async fn get_debug_patterns(_headers: HeaderMap) -> Result<Json<DebugData>, StatusCode> {
+    debug!("Returning most recent debug patterns");
+    let state = APP_STATE.lock();
+    
+    // Find the most recent debug data entry (highest timestamp)
+    let most_recent = state.debug_data
+        .values()
+        .max_by_key(|debug_data| {
+            debug_data.detection_history
+                .iter()
+                .map(|entry| entry.timestamp)
+                .max()
+                .unwrap_or(0)
+        });
+    
+    match most_recent {
+        Some(debug_data) => Ok(Json(debug_data.clone())),
+        None => {
+            // Return empty debug data structure
+            let empty_debug = DebugData {
+                cleaned_buffer: String::new(),
+                current_state: "IDLE".to_string(),
+                detection_history: Vec::new(),
+                task_id: "none".to_string(),
+                pattern_tests: None,
+                confidence: None,
+                is_active: None,
+            };
+            Ok(Json(empty_debug))
+        }
+    }
+}
+
+/// POST /v1/debug/update - Update debug data
+pub async fn update_debug_data(
+    headers: HeaderMap,
+    Json(req): Json<DebugUpdateRequest>,
+) -> Result<Json<()>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        warn!("Unauthorized access attempt to /v1/debug/update");
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    let mut state = APP_STATE.lock();
+    let task_id = req.debug_data.task_id.clone();
+    state.debug_data.insert(task_id, req.debug_data);
+    
+    // Save to disk
+    drop(state); // Release lock before calling save_app_state
+    if let Err(e) = save_app_state() {
+        error!("Failed to save debug data: {e}");
+    }
+    
+    Ok(Json(()))
+}
