@@ -40,6 +40,20 @@ Before you begin, ensure you have the following installed:
 
 ## Development Workflow
 
+### What Updates During Development
+
+| Component | Command | Updates Automatically? |
+|-----------|---------|------------------------|
+| Frontend (React) | `npm run tauri:dev` | ✅ Hot reload |
+| Backend (Rust) | `npm run tauri:dev` | ✅ Auto rebuild |
+| CLI Wrapper (Node.js) | `./tools/tallr` | ✅ Uses local code |
+| CLI Wrapper (Node.js) | `tallr` | ❌ Last prod build |
+
+**Key Points:**
+- Always use `./tools/tallr claude` for testing CLI changes (not `tallr`)
+- Both connect to port 4317 - whichever server is running (dev/prod)
+- Console output in CLI gets overwritten by Claude's UI - check log files instead
+
 ### Making Changes
 
 1. **Create a feature branch** from `main`:
@@ -66,6 +80,17 @@ Before you begin, ensure you have the following installed:
   ./tools/tallr bash ./tools/examples/test-success.sh      # Tests WORKING→DONE
   ```
 
+- **State Detection Reference**: Understanding how states are triggered:
+
+  | System | PENDING | WORKING | IDLE | DONE | ERROR | CANCELLED |
+  |--------|---------|---------|------|------|-------|-----------|
+  | **Claude (patterns)** | `❯ 1.` | `esc to interrupt` | No patterns | Exit code 0 | Exit code ≠ 0 | Ctrl+C |
+  | **Claude (hooks)** | Notification hook | null | Stop hook | Exit code 0 | Exit code ≠ 0 | Ctrl+C |
+  | **Codex** | `▌` | `esc to interrupt` | No patterns | Exit code 0 | Exit code ≠ 0 | Ctrl+C |
+  | **Gemini** | `● 1. Yes` | `esc to cancel` | No patterns | Exit code 0 | Exit code ≠ 0 | Ctrl+C |
+
+  **Detection Priority**: PENDING → WORKING → IDLE (default)
+
 - **Reset Setup Wizard** (complete reset):
    ```bash
    # Remove existing CLI symlink (if it exists)
@@ -89,7 +114,7 @@ Before you begin, ensure you have the following installed:
 - **Enable debug logging**:
   ```bash
   # CLI wrapper verbose output
-  DEBUG=1 tallr claude
+  DEBUG=tallr ./tools/tallr claude
   
   # Rust backend verbose output
   RUST_LOG=debug npm run tauri:dev
@@ -98,6 +123,15 @@ Before you begin, ensure you have the following installed:
 - **Log files** (always created, more verbose with debug flags):
   - Rust backend: `~/Library/Application Support/Tallr/logs/tallr.log`
   - CLI wrapper: `~/Library/Application Support/Tallr/logs/cli-wrapper.log`
+  
+- **Watch logs in real-time** (doesn't interfere with CLI):
+  ```bash
+  # See all logs with formatting
+  tail -f "$HOME/Library/Application Support/Tallr/logs/cli-wrapper.log" | jq '.'
+  
+  # Filter by namespace (e.g., state changes only)
+  tail -f "$HOME/Library/Application Support/Tallr/logs/cli-wrapper.log" | jq 'select(.namespace == "tallr:state")'
+  ```
 
 - **Adding logging to new code**:
   ```typescript

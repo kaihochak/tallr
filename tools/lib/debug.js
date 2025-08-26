@@ -137,6 +137,10 @@ class DebugLogger {
     this.log('tallr:cli', message, data);
   }
 
+  hooks(message, data) {
+    this.log('tallr:hooks', message, data);
+  }
+
   // Error convenience methods
   stateError(message, error) {
     this.error('tallr:state', message, error);
@@ -148,6 +152,10 @@ class DebugLogger {
 
   cliError(message, error) {
     this.error('tallr:cli', message, error);
+  }
+
+  hooksError(message, error) {
+    this.error('tallr:hooks', message, error);
   }
 
   // Warning convenience methods

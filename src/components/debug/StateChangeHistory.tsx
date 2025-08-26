@@ -25,7 +25,7 @@ export function StateChangeHistory({ debugData, onCopy, copiedStates }: StateCha
         <div className="text-center py-12 text-text-secondary">No state changes detected yet</div>
       ) : (
         <Accordion type="single" collapsible className="w-full">
-          {debugData.detectionHistory.map((entry, index) => (
+          {debugData.detectionHistory.slice().reverse().map((entry, index) => (
             <AccordionItem key={index} value={`item-${index}`}>
               <AccordionTrigger className="hover:no-underline">
                 <div className="flex items-center justify-between w-full pr-4">
@@ -37,7 +37,18 @@ export function StateChangeHistory({ debugData, onCopy, copiedStates }: StateCha
                     <span className="text-text-secondary">→</span>
                     <TaskStateBadge state={entry.to} />
                   </div>
-                  <div className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">({entry.confidence})</div>
+                  <div className="flex items-center gap-2">
+                    <div className={`text-xs px-2 py-1 rounded font-medium ${
+                      entry.detectionMethod === 'hooks' 
+                        ? 'bg-green-100 text-green-700' 
+                        : entry.detectionMethod === 'patterns'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {entry.detectionMethod || 'unknown'}
+                    </div>
+                    <div className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">({entry.confidence})</div>
+                  </div>
                 </div>
               </AccordionTrigger>
               <AccordionContent>

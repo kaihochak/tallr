@@ -148,7 +148,8 @@ export class TallrClient {
           id: taskId,
           agent: this.config.agent,
           title: this.config.title,
-          state: 'IDLE'
+          state: 'IDLE',
+          source: 'wrapper'
         }
       });
       // Task created silently
@@ -162,7 +163,7 @@ export class TallrClient {
   /**
    * Update task state
    */
-  async updateTaskState(taskId, state, details) {
+  async updateTaskState(taskId, state, details, options = {}) {
     if (typeof taskId !== 'string' || typeof state !== 'string') {
       throw new Error('Invalid state update parameters');
     }
@@ -170,7 +171,9 @@ export class TallrClient {
     const payload = {
       taskId: taskId,
       state: state,
-      details: details || null
+      details: details || null,
+      detectionMethod: options.detectionMethod || null,
+      source: 'wrapper'
     };
     
     try {
@@ -189,7 +192,8 @@ export class TallrClient {
     try {
       await this.makeRequest('POST', '/v1/tasks/done', {
         taskId: taskId,
-        details: details
+        details: details,
+        source: 'wrapper'
       });
       // Task completed silently
     } catch (error) {

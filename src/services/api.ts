@@ -18,6 +18,7 @@ export interface DebugData {
     to: string;
     details: string;
     confidence: string;
+    detectionMethod?: string;
   }>;
   taskId: string;
 }

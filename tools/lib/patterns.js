@@ -6,7 +6,7 @@
 
 import stripAnsi from 'strip-ansi';
 
-export const MAX_BUFFER_SIZE = 5000;
+export const MAX_BUFFER_SIZE = 10000;
 
 /**
  * Pattern definitions
@@ -111,16 +111,62 @@ export function detectState(agent, line, recentOutput = '') {
     };
   }
   
-  // PRIORITY 3: Default to IDLE if no active patterns found
+  // PRIORITY 3: Enhanced IDLE detection with better confidence assessment
+  const idleConfidence = assessIdleConfidence(cleanLine, recentOutput);
+  
   return {
     state: 'IDLE',
     details: cleanLine,
-    confidence: 'low', // Low confidence for IDLE detection
+    confidence: idleConfidence,
     patternTests
   };
 }
 
-// Back-compat export for existing imports
-export function detectClaudeState(line, recentOutput = '') {
-  return detectState('claude', line, recentOutput);
+/**
+ * Assess confidence level for IDLE state based on completion indicators
+ */
+function assessIdleConfidence(line, recentOutput) {
+  // High-confidence IDLE indicators
+  const completionIndicators = [
+    /^[~/].*\$\s*$/,           // Shell prompt ending with $
+    /^\S+@\S+.*\$\s*$/,       // User@host prompt
+    /^.*%\s*$/,               // Zsh prompt ending with %
+    /Process completed/i,      // Explicit completion messages
+    /Command finished/i,
+    /Done\./,
+    /Success/i,
+    /✓/,                      // Checkmark symbols
+    /^$\s*$/                  // Empty line after processing
+  ];
+  
+  // Check current line for high-confidence indicators
+  if (completionIndicators.some(pattern => pattern.test(line))) {
+    return 'high';
+  }
+  
+  // Medium confidence if recent output suggests completion
+  const recentLines = recentOutput.split('\n').slice(-5);
+  const hasRecentActivity = recentLines.some(recentLine => {
+    const clean = stripAnsi(recentLine).trim();
+    return clean.length > 0 && completionIndicators.some(pattern => pattern.test(clean));
+  });
+  
+  if (hasRecentActivity) {
+    return 'medium';
+  }
+  
+  // Check if recent output is just quiet (no active patterns for a while)
+  const recentActiveLines = recentLines.filter(recentLine => {
+    const clean = stripAnsi(recentLine).trim();
+    return clean.length > 10; // Has substantial content
+  });
+  
+  // If little recent activity, medium confidence for IDLE
+  if (recentActiveLines.length < 2) {
+    return 'medium';
+  }
+  
+  // Default to low confidence
+  return 'low';
 }
+

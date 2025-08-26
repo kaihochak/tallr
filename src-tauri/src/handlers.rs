@@ -71,6 +71,7 @@ pub async fn upsert_task(
         created_at: now,
         updated_at: now,
         pinned: existing_pinned,
+        detection_method: None, // Initial task creation - no detection method yet
     };
     state.tasks.insert(req.task.id.clone(), task.clone());
     state.updated_at = now;
@@ -100,6 +101,12 @@ pub async fn upsert_task(
     Ok(Json(()))
 }
 
+/// Check if hooks are configured by looking for .claude/settings.local.json
+fn has_claude_code_hooks(repo_path: &str) -> bool {
+    let claude_settings_path = std::path::Path::new(repo_path).join(".claude").join("settings.local.json");
+    claude_settings_path.exists()
+}
+
 /// POST /v1/tasks/state - Update task state
 pub async fn update_task_state(
     headers: HeaderMap,
@@ -114,22 +121,43 @@ pub async fn update_task_state(
     let mut state = APP_STATE.lock();
     
     // Check if task exists and collect needed data
-    let (project_name, agent_name) = if let Some(task) = state.tasks.get(&req.task_id) {
+    let (project_name, agent_name, repo_path) = if let Some(task) = state.tasks.get(&req.task_id) {
         if let Some(project) = state.projects.get(&task.project_id) {
-            (project.name.clone(), task.agent.clone())
+            (project.name.clone(), task.agent.clone(), project.repo_path.clone())
         } else {
             warn!("Project not found for task {}", req.task_id);
-            ("Unknown".to_string(), "Unknown".to_string())
+            ("Unknown".to_string(), "Unknown".to_string(), String::new())
         }
     } else {
         warn!("Task not found for state update: {}", req.task_id);
         return Err(StatusCode::NOT_FOUND);
     };
 
+    // Determine detection method based on source and hook configuration
+    let hooks_configured = has_claude_code_hooks(&repo_path);
+    
+    let detection_method = if let Some(ref source) = req.source {
+        match source.as_str() {
+            "hook" => "hooks".to_string(),
+            "wrapper" => "patterns".to_string(),
+            _ => req.detection_method.clone().unwrap_or_else(|| "unknown".to_string())
+        }
+    } else {
+        req.detection_method.clone().unwrap_or_else(|| "unknown".to_string())
+    };
+
+    // Log detection method
+    info!("State update for task {} using {} detection (source: {}): {} -> {}", 
+          req.task_id, detection_method, 
+          req.source.as_deref().unwrap_or("none"),
+          req.state, 
+          req.details.as_deref().unwrap_or("no details"));
+
     // Update the task state
     if let Some(task) = state.tasks.get_mut(&req.task_id) {
         task.state = req.state.clone();
         task.details = req.details.clone();
+        task.detection_method = Some(detection_method);
         task.updated_at = current_timestamp();
         state.updated_at = current_timestamp();
 

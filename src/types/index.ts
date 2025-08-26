@@ -19,6 +19,7 @@ export interface Task {
   updatedAt: number;
   completedAt?: number;
   pinned: boolean;
+  detectionMethod?: string;
 }
 
 export interface AppState {

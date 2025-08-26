@@ -137,6 +137,7 @@ export default function TaskRow({
             {/* Status Badge */}
             <TaskStateBadge state={task.state} />
 
+
             {/* Task Metadata */}
             <TaskMetadata 
               task={task}

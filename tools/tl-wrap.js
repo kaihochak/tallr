@@ -2,7 +2,7 @@
 
 import pty from 'node-pty';
 import { TallrClient } from './lib/http-client.js';
-import { ClaudeStateTracker } from './lib/state-tracker.js';
+import { StateTracker } from './lib/state-tracker.js';
 import { getIdeCommand, promptForIdeCommand } from './lib/settings.js';
 import { MAX_BUFFER_SIZE } from './lib/patterns.js';
 import { debug } from './lib/debug.js';
@@ -122,6 +122,9 @@ const config = {
 
 const taskId = `${config.agent}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+// Set environment variable for hooks
+process.env.TALLR_TASK_ID = taskId;
+
 // Log CLI wrapper startup
 debug.cli('Starting CLI wrapper', {
   taskId,
@@ -134,7 +137,7 @@ debug.cli('Starting CLI wrapper', {
 });
 
 const client = new TallrClient(config);
-const stateTracker = new ClaudeStateTracker(client, taskId, config.agent, true); // Enable debug mode
+const stateTracker = new StateTracker(client, taskId, config.agent, true); // Enable debug mode
 
 // Start health pings IMMEDIATELY - before any other operations
 client.startHealthPings(10000); // Ping every 10 seconds
@@ -160,7 +163,11 @@ async function runWithPTY(command, commandArgs) {
     cols: process.stdout.columns || 80,
     rows: process.stdout.rows || 30,
     cwd: process.cwd(),
-    env: process.env
+    env: { 
+      ...process.env,
+      TALLR_TASK_ID: taskId,  // Ensure task ID is available to child process
+      TALLR_TOKEN: config.token  // Pass auth token to child process for hooks
+    }
   });
 
   // Terminal resize handling
@@ -279,8 +286,6 @@ async function main() {
 
     const [command, ...commandArgs] = args;
     debug.cli('Executing command', { command, args: commandArgs });
-
-    // Health pings already started at file initialization
 
     try {
       await client.createTask(taskId);

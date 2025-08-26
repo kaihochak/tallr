@@ -19,6 +19,7 @@ pub struct TaskIn {
     pub title: String,
     pub state: String,
     pub details: Option<String>,
+    pub source: Option<String>,
 }
 
 // Core domain types
@@ -55,6 +56,7 @@ pub struct Task {
     pub created_at: i64,
     pub updated_at: i64,
     pub pinned: bool,
+    pub detection_method: Option<String>,
 }
 
 // Request/Response types
@@ -71,6 +73,8 @@ pub struct StateUpdateRequest {
     pub task_id: String,
     pub state: String,
     pub details: Option<String>,
+    pub detection_method: Option<String>,
+    pub source: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,6 +89,7 @@ pub struct DetailsUpdateRequest {
 pub struct TaskDoneRequest {
     pub task_id: String,
     pub details: Option<String>,
+    pub source: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

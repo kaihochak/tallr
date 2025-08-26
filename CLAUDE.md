@@ -24,7 +24,9 @@ curl -X POST http://127.0.0.1:4317/v1/tasks/upsert \
   -d '{"project":{"name":"test","repoPath":"'$(pwd)'"},"task":{"id":"test-1","agent":"claude","title":"Test","state":"PENDING"}}'
 
 # Debugging
-DEBUG=1 ./tools/tallr claude   # Verbose CLI output
+DEBUG=tallr ./tools/tallr claude   # Verbose CLI output (console)
+tail -f "$HOME/Library/Application Support/Tallr/logs/cli-wrapper.log" | jq '.'  # Watch logs real-time
+tail -f "$HOME/Library/Application Support/Tallr/logs/cli-wrapper.log" | jq 'select(.namespace == "tallr:state")'  # Filter by namespace
 Cmd+Option+I                    # Open React DevTools
 ```
 
@@ -64,12 +66,18 @@ tools/               # CLI wrapper
 **State Flow**: IDLE → WORKING → PENDING → DONE/ERROR → IDLE
 
 ### State Detection Patterns
-```javascript
-// tools/lib/patterns.js
-PENDING: /❯\s*\d+\.\s+|Approve\?\s*\[y\/N\]|\[y\/n\]/i
-WORKING: /esc to interrupt|working\.\.\./i
-ERROR: /error|failed|exception/i
-```
+
+| System | PENDING | WORKING | IDLE | DONE | ERROR | CANCELLED |
+|--------|---------|---------|------|------|-------|-----------|
+| **Claude (patterns)** | `❯ 1.` | `esc to interrupt` | No patterns | Exit code 0 | Exit code ≠ 0 | Ctrl+C |
+| **Claude (hooks)** | Notification hook | null | Stop hook | Exit code 0 | Exit code ≠ 0 | Ctrl+C |
+| **Codex** | `▌` | `esc to interrupt` | No patterns | Exit code 0 | Exit code ≠ 0 | Ctrl+C |
+| **Gemini** | `● 1. Yes` | `esc to cancel` | No patterns | Exit code 0 | Exit code ≠ 0 | Ctrl+C |
+
+**Claude Detection Method**: Uses hooks (if `.claude/settings.local.json` configured) OR patterns (fallback)
+
+**Priority**: PENDING → WORKING → IDLE (default)
+
 
 ## Code Conventions
 
@@ -136,8 +144,11 @@ Override: `export TL_IDE=cursor`
 ### Logging
 - Logs stored in `~/Library/Application Support/Tallr/logs/`
 - `tallr.log` - Backend operations (HTTP, state changes, errors)
-- `cli-wrapper.log` - CLI monitoring (state detection, API calls)
-- Enable verbose: `DEBUG=1` for CLI, `RUST_LOG=debug` for backend
+- `cli-wrapper.log` - CLI monitoring (state detection, API calls) - Always written as JSON
+- **View logs**: `tail -f "$HOME/Library/Application Support/Tallr/logs/cli-wrapper.log"`
+- **Clear logs**: `> "$HOME/Library/Application Support/Tallr/logs/cli-wrapper.log"`
+- **Enable console output**: `DEBUG=tallr` or `TALLR_DEBUG=true` 
+- **Backend debug**: `RUST_LOG=debug`
 
 ## Development Rules
 

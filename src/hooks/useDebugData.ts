@@ -21,7 +21,7 @@ export function useDebugData(taskId: string | null) {
           data = await ApiService.getDebugData(taskId || undefined);
         } catch (specificError) {
           if (taskId && specificError instanceof Error && specificError.message.includes('404')) {
-            console.log('[DEBUG] Task-specific debug data not found, trying latest...');
+            debug.api('Task-specific debug data not found, trying latest...', { taskId });
             data = await ApiService.getDebugData(undefined);
           } else {
             throw specificError;

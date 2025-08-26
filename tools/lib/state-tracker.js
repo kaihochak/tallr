@@ -1,18 +1,30 @@
 /**
- * Claude State Tracker
+ * State Tracker
  * 
- * Manages Claude CLI state detection and transitions
+ * Manages AI CLI state detection and transitions for multiple agents
  */
 
 import { detectState, MAX_BUFFER_SIZE } from './patterns.js';
+import { hasClaudeCodeHooks } from './hooks-detector.js';
+import { debug } from './debug.js';
 import stripAnsi from 'strip-ansi';
 
-export class ClaudeStateTracker {
+export class StateTracker {
   constructor(client, taskId, agent, enableDebug = false) {
     this.client = client;
     this.taskId = taskId;
     this.agent = (agent && typeof agent === 'string') ? agent.toLowerCase() : 'claude';
     this.enableDebug = enableDebug;
+    
+    // Hook configuration tracking
+    this.hooksAvailable = hasClaudeCodeHooks();
+    
+    // Log hook availability with more detail
+    debug.hooks(`State tracker initialized - hooks ${this.hooksAvailable ? 'configured' : 'not configured'}`, {
+      taskId: this.taskId,
+      agent: this.agent,
+      hooksAvailable: this.hooksAvailable
+    });
     
     // State tracking
     this.currentState = 'IDLE';
@@ -39,13 +51,16 @@ export class ClaudeStateTracker {
   }
 
   /**
-   * Determine if IDLE transition should be accepted based on state persistence
+   * Determine if IDLE transition should be accepted with simplified logic
    */
   shouldAcceptIdleTransition(idleConfidence) {
-    const now = Date.now();
-    
-    // Always accept high-confidence IDLE
+    // Always accept high-confidence IDLE immediately
     if (idleConfidence === 'high') {
+      return true;
+    }
+    
+    // Accept medium-confidence IDLE immediately too (improved from pattern detection)
+    if (idleConfidence === 'medium') {
       return true;
     }
     
@@ -54,20 +69,18 @@ export class ClaudeStateTracker {
       return true;
     }
     
-    // For active states (WORKING/PENDING), require longer persistence time before accepting IDLE
-    const WORKING_PERSISTENCE_TIME = 10000; // 10 seconds after last WORKING pattern
-    const PENDING_PERSISTENCE_TIME = 15000; // 15 seconds after last PENDING pattern
+    // For WORKING/PENDING states with low confidence IDLE, use shorter timeout
+    const now = Date.now();
+    const IDLE_TRANSITION_DELAY = 1500; // 1.5 seconds - much more responsive
     
-    // If in WORKING state, only accept IDLE if enough time has passed since last WORKING detection
     if (this.currentState === 'WORKING') {
       const timeSinceLastWorking = now - this.lastWorkingDetection;
-      return timeSinceLastWorking > WORKING_PERSISTENCE_TIME;
+      return timeSinceLastWorking > IDLE_TRANSITION_DELAY;
     }
     
-    // If in PENDING state, only accept IDLE if enough time has passed since last PENDING detection
     if (this.currentState === 'PENDING') {
       const timeSinceLastPending = now - this.lastPendingDetection;
-      return timeSinceLastPending > PENDING_PERSISTENCE_TIME;
+      return timeSinceLastPending > IDLE_TRANSITION_DELAY;
     }
     
     // Default: accept IDLE transition
@@ -91,8 +104,16 @@ export class ClaudeStateTracker {
   /**
    * Update state with smart cooldowns
    */
-  async changeState(newState, details, confidence = 'medium') {
+  async changeState(newState, details, confidence = 'medium', detectionMethod = 'patterns') {
+    debug.state('changeState called', {
+      from: this.currentState,
+      to: newState,
+      detectionMethod,
+      confidence
+    });
+    
     if (newState === this.currentState) {
+      debug.state('changeState: no change needed', { currentState: this.currentState, newState });
       return;
     }
     
@@ -106,26 +127,40 @@ export class ClaudeStateTracker {
       requiredCooldown = 500; // 0.5 seconds
     } else if (previousState === 'PENDING' || previousState === 'WORKING') {
       // Slower exit from active states
-      requiredCooldown = 3000; // 3 seconds
+      requiredCooldown = 1000; // 1 second
     } else {
       // Regular transitions
       requiredCooldown = 1000; // 1 second
     }
     
     if (timeSinceLastChange < requiredCooldown) {
+      debug.state('changeState: blocked by cooldown', { 
+        timeSinceLastChange, 
+        requiredCooldown,
+        from: previousState,
+        to: newState 
+      });
       return; // Respect cooldown
     }
     
     const now = Date.now();
     
     // Record state change
-    this.stateHistory.push({
+    const stateEntry = {
       from: previousState,
       to: newState,
       timestamp: now,
       duration: now - this.lastStateChange,
       details: details,
-      confidence: confidence
+      confidence: confidence,
+      detectionMethod: detectionMethod
+    };
+    
+    this.stateHistory.push(stateEntry);
+    
+    debug.state('changeState: state change recorded', {
+      entry: stateEntry,
+      historyLength: this.stateHistory.length
     });
     
     // Update current state
@@ -133,7 +168,6 @@ export class ClaudeStateTracker {
     this.lastStateChange = now;
     
     
-    // Update backend
     try {
       await this.client.updateTaskState(this.taskId, newState, details);
     } catch (error) {
@@ -145,6 +179,12 @@ export class ClaudeStateTracker {
    * Main entry point for PTY data - simplified unified processing
    */
   handlePtyData(data) {
+    // Debug output to log file (won't interfere with CLI)
+    debug.state('handlePtyData received', { 
+      length: data.length,
+      preview: data.slice(0, 50).replace(/\n/g, '\\n')
+    });
+
     // 1. Accumulate raw data
     this.rawBuffer += data;
     if (this.rawBuffer.length > MAX_BUFFER_SIZE) {
@@ -160,7 +200,6 @@ export class ClaudeStateTracker {
     // 4. Check for state changes using clean buffer
     this.checkForStateChanges();
   }
-
 
   /**
    * Update real-time displays with debouncing
@@ -193,6 +232,15 @@ export class ClaudeStateTracker {
     }
     
     const lastLine = lines[lines.length - 1];
+    
+    // When hooks are available, we still run pattern detection for debug data
+    // but state transitions should primarily come from hooks (via HTTP calls)
+    if (this.hooksAvailable) {
+      debug.hooks('Processing pattern detection for debug data (hooks active)', {
+        detectionMethod: this.detectionMethod
+      });
+    }
+    
     this.processStateDetection(lastLine);
   }
 
@@ -204,9 +252,20 @@ export class ClaudeStateTracker {
     const trimmed = line.trim();
     if (!trimmed) return;
     
+    debug.state('processStateDetection called', {
+      line: trimmed.substring(0, 100), // First 100 chars
+      agent: this.agent,
+      currentState: this.currentState
+    });
+    
     try {
       // Single detectState call (agent-aware) for both state change and debug
       const detection = detectState(this.agent, trimmed, this.cleanBuffer);
+      
+      debug.state('detectState result', {
+        detection,
+        hasState: !!detection?.state
+      });
       
       // Store debug data from SAME detection call
       if (detection.patternTests) {
@@ -230,16 +289,23 @@ export class ClaudeStateTracker {
       if (detection && detection.state) {
         const recentContext = this.cleanBuffer.split('\n').slice(-5).join('\n') || trimmed;
         
-        // Enhanced IDLE transition logic with state persistence
+        // Streamlined state transition logic
         if (detection.state === 'IDLE') {
-          const shouldAcceptIdleTransition = this.shouldAcceptIdleTransition(detection.confidence);
-          if (shouldAcceptIdleTransition) {
-            await this.changeState(detection.state, recentContext, detection.confidence);
+          const shouldAccept = this.shouldAcceptIdleTransition(detection.confidence);
+          debug.state('IDLE transition decision', {
+            confidence: detection.confidence,
+            currentState: this.currentState,
+            shouldAccept,
+            timeSinceLastWorking: this.currentState === 'WORKING' ? Date.now() - this.lastWorkingDetection : 'N/A',
+            timeSinceLastPending: this.currentState === 'PENDING' ? Date.now() - this.lastPendingDetection : 'N/A'
+          });
+          
+          if (shouldAccept) {
+            await this.changeState(detection.state, recentContext, detection.confidence, 'patterns');
           }
-          // Otherwise ignore IDLE transition to maintain active state persistence
         } else {
           // Always accept non-IDLE state changes (WORKING/PENDING)
-          await this.changeState(detection.state, recentContext, detection.confidence);
+          await this.changeState(detection.state, recentContext, detection.confidence, 'patterns');
         }
       }
     } catch (error) {
@@ -258,7 +324,8 @@ export class ClaudeStateTracker {
         from: entry.from,
         to: entry.to,
         details: entry.details,
-        confidence: entry.confidence
+        confidence: entry.confidence,
+        detectionMethod: entry.detectionMethod
       })),
       taskId: this.taskId,
       patternTests: this.debugData.lastPatternTests,
