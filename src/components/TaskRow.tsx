@@ -177,7 +177,7 @@ export default function TaskRow({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
                   onSelect={() => handleDropdownAction('delete')}
-                  className="text-green-600 focus:text-green-600 cursor-pointer"
+                  className="text-red-600 focus:text-red-600 cursor-pointer"
                 >
                   <Trash2 size={14} className="mr-2" />
                   Mark Done
@@ -221,7 +221,7 @@ export default function TaskRow({
             </Button>
             <Button 
               variant="default" 
-              className="pointer-events-auto cursor-pointer bg-green-600 hover:bg-green-700"
+              className="pointer-events-auto cursor-pointer bg-red-600 hover:bg-red-700 text-white"
               onClick={(e) => {
                 e.stopPropagation();
                 handleConfirmDelete();

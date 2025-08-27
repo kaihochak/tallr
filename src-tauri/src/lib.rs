@@ -6,13 +6,16 @@ mod state;
 mod handlers;
 mod commands;
 mod tray;
+mod toolbar;
 
 use utils::*;
 use state::initialize_app_state;
 use handlers::*;
 use commands::*;
 use tray::setup_tray_icon;
+use toolbar::{setup_unified_toolbar, toolbar_action};
 use log::{info, warn, error};
+use tauri::Manager;
 
 // HTTP server function
 async fn start_http_server(app_handle: tauri::AppHandle) {
@@ -84,6 +87,13 @@ pub fn run() {
             // Initialize tray icon with menu
             setup_tray_icon(app)?;
             
+            // Setup unified toolbar for main window
+            if let Some(window) = app.get_webview_window("main") {
+                if let Err(e) = setup_unified_toolbar(&window) {
+                    warn!("Failed to setup unified toolbar: {e}");
+                }
+            }
+            
             // Start HTTP server in background using Tauri's async runtime
             tauri::async_runtime::spawn(async move {
                 start_http_server(app_handle).await;
@@ -108,7 +118,8 @@ pub fn run() {
             frontend_mark_task_done,
             frontend_delete_task,
             frontend_toggle_task_pin,
-            frontend_get_debug_data
+            frontend_get_debug_data,
+            toolbar_action
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

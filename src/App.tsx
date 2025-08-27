@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-shell";
 import TaskRow from "./components/TaskRow";
 import EmptyState from "./components/EmptyState";
-import Header from "./components/Header";
+import UnifiedToolbar from "./components/UnifiedToolbar";
 import { ProjectFilterPills } from "./components/ProjectFilterPills";
 import { DebugPage } from "./components/DebugPage";
 import { ErrorDisplay } from "./components/debug/ErrorDisplay";
@@ -214,10 +215,35 @@ function App() {
     return <SetupWizard onSetupComplete={handleSetupComplete} />;
   }
 
+  // Collapse window to toolbar height in tally mode
+  useEffect(() => {
+    const applyTallySizing = async () => {
+      const appWindow = getCurrentWindow();
+      try {
+        if (settings.viewMode === 'tally') {
+          const size = await appWindow.outerSize();
+          // store previous size in local state
+          setPrevSize({ width: size.width, height: size.height });
+          await appWindow.setResizable(false);
+          await appWindow.setSize({ width: size.width, height: 44 });
+        } else if (prevSize) {
+          await appWindow.setSize(prevSize);
+          await appWindow.setResizable(true);
+        }
+      } catch (err) {
+        console.warn('Failed to apply tally sizing', err);
+      }
+    };
+    applyTallySizing();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.viewMode]);
+
+  const [prevSize, setPrevSize] = useState<{ width: number; height: number } | null>(null);
+
   return (
     <div className={`${settings.viewMode === 'tally' ? 'h-auto' : 'h-screen'} flex flex-col bg-gradient-to-br from-bg-primary to-bg-secondary animate-fadeIn`}>
-      {/* Header */}
-      <Header
+      {/* Unified Toolbar - positioned absolutely over content */}
+      <UnifiedToolbar
         aggregateState={aggregateState}
         activeTasks={taskCounts.activeTasks}
         doneTasks={taskCounts.doneTasks}
@@ -237,9 +263,9 @@ function App() {
         onShowDebug={handleShowDebugForTask}
       />
 
-      {/* Main Content - Hidden in tally mode */}
+      {/* Main Content - Add padding top for toolbar, Hidden in tally mode */}
       {currentPage === 'tasks' && settings.viewMode !== 'tally' && (
-        <div className="flex-1 overflow-y-auto p-4 bg-bg-primary scrollbar-thin scrollbar-thumb-border-primary scrollbar-track-transparent scrollbar-thumb-rounded-full scrollbar-track-rounded-full hover:scrollbar-thumb-border-secondary">
+        <div className="flex-1 overflow-y-auto p-4 pt-12 bg-bg-primary scrollbar-thin scrollbar-thumb-border-primary scrollbar-track-transparent scrollbar-thumb-rounded-full scrollbar-track-rounded-full hover:scrollbar-thumb-border-secondary">
           {error ? (
             // Connection error display
             <ErrorDisplay error={error} onRetry={retryConnection} />
@@ -307,21 +333,35 @@ function App() {
       {/* Footer - Hidden in tally mode */}
       {settings.viewMode !== 'tally' && (
         <footer className="p-4 bg-bg-primary text-xs text-text-primary flex justify-between items-center">
+          {/* Left cluster: connection, version, tasks toggle */}
           <div className="flex items-center gap-4">
-            <span>v0.1.0</span>
             <CliConnectionStatus />
-            <span className="text-text-secondary">
-              Port: {import.meta.env.VITE_TALLR_PORT || (import.meta.env.DEV ? '4317' : '4317')}
-            </span>
-          </div>
-          <div className="text-right">
-            Built by{" "}
+            <span>v0.1.0</span>
             <button
-              onClick={() => open("https://tallr.dev")}
-              className="hover:text-accent-primary transition-colors cursor-pointer"
+              onClick={() => setShowDoneTasks(prev => !prev)}
+              className="px-2 py-1 rounded bg-bg-tertiary/50 text-text-secondary hover:bg-bg-hover/50 transition-colors cursor-pointer"
+              title={showDoneTasks ? 'Show active tasks' : 'Show completed tasks'}
+              aria-label={showDoneTasks ? 'Show active tasks' : 'Show completed tasks'}
             >
-              Tallr Team
+              {showDoneTasks ? `${taskCounts.doneTasks} done` : `${taskCounts.activeTasks} tasks`}
             </button>
+          </div>
+          {/* Right cluster: DEV badge, built by */}
+          <div className="flex items-center gap-3">
+            {import.meta.env.DEV && (
+              <span className="px-2 py-0.5 font-semibold bg-orange-500/20 text-orange-600 dark:text-orange-400 rounded border border-orange-500/30">
+                DEV
+              </span>
+            )}
+            <div className="text-right">
+              Built by{" "}
+              <button
+                onClick={() => open("https://tallr.dev")}
+                className="hover:text-accent-primary transition-colors cursor-pointer"
+              >
+                Tallr Team
+              </button>
+            </div>
           </div>
         </footer>
       )}

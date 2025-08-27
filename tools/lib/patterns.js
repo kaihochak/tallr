@@ -29,9 +29,15 @@ const CLAUDE_PATTERNS = [
 // Minimal Codex patterns – starting set
 const CODEX_PATTERNS = [
   {
-    pattern: '▌',
-    regex: /▌/,
-    description: 'Codex prompt indicator detection',
+    pattern: 'yes/no',
+    regex: /yes\/no/i,
+    description: 'Codex yes/no prompt detection',
+    expectedState: 'PENDING'
+  },
+  {
+    pattern: '▌ Yes   No',
+    regex: /▌\s+Yes\s+No/i,
+    description: 'Codex Yes/No selection prompt detection',
     expectedState: 'PENDING'
   },
   {

@@ -72,7 +72,7 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
   };
 
   return (
-    <div className="h-screen bg-bg-primary flex flex-col">
+    <div className="h-screen bg-bg-primary flex flex-col pt-11">
       <DebugHeader 
         taskId={taskId}
         debugData={debugData}

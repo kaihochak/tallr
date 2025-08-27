@@ -20,7 +20,14 @@
         "resizable": true,
         "visible": true,
         "alwaysOnTop": true,
-        "visibleOnAllWorkspaces": true
+        "visibleOnAllWorkspaces": true,
+        "titleBarStyle": "Overlay",
+        "decorations": true,
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 19,
+          "y": 18
+        }
       }
     ],
     "security": {

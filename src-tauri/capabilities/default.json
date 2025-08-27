@@ -10,6 +10,11 @@
     "core:window:allow-set-visible-on-all-workspaces",
     "core:window:allow-set-size",
     "core:window:allow-inner-size",
+    "core:window:allow-start-dragging",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-maximize",
+    "core:window:allow-unmaximize",
+    "core:window:allow-is-maximized",
     "opener:default",
     {
       "identifier": "shell:allow-execute",
