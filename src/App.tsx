@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-shell";
 import TaskRow from "./components/TaskRow";
@@ -13,6 +12,7 @@ import { SetupWizard } from "./components/SetupWizard";
 import { useAppState } from "./hooks/useAppState";
 import { useSettings } from "./hooks/useSettings";
 import { useFilteredTasks, useTaskCounts } from "./hooks/useFilteredTasks";
+import { useAdaptiveWindowSize } from "./hooks/useAdaptiveWindowSize";
 import { debug } from "./utils/debug";
 import { logger } from "./utils/logger";
 import { notificationService } from "./services/notificationService";
@@ -207,37 +207,21 @@ function App() {
   }, [appState.tasks]);
 
 
+  // Use adaptive window sizing hook
+  useAdaptiveWindowSize({
+    viewMode: settings.viewMode,
+    taskCount: filteredTasks.length,
+    showDoneTasks,
+    hasError: !!error,
+    isLoading
+  });
+
   if (showSetupWizard) {
     return <SetupWizard onSetupComplete={handleSetupComplete} />;
   }
 
-  // Collapse window to toolbar height in tally mode
-  useEffect(() => {
-    const applyTallySizing = async () => {
-      const appWindow = getCurrentWindow();
-      try {
-        if (settings.viewMode === 'tally') {
-          const size = await appWindow.outerSize();
-          // store previous size in local state
-          setPrevSize({ width: size.width, height: size.height });
-          await appWindow.setResizable(false);
-          await appWindow.setSize({ width: size.width, height: 44, type: 'Physical' } as any);
-        } else if (prevSize) {
-          await appWindow.setSize({ ...prevSize, type: 'Physical' } as any);
-          await appWindow.setResizable(true);
-        }
-      } catch (err) {
-        console.warn('Failed to apply tally sizing', err);
-      }
-    };
-    applyTallySizing();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.viewMode]);
-
-  const [prevSize, setPrevSize] = useState<{ width: number; height: number } | null>(null);
-
   return (
-    <div className={`${settings.viewMode === 'tally' ? 'h-auto' : 'h-screen'} flex flex-col bg-gradient-to-br from-bg-primary to-bg-secondary animate-fadeIn`}>
+    <div className="h-screen flex flex-col bg-gradient-to-br from-bg-primary to-bg-secondary animate-fadeIn">
       {/* Unified Toolbar - positioned absolutely over content */}
       <UnifiedToolbar
         aggregateState={aggregateState}
@@ -248,71 +232,140 @@ function App() {
         notificationsEnabled={settings.notificationsEnabled}
         theme={settings.theme}
         viewMode={settings.viewMode}
-        tasks={filteredTasks}
-        projects={appState.projects}
         onTogglePin={toggleAlwaysOnTop}
         onToggleDoneTasks={() => setShowDoneTasks(prev => !prev)}
         onToggleNotifications={toggleNotifications}
         onToggleTheme={toggleTheme}
         onToggleViewMode={toggleViewMode}
-        onJumpToContext={handleJumpToSpecificTask}
-        onShowDebug={handleShowDebugForTask}
       />
 
-      {/* Main Content - Add padding top for toolbar, Hidden in tally mode */}
-      {currentPage === 'tasks' && settings.viewMode !== 'tally' && (
-        <div className="flex-1 overflow-y-auto p-4 pt-12 bg-bg-primary scrollbar-thin scrollbar-thumb-border-primary scrollbar-track-transparent scrollbar-thumb-rounded-full scrollbar-track-rounded-full hover:scrollbar-thumb-border-secondary">
-          {error ? (
-            // Connection error display
-            <ErrorDisplay error={error} onRetry={retryConnection} />
-          ) : isLoading ? (
-            // Loading skeletons
-            <>
-              <div className="h-20 mb-3 rounded-xl bg-gradient-to-r from-bg-tertiary via-bg-hover to-bg-tertiary bg-[length:2000px_100%] animate-shimmer"></div>
-              <div className="h-20 mb-3 rounded-xl bg-gradient-to-r from-bg-tertiary via-bg-hover to-bg-tertiary bg-[length:2000px_100%] animate-shimmer"></div>
-              <div className="h-20 mb-3 rounded-xl bg-gradient-to-r from-bg-tertiary via-bg-hover to-bg-tertiary bg-[length:2000px_100%] animate-shimmer"></div>
-            </>
-          ) : filteredTasks.length === 0 ? (
-            showDoneTasks ? (
-              <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8 animate-fadeIn">
-                <h3 className="text-2xl font-semibold text-text-primary mb-3 m-0">No completed sessions</h3>
-                <p className="text-text-secondary text-base mb-8 m-0 max-w-[400px]">
-                  Sessions marked as done will appear here
-                </p>
+      {/* Main Content - Add padding top for toolbar */}
+      {currentPage === 'tasks' && (
+        settings.viewMode === 'tally' ? (
+          // Tally view mode - Status indicators in main window
+          <div className="flex-1 flex py-10">
+            {error ? (
+              <ErrorDisplay error={error} onRetry={retryConnection} />
+            ) : isLoading ? (
+              <div className="flex w-full">
+                <div className="flex-1 bg-gradient-to-r from-bg-tertiary via-bg-hover to-bg-tertiary bg-[length:2000px_100%] animate-shimmer"></div>
               </div>
+            ) : filteredTasks.length === 0 ? (
+              <div className="flex-1 bg-bg-tertiary"></div>
             ) : (
-              <EmptyState />
-            )
-          ) : (
-            <div className="flex flex-col">
-              <ProjectFilterPills
-                projects={appState.projects}
-                tasks={appState.tasks}
-                selectedProjectId={selectedProjectId}
-                onSelectProject={setSelectedProjectId}
-                showDoneTasks={showDoneTasks}
-                viewMode={settings.viewMode}
-              />
-              {filteredTasks.map((task) => {
-                const project = appState.projects[task.projectId];
+              // Group tasks by project
+              <div className="flex items-center w-full h-full px-2 gap-2">
+                {(() => {
+                  // Group tasks by project
+                  const tasksByProject = filteredTasks.reduce((acc, task) => {
+                    const projectId = task.projectId;
+                    if (!acc[projectId]) {
+                      acc[projectId] = [];
+                    }
+                    acc[projectId].push(task);
+                    return acc;
+                  }, {} as Record<string, typeof filteredTasks>);
+                  
+                  const projectEntries = Object.entries(tasksByProject);
+                  const hasMultipleProjects = projectEntries.length > 1;
+                  const projectWidth = 100 / projectEntries.length;
+                  
+                  return projectEntries.map(([projectId, projectTasks], projectIndex) => {
+                    const project = appState.projects[projectId];
+                    
+                    return (
+                      <div
+                        key={projectId}
+                        className={`flex flex-col items-center justify-center ${hasMultipleProjects && projectIndex > 0 ? 'border-l border-border-primary/20' : ''}`}
+                        style={{ width: `${projectWidth}%` }}
+                      >
+                        <div className="flex gap-0.5 w-full rounded-md overflow-hidden">
+                          {projectTasks.map((task) => {
+                            const segmentWidth = 100 / projectTasks.length;
+                            
+                            return (
+                              <button
+                                key={task.id}
+                                className={`tally-segment-full tally-segment-${task.state.toLowerCase()} rounded-none
+                                  ${task.pinned ? 'ring-2 ring-teal-500 ring-inset' : ''}`}
+                                style={{ width: `${segmentWidth}%` }}
+                                onClick={(e) => {
+                                  if (e.altKey) {
+                                    handleShowDebugForTask(task.id);
+                                  } else {
+                                    handleJumpToSpecificTask(task.id);
+                                  }
+                                }}
+                                title={`${project?.name || 'Unknown'} - ${task.agent} (${task.state.toLowerCase()})`}
+                              />
+                            );
+                          })}
+                        </div>
+                        <span className="text-[10px] text-text-secondary mt-1 truncate max-w-full">
+                          {project?.name || 'Unknown'}
+                        </span>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            )}
+          </div>
+        ) : (
+          // Normal view modes
+          <div className="flex-1 overflow-y-auto p-4 pt-12 bg-bg-primary scrollbar-thin scrollbar-thumb-border-primary scrollbar-track-transparent scrollbar-thumb-rounded-full scrollbar-track-rounded-full hover:scrollbar-thumb-border-secondary">
+            {error ? (
+              // Connection error display
+              <ErrorDisplay error={error} onRetry={retryConnection} />
+            ) : isLoading ? (
+              // Loading skeletons
+              <>
+                <div className="h-20 mb-3 rounded-xl bg-gradient-to-r from-bg-tertiary via-bg-hover to-bg-tertiary bg-[length:2000px_100%] animate-shimmer"></div>
+                <div className="h-20 mb-3 rounded-xl bg-gradient-to-r from-bg-tertiary via-bg-hover to-bg-tertiary bg-[length:2000px_100%] animate-shimmer"></div>
+                <div className="h-20 mb-3 rounded-xl bg-gradient-to-r from-bg-tertiary via-bg-hover to-bg-tertiary bg-[length:2000px_100%] animate-shimmer"></div>
+              </>
+            ) : filteredTasks.length === 0 ? (
+              showDoneTasks ? (
+                <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8 animate-fadeIn">
+                  <h3 className="text-2xl font-semibold text-text-primary mb-3 m-0">No completed sessions</h3>
+                  <p className="text-text-secondary text-base mb-8 m-0 max-w-[400px]">
+                    Sessions marked as done will appear here
+                  </p>
+                </div>
+              ) : (
+                <EmptyState />
+              )
+            ) : (
+              <div className="flex flex-col">
+                <ProjectFilterPills
+                  projects={appState.projects}
+                  tasks={appState.tasks}
+                  selectedProjectId={selectedProjectId}
+                  onSelectProject={setSelectedProjectId}
+                  showDoneTasks={showDoneTasks}
+                  viewMode={settings.viewMode}
+                />
+                {filteredTasks.map((task) => {
+                  const project = appState.projects[task.projectId];
 
-                return (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    project={project}
-                    viewMode={settings.viewMode}
-                    onDeleteTask={handleDeleteTask}
-                    onJumpToContext={handleJumpToSpecificTask}
-                    onShowDebug={handleShowDebugForTask}
-                    onTogglePin={handleTogglePin}
-                    allTasks={filteredTasks}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </div>
+                  return (
+                    <TaskRow
+                      key={task.id}
+                      task={task}
+                      project={project}
+                      viewMode={settings.viewMode}
+                      onDeleteTask={handleDeleteTask}
+                      onJumpToContext={handleJumpToSpecificTask}
+                      onShowDebug={handleShowDebugForTask}
+                      onTogglePin={handleTogglePin}
+                      allTasks={filteredTasks}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )
       )}
 
       {currentPage === 'debug' && settings.viewMode !== 'tally' && (

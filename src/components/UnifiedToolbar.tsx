@@ -9,9 +9,6 @@ import {
   Square
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Task, Project } from '@/types';
-import { getTaskStateClasses } from '@/lib/sessionHelpers';
-import { cn } from '@/lib/utils';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import React, { useRef } from 'react';
@@ -25,15 +22,11 @@ interface UnifiedToolbarProps {
   notificationsEnabled: boolean;
   theme: 'light' | 'dark';
   viewMode: 'full' | 'simple' | 'tally';
-  tasks?: Task[];
-  projects?: Record<string, Project>;
   onTogglePin: () => void;
   onToggleDoneTasks: () => void; // retained (unused here)
   onToggleNotifications: () => void;
   onToggleTheme: () => void;
   onToggleViewMode: () => void;
-  onJumpToContext?: (taskId: string) => Promise<void>;
-  onShowDebug?: (taskId: string) => void;
 }
 
 export default function UnifiedToolbar({
@@ -45,15 +38,11 @@ export default function UnifiedToolbar({
   notificationsEnabled,
   theme,
   viewMode,
-  tasks = [],
-  projects = {},
   onTogglePin,
   /* unused here: */ onToggleDoneTasks: _onToggleDoneTasks,
   onToggleNotifications,
   onToggleTheme,
-  onToggleViewMode,
-  onJumpToContext,
-  onShowDebug
+  onToggleViewMode
 }: UnifiedToolbarProps) {
   // Handle toolbar action via Tauri command
   const handleTogglePin = async () => {
@@ -162,9 +151,8 @@ export default function UnifiedToolbar({
       >
       {/* Left side - Reserve space for traffic lights via padding-left */}
       <div className="flex items-center gap-0 flex-1">
-        {/* Center/Left content - Only show in non-tally mode */}
-        {viewMode !== 'tally' && (
-          <div className="flex items-center gap-0">
+        {/* Show status indicator and title for all modes */}
+        <div className="flex items-center gap-0">
           <div className={`status-indicator ${aggregateState}`} data-tauri-drag-region></div>
           <div className="flex items-center gap-2 ml-3" data-tauri-drag-region>
             <h1 className={`text-base font-bold bg-gradient-to-r bg-clip-text text-transparent tracking-tight m-0 select-none cursor-default ${
@@ -176,40 +164,7 @@ export default function UnifiedToolbar({
               Tallr
             </h1>
           </div>
-          </div>
-        )}
-
-        {/* Tally mode - Show only task dots */}
-        {viewMode === 'tally' && (
-          <div className="flex flex-wrap gap-1" data-no-drag>
-          {tasks.map((task) => {
-            const project = projects[task.projectId];
-            const stateClasses = getTaskStateClasses(task.state);
-            
-            return (
-              <Button
-                key={task.id}
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "w-6 h-6 rounded-md cursor-pointer transition-all duration-200 hover:scale-105 border-0 p-0",
-                  stateClasses,
-                  task.pinned && "ring-2 ring-teal-500"
-                )}
-                onClick={(e) => {
-                  if (e.altKey && onShowDebug) {
-                    e.preventDefault();
-                    onShowDebug(task.id);
-                  } else if (onJumpToContext) {
-                    onJumpToContext(task.id);
-                  }
-                }}
-                title={`${project?.name || 'Unknown'} - ${task.agent} (${task.state.toLowerCase()})`}
-              />
-            );
-          })}
-          </div>
-        )}
+        </div>
         
         {/* Draggable spacer area between content and buttons */}
         <div className="flex-1 min-w-4" data-tauri-drag-region></div>
@@ -217,37 +172,33 @@ export default function UnifiedToolbar({
       
       {/* Right side controls */}
       <div className="flex items-center gap-2 pr-4" data-no-drag>
-        {/* Hide most controls in tally mode */}
-        {viewMode !== 'tally' && (
-          <>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`w-6 h-6 cursor-pointer transition-all duration-200 hover:scale-105 ${
-                notificationsEnabled
-                  ? 'bg-bg-primary/50 text-text-primary hover:bg-bg-hover/50' 
-                  : 'bg-bg-tertiary/50 text-text-secondary hover:bg-bg-hover/50'
-              }`}
-              onClick={onToggleNotifications}
-              title={notificationsEnabled ? "Disable notifications" : "Enable notifications"}
-              aria-label={notificationsEnabled ? "Disable notifications" : "Enable notifications"}
-            >
-              {notificationsEnabled ? <Bell className="w-3.5 h-3.5" /> : <BellOff className="w-3.5 h-3.5" />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-6 h-6 bg-bg-primary/50 text-text-primary hover:bg-bg-hover/50 hover:scale-105 cursor-pointer transition-all duration-200"
-              onClick={onToggleTheme}
-              title={getThemeTitle()}
-              aria-label={getThemeTitle()}
-            >
-              {getThemeIcon()}
-            </Button>
-          </>
-        )}
+        {/* All controls visible in all modes */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className={`w-6 h-6 cursor-pointer transition-all duration-200 hover:scale-105 ${
+            notificationsEnabled
+              ? 'bg-bg-primary/50 text-text-primary hover:bg-bg-hover/50' 
+              : 'bg-bg-tertiary/50 text-text-secondary hover:bg-bg-hover/50'
+          }`}
+          onClick={onToggleNotifications}
+          title={notificationsEnabled ? "Disable notifications" : "Enable notifications"}
+          aria-label={notificationsEnabled ? "Disable notifications" : "Enable notifications"}
+        >
+          {notificationsEnabled ? <Bell className="w-3.5 h-3.5" /> : <BellOff className="w-3.5 h-3.5" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="w-6 h-6 bg-bg-primary/50 text-text-primary hover:bg-bg-hover/50 hover:scale-105 cursor-pointer transition-all duration-200"
+          onClick={onToggleTheme}
+          title={getThemeTitle()}
+          aria-label={getThemeTitle()}
+        >
+          {getThemeIcon()}
+        </Button>
         
-        {/* View mode toggle - always visible */}
+        {/* View mode toggle */}
         <Button
           variant="ghost"
           size="icon"

@@ -290,6 +290,71 @@
     background: var(--status-idle);
   }
 
+  /* Tally segments - chopped bar indicators */
+  .tally-segment {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    position: relative;
+    transition: all 200ms ease;
+    cursor: pointer;
+    border: none;
+    outline: none;
+    flex-shrink: 0;
+  }
+
+  .tally-segment:hover {
+    filter: brightness(1.15);
+    z-index: 1;
+  }
+
+  .tally-segment:active {
+    transform: scale(0.95);
+  }
+
+  /* Full width tally segments */
+  .tally-segment-full {
+    height: 24px;
+    position: relative;
+    transition: all 200ms ease;
+    cursor: pointer;
+    border: none;
+    outline: none;
+    flex-shrink: 0;
+  }
+
+  .tally-segment-full:hover {
+    filter: brightness(1.15);
+    z-index: 1;
+  }
+
+  .tally-segment-full:active {
+    transform: scale(0.98);
+  }
+
+  .tally-segment-pending {
+    background: var(--status-pending);
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .tally-segment-working {
+    background: var(--status-working);
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .tally-segment-idle {
+    background: var(--status-idle);
+  }
+
+  .tally-segment-completed,
+  .tally-segment-done {
+    background: #22c55e;
+  }
+
+  .tally-segment-error {
+    background: #ef4444;
+  }
+
   .task-state-badge {
     padding: 0.1875rem 0.5rem;
     border-radius: 0.25rem;
