@@ -80,6 +80,20 @@ function App() {
     selectedProjectId 
   });
 
+  // Auto-clear project filter when no tasks match but other active tasks exist
+  useEffect(() => {
+    if (selectedProjectId && filteredTasks.length === 0 && !showDoneTasks) {
+      // Check if there are active tasks in other projects
+      const otherActiveTasks = Object.values(appState.tasks).filter(
+        task => task.state !== "DONE" && task.projectId !== selectedProjectId
+      );
+      
+      if (otherActiveTasks.length > 0) {
+        setSelectedProjectId(null);
+      }
+    }
+  }, [filteredTasks.length, selectedProjectId, showDoneTasks, appState.tasks]);
+
   // Handle jump to context
   const handleJumpToContext = useCallback(async (task: Task) => {
     const project = appState.projects[task.projectId];
