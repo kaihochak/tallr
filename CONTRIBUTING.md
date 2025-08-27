@@ -2,6 +2,8 @@
 
 Thank you for your interest in contributing to Tallr! We welcome contributions from the community and are excited to work with you.
 
+Author note: I'm curious to learn and very open to suggestions about the codebase. Please feel free to propose improvements, point out rough edges, or suggest simpler designs via discussions, issues or PRs.
+
 ## Getting Started
 
 ### Prerequisites

@@ -7,6 +7,8 @@
   [![Rust](https://img.shields.io/badge/Rust-000000?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 </div>
 
+> Author note: I'm curious to learn and open to suggestions on the codebase — please feel free to share feedback, ideas, and improvements via issues or PRs.
+
 ## Overview
 
 Tallr is an open-source tool for tracking and managing AI CLI sessions from a clean desktop dashboard.  
@@ -47,6 +49,12 @@ For full development setup, testing, debugging, and contribution guidelines, see
 - Session dashboard with expandable details  
 - IDE auto-detection (VS Code, Cursor, Zed, JetBrains, Windsurf, etc.)  
 - Always-on-top window and keyboard shortcuts  
+
+## Future Plans
+
+- State detection revamp: move from pattern + hooks to network-based (intercepting API) approach.
+- Improve Gemini and Codex state detection accuracy and robustness.
+- Incorporate user-suggested enhancements that are useful and attainable.
 
 ## Basic Usage
 

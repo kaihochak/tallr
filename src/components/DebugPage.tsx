@@ -19,26 +19,7 @@ export function DebugPage({ taskId, onBack }: DebugPageProps) {
   const [copiedStates, setCopiedStates] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState('state-change');
 
-  // Block access in production
-  if (!import.meta.env.DEV) {
-    return (
-      <div className="h-screen bg-bg-primary flex flex-col items-center justify-center">
-        <div className="text-center space-y-4 p-6">
-          <Bug className="w-16 h-16 text-text-tertiary mx-auto" />
-          <h2 className="text-xl font-semibold text-text-primary">Debug Mode Unavailable</h2>
-          <p className="text-text-secondary max-w-md">
-            The debug feature is only available in development builds for troubleshooting purposes.
-          </p>
-          <button
-            onClick={onBack}
-            className="px-4 py-2 bg-bg-secondary hover:bg-bg-hover text-text-primary rounded-md transition-colors"
-          >
-            Go Back
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Debug mode is now available in production
 
   const copyToClipboard = async (text: string, key: string) => {
     try {

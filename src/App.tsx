@@ -134,10 +134,6 @@ function App() {
 
   // Handle show debug for specific task
   const handleShowDebugForTask = useCallback((taskId: string) => {
-    if (!import.meta.env.DEV) {
-      console.warn('Debug feature is not available in production');
-      return;
-    }
     setDebugTaskId(taskId);
     setCurrentPage('debug');
   }, []);
@@ -181,8 +177,8 @@ function App() {
         toggleAlwaysOnTop();
       }
 
-      // Command+Shift+C to copy debug state to clipboard (dev only)
-      if (import.meta.env.DEV && e.metaKey && e.shiftKey && e.key.toLowerCase() === "c") {
+      // Command+Shift+C to copy debug state to clipboard
+      if (e.metaKey && e.shiftKey && e.key.toLowerCase() === "c") {
         e.preventDefault();
         copyDebugStateToClipboard();
       }
@@ -225,9 +221,9 @@ function App() {
           // store previous size in local state
           setPrevSize({ width: size.width, height: size.height });
           await appWindow.setResizable(false);
-          await appWindow.setSize({ width: size.width, height: 44 });
+          await appWindow.setSize({ width: size.width, height: 44, type: 'Physical' } as any);
         } else if (prevSize) {
-          await appWindow.setSize(prevSize);
+          await appWindow.setSize({ ...prevSize, type: 'Physical' } as any);
           await appWindow.setResizable(true);
         }
       } catch (err) {
