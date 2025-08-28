@@ -519,18 +519,3 @@ pub async fn frontend_get_debug_data(task_id: Option<String>) -> Result<serde_js
     }
 }
 
-/// Get recent backend logs for debugging
-#[tauri::command]
-pub async fn get_recent_logs(_limit: Option<usize>) -> Result<Vec<String>, String> {
-    // For now, return a simple status about the enhanced logging we implemented
-    Ok(vec![
-        "[INFO] Enhanced window jumping diagnostics active".to_string(),
-        format!("[INFO] Current time: {:?}", std::time::SystemTime::now()),
-        "[INFO] Features implemented:".to_string(),
-        "  • User-visible error notifications".to_string(),
-        "  • Automatic retry logic (3 attempts)".to_string(),
-        "  • Backend timing logs".to_string(),
-        "  • CLI binary validation".to_string(),
-        "[INFO] Check browser console for detailed logs".to_string(),
-    ])
-}
