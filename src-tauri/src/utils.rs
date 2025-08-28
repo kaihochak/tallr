@@ -83,3 +83,4 @@ pub fn setup_logging() -> Result<(), String> {
     info!("Logging initialized - log file: {log_file:?}");
     Ok(())
 }
+

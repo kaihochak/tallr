@@ -27,7 +27,7 @@ export function SetupWizard({ onSetupComplete }: SetupWizardProps) {
 
       // Perform installation
       await invoke('install_cli_globally');
-      // Installation complete - go straight to main app
+      // Skip hooks page entirely - go directly to completion
       onSetupComplete();
     } catch (err: unknown) {
       console.error('Installation failed:', err);
@@ -49,6 +49,12 @@ export function SetupWizard({ onSetupComplete }: SetupWizardProps) {
     setTimeout(() => setCopied(false), COPY_TIMEOUT);
   }, []);
 
+
+  const handleContinueToApp = useCallback(() => {
+    // Skip hooks page entirely - go directly to completion
+    onSetupComplete();
+  }, [onSetupComplete]);
+
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-bg-primary to-bg-secondary animate-fadeIn">
       <div className="flex-1 flex items-center justify-center p-6">
@@ -60,81 +66,81 @@ export function SetupWizard({ onSetupComplete }: SetupWizardProps) {
             </p>
           </div>
 
-          <Button
-            onClick={handleInstall}
-            disabled={installing}
-            className="w-full h-12 text-base font-medium"
-            size="lg"
-          >
-            {installing ? (
-              <>
-                <Download className="w-5 h-5 mr-2 animate-spin" /> Installing...
-              </>
-            ) : (
-              <>
-                <Download className="w-5 h-5 mr-2" /> Install CLI Tools
-              </>
-            )}
-          </Button>
+              <Button
+                onClick={handleInstall}
+                disabled={installing}
+                className="w-full h-12 text-base font-medium"
+                size="lg"
+              >
+                {installing ? (
+                  <>
+                    <Download className="w-5 h-5 mr-2 animate-spin" /> Installing...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-5 h-5 mr-2" /> Install CLI Tools
+                  </>
+                )}
+              </Button>
 
-          {setupError && (
-            <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-              <div className="flex items-center gap-2 mb-2 text-destructive">
-                <AlertCircle size={16} />
-                <strong>Installation failed:</strong>
-              </div>
-              <p className="text-destructive text-sm mb-2">{setupError}</p>
-              {showManualInstructions && (
-                <p className="text-destructive text-sm">Please try the manual installation method below.</p>
+              {setupError && (
+                <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2 text-destructive">
+                    <AlertCircle size={16} />
+                    <strong>Installation failed:</strong>
+                  </div>
+                  <p className="text-destructive text-sm mb-2">{setupError}</p>
+                  {showManualInstructions && (
+                    <p className="text-destructive text-sm">Please try the manual installation method below.</p>
+                  )}
+                </div>
               )}
-            </div>
-          )}
 
-          <div className="flex justify-center">
-            <Button
-              variant="outline"
-              onClick={() => setShowManualInstructions(!showManualInstructions)}
-              className="text-sm"
-            >
-              {showManualInstructions ? 'Hide' : 'Manual installation'}
-            </Button>
-          </div>
-
-          {/* Manual installation instructions */}
-          {showManualInstructions && (
-            <div className="space-y-4 p-4 bg-bg-secondary border border-border-primary rounded-lg">
-              <div className="flex items-center gap-2">
-                <Terminal size={18} className="text-text-primary" />
-                <h4 className="font-semibold text-text-primary">Manual Installation</h4>
-              </div>
-              <p className="text-sm text-text-secondary">Run this command in Terminal:</p>
-              <div className="relative">
-                <code className="block p-3 bg-bg-tertiary border border-border-secondary rounded-lg text-sm font-mono text-text-primary pr-12 whitespace-pre-wrap">
-                  sudo ln -s /Applications/Tallr.app/Contents/MacOS/tallr /usr/local/bin/tallr
-                </code>
+              <div className="flex justify-center">
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleCopyCommand}
-                  className="absolute top-2 right-2 h-8 w-8 text-text-secondary hover:text-text-primary"
-                  title="Copy to clipboard"
-                >
-                  {copied ? <Check size={16} /> : <Copy size={16} />}
-                </Button>
-              </div>
-              <p className="text-xs text-text-tertiary">
-                You'll be prompted for your password to create the symlink.
-              </p>
-              <div className="flex justify-center pt-2">
-                <Button
-                  onClick={onSetupComplete}
+                  variant="outline"
+                  onClick={() => setShowManualInstructions(!showManualInstructions)}
                   className="text-sm"
                 >
-                  Continue to App
+                  {showManualInstructions ? 'Hide' : 'Manual installation'}
                 </Button>
               </div>
-            </div>
-          )}
+
+              {/* Manual installation instructions */}
+              {showManualInstructions && (
+                <div className="space-y-4 p-4 bg-bg-secondary border border-border-primary rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Terminal size={18} className="text-text-primary" />
+                    <h4 className="font-semibold text-text-primary">Manual Installation</h4>
+                  </div>
+                  <p className="text-sm text-text-secondary">Run this command in Terminal:</p>
+                  <div className="relative">
+                    <code className="block p-3 bg-bg-tertiary border border-border-secondary rounded-lg text-sm font-mono text-text-primary pr-12 whitespace-pre-wrap">
+                      sudo ln -s /Applications/Tallr.app/Contents/Resources/_up_/tools/tallr /usr/local/bin/tallr
+                    </code>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleCopyCommand}
+                      className="absolute top-2 right-2 h-8 w-8 text-text-secondary hover:text-text-primary"
+                      title="Copy to clipboard"
+                    >
+                      {copied ? <Check size={16} /> : <Copy size={16} />}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-text-tertiary">
+                    You'll be prompted for your password to create the symlink.
+                  </p>
+                  <div className="flex justify-center pt-2">
+                    <Button
+                      onClick={handleContinueToApp}
+                      className="text-sm"
+                    >
+                      Continue to App
+                    </Button>
+                  </div>
+                </div>
+              )}
         </div>
       </div>
     </div>

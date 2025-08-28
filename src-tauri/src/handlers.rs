@@ -134,7 +134,7 @@ pub async fn update_task_state(
     };
 
     // Determine detection method based on source and hook configuration
-    let hooks_configured = has_claude_code_hooks(&repo_path);
+    let _hooks_configured = has_claude_code_hooks(&repo_path);
     
     let detection_method = if let Some(ref source) = req.source {
         match source.as_str() {
@@ -335,10 +335,10 @@ pub async fn get_setup_status(headers: HeaderMap) -> Result<Json<SetupStatus>, S
     let is_first_launch = !crate::utils::get_setup_completion_flag();
     let cli_installed = crate::utils::is_cli_installed();
     let setup_completed = crate::utils::get_setup_completion_flag();
-    
+        
     let status = SetupStatus {
         is_first_launch,
-        cli_installed,
+        cli_installed,      
         setup_completed,
     };
     

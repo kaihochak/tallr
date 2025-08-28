@@ -9,6 +9,7 @@ import { DebugPage } from "./components/DebugPage";
 import { ErrorDisplay } from "./components/debug/ErrorDisplay";
 import { CliConnectionStatus } from "./components/CliConnectionStatus";
 import { SetupWizard } from "./components/SetupWizard";
+import { HooksTip } from "./components/HooksTip";
 import { useAppState } from "./hooks/useAppState";
 import { useSettings } from "./hooks/useSettings";
 import { useFilteredTasks, useTaskCounts } from "./hooks/useFilteredTasks";
@@ -45,6 +46,7 @@ function App() {
   const [debugTaskId, setDebugTaskId] = useState<string | null>(null);
   const [showDoneTasks, setShowDoneTasks] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [showHooksTip, setShowHooksTip] = useState(false);
 
   // Load setup status
   useEffect(() => {
@@ -53,6 +55,12 @@ function App() {
         logger.info("Loading setup status");
         const status = await invoke<SetupStatus>("get_setup_status_cmd");
         setShowSetupWizard(status.isFirstLaunch && !status.setupCompleted);
+        
+        // Show hooks tip if setup just completed and user hasn't dismissed it
+        if (status.setupCompleted && !localStorage.getItem('tallr-hooks-tip-dismissed')) {
+          setShowHooksTip(true);
+        }
+        
         logger.info("Setup status loaded", { isFirstLaunch: status.isFirstLaunch, setupCompleted: status.setupCompleted });
         
         // Initialize notifications
@@ -212,6 +220,12 @@ function App() {
     }
   }, []);
 
+  // Handle dismissing hooks tip
+  const handleDismissHooksTip = useCallback(() => {
+    localStorage.setItem('tallr-hooks-tip-dismissed', 'true');
+    setShowHooksTip(false);
+  }, []);
+
   // Get aggregate state for tray color
   const aggregateState = useMemo(() => {
     const states = Object.values(appState.tasks).map(t => t.state);
@@ -359,6 +373,9 @@ function App() {
                   showDoneTasks={showDoneTasks}
                   viewMode={settings.viewMode}
                 />
+                {showHooksTip && (
+                  <HooksTip onDismiss={handleDismissHooksTip} />
+                )}
                 {filteredTasks.map((task) => {
                   const project = appState.projects[task.projectId];
 

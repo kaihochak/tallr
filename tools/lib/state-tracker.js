@@ -5,7 +5,6 @@
  */
 
 import { detectState, MAX_BUFFER_SIZE } from './patterns.js';
-import { hasClaudeCodeHooks } from './hooks-detector.js';
 import { debug } from './debug.js';
 import stripAnsi from 'strip-ansi';
 
@@ -16,14 +15,12 @@ export class StateTracker {
     this.agent = (agent && typeof agent === 'string') ? agent.toLowerCase() : 'claude';
     this.enableDebug = enableDebug;
     
-    // Hook configuration tracking
-    this.hooksAvailable = hasClaudeCodeHooks();
+    // Always use pattern-based detection (hooks removed for simplicity)
+    this.hooksAvailable = false;
     
-    // Log hook availability with more detail
-    debug.hooks(`State tracker initialized - hooks ${this.hooksAvailable ? 'configured' : 'not configured'}`, {
+    debug.hooks('State tracker initialized - using pattern-based detection', {
       taskId: this.taskId,
-      agent: this.agent,
-      hooksAvailable: this.hooksAvailable
+      agent: this.agent
     });
     
     // State tracking

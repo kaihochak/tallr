@@ -47,4 +47,4 @@ export const AGENT_OPTIONS = [
 /**
  * Manual installation command for setup wizard
  */
-export const SYMLINK_COMMAND = 'sudo ln -s /Applications/Tallr.app/Contents/MacOS/tallr /usr/local/bin/tallr';
+export const SYMLINK_COMMAND = 'sudo ln -s /Applications/Tallr.app/Contents/Resources/_up_/tools/tallr /usr/local/bin/tallr';
