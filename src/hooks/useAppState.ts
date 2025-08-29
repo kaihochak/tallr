@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { AppState } from '@/types';
 import { ApiService, logApiError } from '@/services/api';
 import { notificationService } from '@/services/notificationService';
-import { getErrorMessage, getRetryErrorMessage, logError } from '@/utils/errorUtils';
+import { getErrorMessage, logError } from '@/utils/errorUtils';
 
 export function useAppState() {
   const [appState, setAppState] = useState<AppState>({ 
@@ -145,7 +145,7 @@ export function useAppState() {
       logApiError('/v1/state', apiError);
       logError('useAppState.retryConnection', apiError);
       
-      const errorMessage = getRetryErrorMessage(apiError);
+      const errorMessage = getErrorMessage(apiError, undefined, true);
       setError(errorMessage);
       setIsLoading(false);
     }

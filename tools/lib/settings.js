@@ -102,7 +102,7 @@ function promptForIdeCommand(appName) {
   console.log('You can also:');
   console.log('1. Set TL_IDE environment variable: export TL_IDE=your-command');
   console.log('2. Edit ~/.tallr/settings.json manually');
-  console.log('3. Report this IDE at: https://github.com/anthropics/tallr/issues');
+  console.log('3. Report this IDE at: https://github.com/kaihochak/tallr/issues');
   console.log('');
   
   // For now, we'll just return a guessed command

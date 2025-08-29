@@ -38,14 +38,6 @@ export function getErrorMessage(error: Error | string, context?: string, isRetry
 }
 
 /**
- * Maps retry-specific errors to user-friendly messages
- * @deprecated Use getErrorMessage(error, context, true) instead
- */
-export function getRetryErrorMessage(error: Error | string): string {
-  return getErrorMessage(error, undefined, true);
-}
-
-/**
  * Standardized error logging
  */
 export function logError(context: string, error: Error | string, details?: any) {
