@@ -4,6 +4,9 @@ use once_cell::sync::Lazy;
 use axum::http::HeaderMap;
 use crate::utils::get_app_data_dir;
 
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+
 // Global authentication token (loaded once at startup)
 pub static AUTH_TOKEN: Lazy<Arc<Mutex<Option<String>>>> = Lazy::new(|| Arc::new(Mutex::new(None)));
 
@@ -52,9 +55,17 @@ pub fn get_or_create_auth_token() -> Result<String, String> {
             .map_err(|e| format!("Failed to create auth token directory: {e}"))?;
     }
     
-    // Write token to file
+    // Write token to file with restricted permissions
     fs::write(&token_file, &new_token)
         .map_err(|e| format!("Failed to write auth token file: {e}"))?;
+    
+    // Set restrictive permissions (0600 - owner read/write only) on Unix systems
+    #[cfg(unix)]
+    {
+        let permissions = fs::Permissions::from_mode(0o600);
+        fs::set_permissions(&token_file, permissions)
+            .map_err(|e| format!("Failed to set auth token file permissions: {e}"))?;
+    }
     
     AUTH_TOKEN.lock().replace(new_token.clone());
     Ok(new_token)

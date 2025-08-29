@@ -3,6 +3,9 @@ name = "tallr"
 version = "0.1.0"
 description = "Tallr - AI Agent Monitor"
 authors = ["Tallr Team"]
+license = "MIT"
+repository = "https://github.com/kaihochak/tallr"
+homepage = "https://github.com/kaihochak/tallr"
 edition = "2021"
 
 [lib]

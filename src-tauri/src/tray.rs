@@ -107,7 +107,10 @@ fn handle_tray_menu_event(app_handle: &AppHandle, menu_id: &str) {
         }
         id if id.starts_with("session_") => {
             // Handle session click - extract task ID and open IDE
-            let task_id = id.strip_prefix("session_").expect("ID should have session_ prefix");
+            let Some(task_id) = id.strip_prefix("session_") else {
+                log::error!("Invalid session ID format: {}", id);
+                return;
+            };
             
             let state = APP_STATE.lock();
             if let Some(task) = state.tasks.get(task_id) {
@@ -160,8 +163,20 @@ fn load_tray_icon(state: &str) -> tauri::image::Image<'static> {
         _ => TRAY_ICON_DEFAULT,
     };
     
-    // Create image from bytes
-    let image = image::load_from_memory(icon_bytes).expect("Failed to load tray icon");
+    // Create image from bytes, with fallback to default icon
+    let image = match image::load_from_memory(icon_bytes) {
+        Ok(img) => img,
+        Err(e) => {
+            log::error!("Failed to load {} tray icon: {}, falling back to default", state, e);
+            image::load_from_memory(TRAY_ICON_DEFAULT)
+                .unwrap_or_else(|fallback_err| {
+                    log::error!("Failed to load default tray icon: {}", fallback_err);
+                    // Create a minimal 16x16 black image as last resort
+                    image::DynamicImage::new_rgba8(16, 16)
+                })
+        }
+    };
+    
     let rgba = image.to_rgba8();
     let (width, height) = image.dimensions();
     

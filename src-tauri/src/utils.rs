@@ -6,8 +6,12 @@ use chrono::Local;
 pub fn current_timestamp() -> i64 {
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
-        .expect("System time should be after Unix epoch")
-        .as_secs() as i64
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or_else(|_| {
+            // Fallback to 0 if system time is before Unix epoch (very unlikely)
+            log::warn!("System time is before Unix epoch, using 0 as timestamp");
+            0
+        })
 }
 
 /// Get application data directory for macOS

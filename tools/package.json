@@ -1,6 +1,7 @@
 {
   "name": "tallr-tools",
   "version": "0.1.0",
+  "license": "MIT",
   "type": "module",
   "dependencies": {
     "node-pty": "^1.0.0",
