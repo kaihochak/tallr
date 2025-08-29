@@ -40,7 +40,6 @@ We take the security of Tallr seriously. If you believe you have found a securit
 - Cannot be accessed from external networks
 - **Requires** bearer token authentication for all API requests
 - All endpoints return 401 Unauthorized without valid token
-- CORS restricted to specific origins (Tauri app + dev server)
 
 ### Environment Variables
 Authentication token hierarchy (in order of priority):

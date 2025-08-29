@@ -1,50 +1,55 @@
-mod types;
-mod constants;
-mod utils;
 mod auth;
-mod state;
-mod handlers;
 mod commands;
-mod tray;
+mod constants;
+mod handlers;
+mod state;
 mod toolbar;
+mod tray;
+mod types;
+mod utils;
 
-use utils::*;
-use state::initialize_app_state;
-use handlers::*;
 use commands::*;
-use tray::setup_tray_icon;
-use toolbar::{setup_unified_toolbar, toolbar_action};
-use log::{info, warn, error};
+use handlers::*;
+use log::{error, info, warn};
+use state::initialize_app_state;
 use tauri::Manager;
+use toolbar::{setup_unified_toolbar, toolbar_action};
+use tray::setup_tray_icon;
+use utils::*;
 
 // HTTP server function
 async fn start_http_server(app_handle: tauri::AppHandle) {
     use axum::Router;
     use tokio::net::TcpListener;
-    use tower_http::cors::CorsLayer;
-    
-    let cors = CorsLayer::new()
-        .allow_origin(tower_http::cors::Any)
-        .allow_methods([axum::http::Method::GET, axum::http::Method::POST])
-        .allow_headers([
-            axum::http::header::CONTENT_TYPE,
-            axum::http::header::AUTHORIZATION,
-        ]);
+
+    // No CORS configuration necessary: only non-browser clients (Node CLI) call this server.
+    // let cors = CorsLayer::new()
+    //     .allow_origin(tower_http::cors::Any)
+    //     .allow_methods([axum::http::Method::GET, axum::http::Method::POST])
+    //     .allow_headers([
+    //         axum::http::header::CONTENT_TYPE,
+    //         axum::http::header::AUTHORIZATION,
+    //     ]);
 
     let app = Router::new()
         .route("/v1/state", axum::routing::get(get_state))
         .route("/v1/tasks/upsert", axum::routing::post(upsert_task))
         .route("/v1/tasks/state", axum::routing::post(update_task_state))
-        .route("/v1/tasks/details", axum::routing::post(update_task_details))
+        .route(
+            "/v1/tasks/details",
+            axum::routing::post(update_task_details),
+        )
         .route("/v1/tasks/done", axum::routing::post(mark_task_done))
         .route("/v1/tasks/delete", axum::routing::post(delete_task))
         .route("/v1/tasks/pin", axum::routing::post(pin_task))
         .route("/v1/setup/status", axum::routing::get(get_setup_status))
         .route("/v1/health", axum::routing::get(health_check))
         .route("/v1/debug/patterns", axum::routing::get(get_debug_patterns))
-        .route("/v1/debug/patterns/{task_id}", axum::routing::get(get_debug_patterns_for_task))
+        .route(
+            "/v1/debug/patterns/{task_id}",
+            axum::routing::get(get_debug_patterns_for_task),
+        )
         .route("/v1/debug/update", axum::routing::post(update_debug_data))
-        .layer(cors)
         .with_state(app_handle);
 
     let listener = match TcpListener::bind("127.0.0.1:4317").await {
@@ -71,34 +76,34 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let app_handle = app.handle().clone();
-            
+
             // Initialize logging
             if let Err(e) = setup_logging() {
                 eprintln!("Failed to setup logging: {e}");
             }
-            
+
             info!("Tallr application starting up");
-            
+
             // Initialize app state from disk
             if let Err(e) = initialize_app_state() {
                 warn!("Failed to initialize app state: {e}");
             }
-            
+
             // Initialize tray icon with menu
             setup_tray_icon(app)?;
-            
+
             // Setup unified toolbar for main window
             if let Some(window) = app.get_webview_window("main") {
                 if let Err(e) = setup_unified_toolbar(&window) {
                     warn!("Failed to setup unified toolbar: {e}");
                 }
             }
-            
+
             // Start HTTP server in background using Tauri's async runtime
             tauri::async_runtime::spawn(async move {
                 start_http_server(app_handle).await;
             });
-            
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
