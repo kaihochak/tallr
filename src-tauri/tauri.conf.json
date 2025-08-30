@@ -45,7 +45,11 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "../tools"
+      "../tools",
+      "../node_modules/node-pty",
+      "../node_modules/split2", 
+      "../node_modules/strip-ansi",
+      "../node_modules/ansi-regex"
     ]
   },
   "plugins": {

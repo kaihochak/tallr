@@ -93,7 +93,7 @@ Before you begin, ensure you have the following installed:
 
   **Detection Priority**: PENDING → WORKING → IDLE (default)
 
-- **Reset Setup Wizard** (complete reset):
+- **Reset Setup** (complete reset):
    ```bash
    # Remove existing CLI symlink (if it exists)
    sudo rm -f /usr/local/bin/tallr

@@ -189,33 +189,34 @@ pub async fn install_cli_globally(app: AppHandle) -> Result<(), String> {
         debug!("Development CLI path: {dev_path:?}");
         dev_path
     } else {
-        // In production, the binary is in the MacOS directory, not Resources
+        // In production, the CLI binary is in Resources/_up_/tools/
         let resource_path = app.path().resource_dir()
             .map_err(|e| format!("Failed to get resource path: {e}"))?;
         
         debug!("Resource directory: {resource_path:?}");
         
-        // The correct path for production builds: Contents/MacOS/tallr
-        let macos_path = resource_path
-            .parent()  // Contents
-            .ok_or("Failed to get Contents directory")?
-            .join("MacOS")
-            .join("tallr");
+        // The correct path for production builds: Resources/_up_/tools/tallr
+        let tools_path = resource_path.join("_up_").join("tools").join("tallr");
         
-        debug!("Checking MacOS directory path: {:?} (exists: {})", macos_path, macos_path.exists());
+        debug!("Checking tools directory path: {:?} (exists: {})", tools_path, tools_path.exists());
         
-        if macos_path.exists() {
-            debug!("Found CLI binary in MacOS directory");
-            macos_path
+        if tools_path.exists() {
+            debug!("Found CLI binary in tools directory");
+            tools_path
         } else {
-            // Fallback: try resource-based paths for alternative build configurations
+            // Fallback: try alternative paths for different build configurations
             let possible_paths = vec![
-                resource_path.join("_up_").join("tools").join("tallr"), // Legacy location
-                resource_path.join("tools").join("tallr"),              // Alternative location
+                resource_path.join("tools").join("tallr"),              // Direct tools location
                 resource_path.join("tallr"),                            // Root of resources
+                // MacOS directory as last resort (legacy behavior)
+                resource_path
+                    .parent()
+                    .ok_or("Failed to get Contents directory")?
+                    .join("MacOS")
+                    .join("tallr"),
             ];
             
-            debug!("MacOS path not found, trying fallback paths:");
+            debug!("Tools path not found, trying fallback paths:");
             for path in &possible_paths {
                 debug!("  - {:?} (exists: {})", path, path.exists());
             }
@@ -224,9 +225,9 @@ pub async fn install_cli_globally(app: AppHandle) -> Result<(), String> {
             possible_paths.into_iter()
                 .find(|path| path.exists())
                 .unwrap_or_else(|| {
-                    // If none found, return the MacOS path for better error messages
+                    // If none found, return the tools path for better error messages
                     warn!("CLI binary not found in any expected location");
-                    macos_path
+                    tools_path
                 })
         }
     };
