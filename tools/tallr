@@ -37,7 +37,7 @@ if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
   console.log('  TL_IDE         - Preferred IDE (cursor, vscode)');
   console.log('');
   console.log('The Tallr app must be running to see tracked sessions.');
-  process.exit(1);
+  process.exit(0);
 }
 
 // Set default environment variables if not provided
