@@ -108,7 +108,7 @@ fn handle_tray_menu_event(app_handle: &AppHandle, menu_id: &str) {
         id if id.starts_with("session_") => {
             // Handle session click - extract task ID and open IDE
             let Some(task_id) = id.strip_prefix("session_") else {
-                log::error!("Invalid session ID format: {}", id);
+                log::error!("Invalid session ID format: {id}");
                 return;
             };
             
@@ -126,14 +126,14 @@ fn handle_tray_menu_event(app_handle: &AppHandle, menu_id: &str) {
                     tauri::async_runtime::spawn(async move {
                         match open_ide_and_terminal(app_handle_clone, project_path, preferred_ide).await {
                             Ok(()) => {
-                                log::info!("Successfully opened IDE for project: {}", project_name);
+                                log::info!("Successfully opened IDE for project: {project_name}");
                             }
                             Err(e) => {
-                                log::error!("Failed to open IDE for project '{}': {}", project_name, e);
+                                log::error!("Failed to open IDE for project '{project_name}': {e}");
                                 
                                 // Show system notification about the failure
                                 let notification_title = "Failed to Open IDE".to_string();
-                                let notification_body = format!("Could not open IDE for project '{}': {}", project_name, e);
+                                let notification_body = format!("Could not open IDE for project '{project_name}': {e}");
                                 
                                 tauri::async_runtime::spawn(async move {
                                     if let Err(notify_error) = crate::commands::send_notification(
@@ -141,7 +141,7 @@ fn handle_tray_menu_event(app_handle: &AppHandle, menu_id: &str) {
                                         notification_title, 
                                         notification_body
                                     ).await {
-                                        log::warn!("Failed to show failure notification: {}", notify_error);
+                                        log::warn!("Failed to show failure notification: {notify_error}");
                                     }
                                 });
                             }
@@ -167,10 +167,10 @@ fn load_tray_icon(state: &str) -> tauri::image::Image<'static> {
     let image = match image::load_from_memory(icon_bytes) {
         Ok(img) => img,
         Err(e) => {
-            log::error!("Failed to load {} tray icon: {}, falling back to default", state, e);
+            log::error!("Failed to load {state} tray icon: {e}, falling back to default");
             image::load_from_memory(TRAY_ICON_DEFAULT)
                 .unwrap_or_else(|fallback_err| {
-                    log::error!("Failed to load default tray icon: {}", fallback_err);
+                    log::error!("Failed to load default tray icon: {fallback_err}");
                     // Create a minimal 16x16 black image as last resort
                     image::DynamicImage::new_rgba8(16, 16)
                 })
