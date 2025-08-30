@@ -1,5 +1,5 @@
 <div align="center" >
-  <img src="public/tallr.svg" alt="Tallr Logo" width="350" style="margin-bottom: 20px;">
+  <img src="public/tallr.svg" alt="Tallr Logo" width="350" style="margin-bottom: 40px;">
 
   [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
   [![Tauri](https://img.shields.io/badge/Tauri-24C8D8?style=flat-square&logo=tauri&logoColor=fff)](https://tauri.app/)
