@@ -18,20 +18,23 @@ Tallr is a desktop dashboard for monitoring AI CLI sessions (Claude, Gemini, Cod
 > **Author's Note:** This started as a personal tool and learning experience. I'm constantly working to improve it, especially the state detection which I know is buggy (particularly for Codex and Gemini).
 My next goal is migrating from pattern recognition to a network-based approach for more accurate state tracking. If you find this useful, I'd love your feedback and patience as we make it better together.
 
-## Install (Users)
+## Installation
 
-Download the latest macOS build from the **Releases** page:
+### Option 1: Download Release
 
 ➡️ https://github.com/kaihochak/tallr/releases
 
-Steps:
-1. Download the latest `.dmg`.
-2. Drag **Tallr.app** to Applications.
-3. Open Tallr.
+1. Download the latest `.dmg`
+2. Open DMG and drag Tallr.app to Applications
+3. **Remove quarantine** (required until app is notarized):
+   ```bash
+   xattr -cr /Applications/Tallr.app
+   ```
+4. Open Tallr normally
 
-First run on macOS: if you see a Gatekeeper warning, right-click **Tallr.app** → Open → Open.
+> **Note**: I'm still waiting for Apple Developer Program approval, so the app isn't notarized yet. The `xattr` command removes the quarantine flag that causes the "damaged" error.
 
-## Build (Developers)
+### Option 2: Build from Source
 
 **Quick Start**
 ```bash
