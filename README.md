@@ -1,5 +1,5 @@
 <div align="center" >
-  <img src="public/tallr.svg" alt="Tallr Logo" width="350" style="margin-bottom: 40px;">
+  <img src="public/tallr.svg" alt="Tallr Logo" width="350">
 
   [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
   [![Tauri](https://img.shields.io/badge/Tauri-24C8D8?style=flat-square&logo=tauri&logoColor=fff)](https://tauri.app/)
@@ -10,10 +10,7 @@
 ## Overview
 Tallr is a desktop dashboard for monitoring AI CLI sessions (Claude, Gemini, Codex) with real-time state detection and native notifications. Stay in flow by seeing when your AI is working, waiting, or done - all in a clean, always-on-top window so you can stay in flow without context switching.
 
-<!-- Screenshot placeholder - add dashboard.png when available -->
-<!--
-![Tallr Dashboard](./screenshots/dashboard.png)
--->
+https://github.com/user-attachments/assets/e4b5c6d7-walkthrough.mp4
 
 > **Author's Note:** This started as a personal tool and learning experience. I'm constantly working to improve it, especially the state detection which I know is buggy (particularly for Codex and Gemini).
 My next goal is migrating from pattern recognition to a network-based approach for more accurate state tracking. If you find this useful, I'd love your feedback and patience as we make it better together.
