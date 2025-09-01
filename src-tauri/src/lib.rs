@@ -89,6 +89,12 @@ pub fn run() {
                 warn!("Failed to initialize app state: {e}");
             }
 
+            // Initialize auth token on startup to ensure CLI can connect
+            match auth::get_or_create_auth_token() {
+                Ok(_) => info!("Auth token initialized successfully"),
+                Err(e) => warn!("Failed to initialize auth token: {e}")
+            }
+
             // Initialize tray icon with menu
             setup_tray_icon(app)?;
 
@@ -123,7 +129,7 @@ pub fn run() {
             frontend_mark_task_done,
             frontend_delete_task,
             frontend_toggle_task_pin,
-            frontend_get_debug_data,
+            frontend_get_debug_data,-
             toolbar_action
         ])
         .run(tauri::generate_context!())
