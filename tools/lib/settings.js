@@ -16,7 +16,7 @@ const SETTINGS_FILE = path.join(SETTINGS_DIR, 'settings.json');
 // Default settings structure
 const DEFAULT_SETTINGS = {
   ideMapping: {},
-  version: '0.1.0'
+  version: '0.1.1'
 };
 
 /**

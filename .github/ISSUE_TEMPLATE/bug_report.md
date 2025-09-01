@@ -27,7 +27,7 @@ If applicable, add screenshots to help explain your problem.
 
 ## Environment
 - **macOS Version:** [e.g. macOS 14.1]
-- **Tallr Version:** [e.g. 0.1.0]
+- **Tallr Version:** [e.g. 0.1.1]
 - **Node.js Version:** [e.g. 20.19.0] (if building from source)
 - **AI Tool:** [e.g. Claude, Gemini, Codex]
 
