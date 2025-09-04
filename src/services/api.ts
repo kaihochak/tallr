@@ -9,6 +9,19 @@ export interface TaskStateUpdateRequest {
   state: string;
 }
 
+export interface PatternTest {
+  pattern: string;
+  description: string;
+  matches: boolean;
+  expectedState: string;
+}
+
+export interface StateChangeDetails {
+  detectionWindow?: string;
+  patternTests?: PatternTest[];
+  lastLine?: string;
+}
+
 export interface DebugData {
   cleanedBuffer: string;
   currentState: string;
@@ -16,11 +29,15 @@ export interface DebugData {
     timestamp: number;
     from: string;
     to: string;
-    details: string;
+    details: string | StateChangeDetails;
     confidence: string;
     detectionMethod?: string;
   }>;
   taskId: string;
+  patternTests?: PatternTest[];
+  confidence?: string;
+  isActive?: boolean;
+  fullBufferLength?: number;
 }
 
 

@@ -43,7 +43,8 @@ export class StateTracker {
     this.debugData = {
       lastPatternTests: [],
       confidence: 'N/A',
-      isActive: true
+      isActive: true,
+      detectionWindow: ''  // Store the 5-line window used for detection
     };
   }
 
@@ -269,6 +270,7 @@ export class StateTracker {
         this.debugData.lastPatternTests = detection.patternTests;
       }
       this.debugData.confidence = detection.confidence || 'medium';
+      this.debugData.detectionWindow = detection.detectionWindow || ''; // Store the exact window used
       
       // Track when active state patterns were last detected
       const now = Date.now();
@@ -284,7 +286,12 @@ export class StateTracker {
       
       // Process state changes with enhanced persistence logic
       if (detection && detection.state) {
-        const recentContext = this.cleanBuffer.split('\n').slice(-5).join('\n') || trimmed;
+        // Pass the full detection info including window and pattern tests
+        const enhancedDetails = {
+          detectionWindow: detection.detectionWindow || '',
+          patternTests: detection.patternTests || [],
+          lastLine: trimmed
+        };
         
         // Streamlined state transition logic
         if (detection.state === 'IDLE') {
@@ -298,11 +305,11 @@ export class StateTracker {
           });
           
           if (shouldAccept) {
-            await this.changeState(detection.state, recentContext, detection.confidence, 'patterns');
+            await this.changeState(detection.state, enhancedDetails, detection.confidence, 'patterns');
           }
         } else {
           // Always accept non-IDLE state changes (WORKING/PENDING)
-          await this.changeState(detection.state, recentContext, detection.confidence, 'patterns');
+          await this.changeState(detection.state, enhancedDetails, detection.confidence, 'patterns');
         }
       }
     } catch (error) {
@@ -313,21 +320,25 @@ export class StateTracker {
    * Get debug data for debugging UI
    */
   getDebugData() {
+    // Use the actual detection window that was used for pattern matching
+    const currentDetectionWindow = this.debugData.detectionWindow || this.cleanBuffer.split('\n').slice(-5).join('\n');
+    
     return {
-      cleanedBuffer: this.cleanBuffer, // Use unified clean buffer
+      cleanedBuffer: currentDetectionWindow, // Show actual detection window used
       currentState: this.currentState,
       detectionHistory: this.stateHistory.slice(-10).map(entry => ({
         timestamp: Math.floor(entry.timestamp / 1000), // Convert to seconds
         from: entry.from,
         to: entry.to,
-        details: entry.details,
+        details: entry.details, // Now includes detectionWindow and patternTests
         confidence: entry.confidence,
         detectionMethod: entry.detectionMethod
       })),
       taskId: this.taskId,
-      patternTests: this.debugData.lastPatternTests,
+      patternTests: this.debugData.lastPatternTests, // Current pattern test results
       confidence: this.debugData.confidence,
-      isActive: this.debugData.isActive
+      isActive: this.debugData.isActive,
+      fullBufferLength: this.cleanBuffer.length // Show total buffer size for reference
     };
   }
 
