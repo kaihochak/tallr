@@ -26,8 +26,9 @@ const CLAUDE_PATTERNS = [
   },
 ];
 
-// Minimal Codex patterns – starting set
+// Codex patterns – broaden PENDING coverage; keep WORKING conservative
 const CODEX_PATTERNS = [
+  // PENDING
   {
     pattern: 'yes/no',
     regex: /yes\/no/i,
@@ -40,6 +41,31 @@ const CODEX_PATTERNS = [
     description: 'Codex Yes/No selection prompt detection',
     expectedState: 'PENDING'
   },
+  {
+    pattern: 'Yes and No on same line',
+    regex: /\bYes\b.*\bNo\b/i,
+    description: 'Codex Yes/No selection (looser spacing)',
+    expectedState: 'PENDING'
+  },
+  {
+    pattern: 'Allow command? prompt',
+    regex: /Allow command\?/i,
+    description: 'Codex allow command confirmation',
+    expectedState: 'PENDING'
+  },
+  {
+    pattern: 'Do not run the command',
+    regex: /Do not run the command/i,
+    description: 'Codex negative command advisory',
+    expectedState: 'PENDING'
+  },
+  {
+    pattern: 'block spinner (▌▍▎▏▋▊█)',
+    regex: /(^|\n)\s*[▌▍▎▏▋▊█](?:\s|$)/m,
+    description: 'Codex spinner block detected',
+    expectedState: 'PENDING'
+  },
+  // WORKING
   {
     pattern: 'esc to interrupt',
     regex: /esc to interrupt/i,
@@ -80,7 +106,7 @@ export function detectState(agent, line, recentOutput = '') {
   
   // Use recent output for both pattern tests AND detection for consistency
   const recentLines = recentOutput.split('\n').slice(-15).join('\n'); // Last 15 lines
-  const recentFewLines = recentOutput.split('\n').slice(-5).join('\n'); // Last 5 lines for PENDING
+  const recentFewLines = recentOutput.split('\n').slice(-10).join('\n'); // Last 10 lines for PENDING
   
   // Test all patterns against recent buffer (consistent with detection logic)
   const patternTests = patterns.map(p => ({
@@ -175,4 +201,3 @@ function assessIdleConfidence(line, recentOutput) {
   // Default to low confidence
   return 'low';
 }
-

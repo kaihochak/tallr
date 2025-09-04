@@ -129,7 +129,7 @@ pub fn run() {
             frontend_mark_task_done,
             frontend_delete_task,
             frontend_toggle_task_pin,
-            frontend_get_debug_data,-
+            frontend_get_debug_data,
             toolbar_action
         ])
         .run(tauri::generate_context!())
