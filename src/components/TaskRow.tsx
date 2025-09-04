@@ -30,7 +30,6 @@ import StatusIndicator from './StatusIndicator';
 import TaskMetadata from './TaskMetadata';
 import TaskDetail from "./TaskDetail";
 import TaskStateBadge from './TaskStateBadge';
-import { NetworkActivityIndicator, ConfidenceScore, SessionContextIndicator } from './NetworkActivityIndicator';
 
 export default function TaskRow({
   task,
@@ -82,44 +81,28 @@ export default function TaskRow({
     }
   }, [task.id, onDeleteTask]);
 
-  // Tally mode - enhanced with network activity indicator
+  // Tally mode - just a button-sized colored light
   if (viewMode === 'tally') {
     const stateClasses = getTaskStateClasses(task.state);
-    const hasNetworkContext = task.networkContext?.activeRequests || task.networkContext?.thinkingDuration;
-    
     return (
-      <div className="relative">
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(
-            "w-7 h-7 rounded-md cursor-pointer transition-all duration-200 hover:scale-105 border-0 p-0",
-            stateClasses,
-            task.pinned && "ring-2 ring-teal-500"
-          )}
-          onClick={(e) => {
-            if (e.altKey) {
-              e.preventDefault();
-              onShowDebug?.(task.id);
-            } else {
-              handleJumpToContext();
-            }
-          }}
-          title={`${project?.name || 'Unknown'} - ${task.agent} (${task.state.toLowerCase()})`}
-        />
-        
-        {/* Network activity indicator overlay for tally mode */}
-        {hasNetworkContext && task.networkContext && (
-          <div className="absolute -top-1 -right-1">
-            <NetworkActivityIndicator 
-              networkContext={task.networkContext}
-              state={task.state}
-              showDetails={false}
-              className="w-3 h-3"
-            />
-          </div>
+      <Button
+        variant="ghost"
+        size="icon"
+        className={cn(
+          "w-7 h-7 rounded-md cursor-pointer transition-all duration-200 hover:scale-105 border-0 p-0",
+          stateClasses,
+          task.pinned && "ring-2 ring-teal-500"
         )}
-      </div>
+        onClick={(e) => {
+          if (e.altKey) {
+            e.preventDefault();
+            onShowDebug?.(task.id);
+          } else {
+            handleJumpToContext();
+          }
+        }}
+        title={`${project?.name || 'Unknown'} - ${task.agent} (${task.state.toLowerCase()})`}
+      />
     );
   }
 
@@ -154,35 +137,6 @@ export default function TaskRow({
             {/* Status Badge */}
             <TaskStateBadge state={task.state} />
 
-            {/* Enhanced Context Indicators - Based on @happy-coder's approach */}
-            <div className="flex items-center gap-1">
-              {/* Network Activity Indicator */}
-              {task.networkContext && (
-                <NetworkActivityIndicator 
-                  networkContext={task.networkContext}
-                  state={task.state}
-                  showDetails={viewMode === 'full'}
-                  className="flex-shrink-0"
-                />
-              )}
-              
-              {/* Confidence Score */}
-              {task.confidence !== undefined && task.confidence > 0 && (
-                <ConfidenceScore 
-                  confidence={task.confidence}
-                  detectionMethod={task.detectionMethod}
-                  className="flex-shrink-0"
-                />
-              )}
-              
-              {/* Session Context */}
-              {task.sessionContext && viewMode === 'full' && (
-                <SessionContextIndicator 
-                  sessionContext={task.sessionContext}
-                  className="flex-shrink-0 max-w-32"
-                />
-              )}
-            </div>
 
             {/* Task Metadata */}
             <TaskMetadata 

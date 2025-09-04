@@ -57,39 +57,6 @@ pub struct Task {
     pub updated_at: i64,
     pub pinned: bool,
     pub detection_method: Option<String>,
-    pub confidence: Option<f64>,
-    pub network_context: Option<NetworkContext>,
-    pub session_context: Option<SessionContext>,
-}
-
-// Enhanced state context types
-// Based on @happy-coder's rich state context approach
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct NetworkContext {
-    pub active_requests: u32,
-    pub average_response_time: u32,
-    pub thinking_duration: Option<u64>,
-    pub last_activity: Option<i64>,
-    pub request_types: Option<Vec<String>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SessionContext {
-    pub session_id: Option<String>,
-    pub message_count: Option<u32>,
-    pub last_message: Option<SessionMessage>,
-    pub waiting_time: Option<u64>,
-    pub conversation_length: Option<u32>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SessionMessage {
-    pub message_type: String,
-    pub timestamp: String,
-    pub preview: String,
 }
 
 // Request/Response types
@@ -108,28 +75,6 @@ pub struct StateUpdateRequest {
     pub details: Option<String>,
     pub detection_method: Option<String>,
     pub source: Option<String>,
-}
-
-// Enhanced state update request with rich context
-// Based on @happy-coder's network interception approach
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct EnhancedStateUpdateRequest {
-    pub task_id: String,
-    pub state: String,
-    pub context: EnhancedStateContext,
-    pub source: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct EnhancedStateContext {
-    pub network: Option<NetworkContext>,
-    pub session: Option<SessionContext>,
-    pub detection_method: String,
-    pub confidence: f64,
-    pub timestamp: i64,
-    pub raw_data: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
