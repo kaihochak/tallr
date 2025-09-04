@@ -186,6 +186,188 @@ pub async fn update_task_state(
     Ok(Json(()))
 }
 
+/// POST /v1/tasks/state-enhanced - Update task state with enhanced context
+/// Based on @happy-coder's network interception approach with rich state context
+pub async fn update_task_state_enhanced(
+    headers: HeaderMap,
+    AxumState(app_handle): AxumState<AppHandle>,
+    Json(req): Json<EnhancedStateUpdateRequest>,
+) -> Result<Json<()>, StatusCode> {
+    // Validate authentication
+    if !validate_auth_header(&headers) {
+        warn!("Unauthorized access attempt to /v1/tasks/state-enhanced");
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    
+    let mut state = APP_STATE.lock();
+    
+    // Check if task exists and collect needed data
+    let (project_name, agent_name, repo_path) = if let Some(task) = state.tasks.get(&req.task_id) {
+        if let Some(project) = state.projects.get(&task.project_id) {
+            (project.name.clone(), task.agent.clone(), project.repo_path.clone())
+        } else {
+            warn!("Project not found for task {}", req.task_id);
+            ("Unknown".to_string(), "Unknown".to_string(), String::new())
+        }
+    } else {
+        warn!("Task not found for enhanced state update: {}", req.task_id);
+        return Err(StatusCode::NOT_FOUND);
+    };
+
+    // Log enhanced state update with confidence and detection method
+    info!("Enhanced state update for task {} using {} detection (confidence: {:.2}): {} with context", 
+          req.task_id, 
+          req.context.detection_method, 
+          req.context.confidence,
+          req.state);
+
+    // Update the task with enhanced context
+    if let Some(task) = state.tasks.get_mut(&req.task_id) {
+        task.state = req.state.clone();
+        task.detection_method = Some(req.context.detection_method.clone());
+        task.confidence = Some(req.context.confidence);
+        task.network_context = req.context.network.clone();
+        task.session_context = req.context.session.clone();
+        task.updated_at = current_timestamp();
+        
+        // Generate enhanced details from context
+        let enhanced_details = generate_enhanced_details(&req.context);
+        task.details = Some(enhanced_details);
+        
+        state.updated_at = current_timestamp();
+
+        // Emit event to frontend with enhanced data
+        let _ = app_handle.emit("tasks-updated", &state.clone());
+
+        // Enhanced notification logic based on confidence and context
+        let should_notify = should_send_enhanced_notification(&req.state, &req.context, &task.state);
+        
+        if should_notify {
+            let notification_data = create_enhanced_notification(
+                &project_name, 
+                &agent_name, 
+                &req.state, 
+                &req.context
+            );
+            let _ = app_handle.emit("show-notification", &notification_data);
+        }
+    }
+    
+    // Update tray menu
+    drop(state);
+    crate::tray::update_tray_menu(&app_handle);
+
+    // Save state to disk
+    if let Err(e) = save_app_state() {
+        error!("Failed to save app state: {e}");
+    }
+
+    Ok(Json(()))
+}
+
+/// Generate enhanced details from context
+/// Incorporates @happy-coder's rich state information
+fn generate_enhanced_details(context: &EnhancedStateContext) -> String {
+    let mut details = vec![
+        format!("Detection: {} (confidence: {:.1}%)", 
+               context.detection_method, context.confidence * 100.0)
+    ];
+    
+    // Add network context details
+    if let Some(ref network) = context.network {
+        if network.active_requests > 0 {
+            details.push(format!("Active requests: {}", network.active_requests));
+        }
+        if network.average_response_time > 0 {
+            details.push(format!("Avg response: {}ms", network.average_response_time));
+        }
+        if let Some(thinking_duration) = network.thinking_duration {
+            if thinking_duration > 0 {
+                details.push(format!("Thinking: {}s", thinking_duration / 1000));
+            }
+        }
+    }
+    
+    // Add session context details
+    if let Some(ref session) = context.session {
+        if let Some(count) = session.message_count {
+            details.push(format!("Messages: {}", count));
+        }
+        if let Some(ref last_msg) = session.last_message {
+            details.push(format!("Last: {}", last_msg.preview));
+        }
+    }
+    
+    details.join(" | ")
+}
+
+/// Determine if notification should be sent based on enhanced context
+/// Implements confidence-based notification logic
+fn should_send_enhanced_notification(state: &str, context: &EnhancedStateContext, _prev_state: &str) -> bool {
+    // Only notify for PENDING and ERROR states
+    if state != "PENDING" && state != "ERROR" {
+        return false;
+    }
+    
+    // High confidence threshold for notifications to reduce false positives
+    // Based on @happy-coder's approach: network detection has high confidence
+    let confidence_threshold = match context.detection_method.as_str() {
+        "network" => 0.8,      // High threshold for network detection
+        "session-file" => 0.85, // Very high threshold for session files
+        "pattern" => 0.7,       // Lower threshold for pattern detection (legacy)
+        _ => 0.75               // Default threshold
+    };
+    
+    context.confidence >= confidence_threshold
+}
+
+/// Create enhanced notification with context information
+fn create_enhanced_notification(
+    project_name: &str, 
+    agent_name: &str, 
+    state: &str, 
+    context: &EnhancedStateContext
+) -> serde_json::Value {
+    let mut title = format!("{} - {}", project_name, agent_name);
+    let mut body = state.to_string();
+    
+    // Add thinking duration for WORKING -> PENDING transitions
+    if state == "PENDING" {
+        if let Some(ref network) = context.network {
+            if let Some(thinking_duration) = network.thinking_duration {
+                if thinking_duration > 0 {
+                    body = format!("{} (after {}s thinking)", body, thinking_duration / 1000);
+                }
+            }
+        }
+        
+        // Add session context for better user understanding
+        if let Some(ref session) = context.session {
+            if let Some(ref last_msg) = session.last_message {
+                // Truncate preview for notification
+                let preview = if last_msg.preview.len() > 50 {
+                    format!("{}...", &last_msg.preview[..47])
+                } else {
+                    last_msg.preview.clone()
+                };
+                body = format!("{}: {}", body, preview);
+            }
+        }
+    }
+    
+    // Add confidence indicator for debugging (in development)
+    if std::env::var("DEBUG").is_ok() {
+        title = format!("{} ({:.0}%)", title, context.confidence * 100.0);
+    }
+    
+    serde_json::json!({
+        "title": title,
+        "body": body,
+        "confidence": context.confidence,
+        "detection_method": context.detection_method
+    })
+}
+
 /// POST /v1/tasks/details - Update task details
 pub async fn update_task_details(
     headers: HeaderMap,

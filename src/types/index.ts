@@ -20,6 +20,33 @@ export interface Task {
   completedAt?: number;
   pinned: boolean;
   detectionMethod?: string;
+  confidence?: number;
+  networkContext?: NetworkContext;
+  sessionContext?: SessionContext;
+}
+
+// Enhanced context types matching backend implementation
+// Based on @happy-coder's rich state context approach
+export interface NetworkContext {
+  activeRequests: number;
+  averageResponseTime: number;
+  thinkingDuration?: number;
+  lastActivity?: number;
+  requestTypes?: string[];
+}
+
+export interface SessionContext {
+  sessionId?: string;
+  messageCount?: number;
+  lastMessage?: SessionMessage;
+  waitingTime?: number;
+  conversationLength?: number;
+}
+
+export interface SessionMessage {
+  messageType: string;
+  timestamp: string;
+  preview: string;
 }
 
 export interface AppState {

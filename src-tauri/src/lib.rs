@@ -35,6 +35,7 @@ async fn start_http_server(app_handle: tauri::AppHandle) {
         .route("/v1/state", axum::routing::get(get_state))
         .route("/v1/tasks/upsert", axum::routing::post(upsert_task))
         .route("/v1/tasks/state", axum::routing::post(update_task_state))
+        .route("/v1/tasks/state-enhanced", axum::routing::post(update_task_state_enhanced))
         .route(
             "/v1/tasks/details",
             axum::routing::post(update_task_details),

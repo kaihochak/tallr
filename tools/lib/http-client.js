@@ -161,7 +161,7 @@ export class TallrClient {
   }
 
   /**
-   * Update task state
+   * Update task state (original method)
    */
   async updateTaskState(taskId, state, details, options = {}) {
     if (typeof taskId !== 'string' || typeof state !== 'string') {
@@ -181,6 +181,47 @@ export class TallrClient {
     } catch (error) {
       // Simple error logging
       console.error(`[Tallr] Failed to update task state:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Update task state with enhanced context
+   * Based on @happy-coder's rich state context approach
+   */
+  async updateTaskStateEnhanced(taskId, stateUpdate) {
+    if (typeof taskId !== 'string' || !stateUpdate || typeof stateUpdate.state !== 'string') {
+      throw new Error('Invalid enhanced state update parameters');
+    }
+    
+    const payload = {
+      taskId: taskId,
+      state: stateUpdate.state,
+      context: {
+        network: stateUpdate.context?.network,
+        session: stateUpdate.context?.session,
+        detection_method: stateUpdate.context?.detection_method || 'enhanced',
+        confidence: stateUpdate.context?.confidence || 0.8,
+        timestamp: stateUpdate.context?.timestamp || Date.now(),
+        raw_data: stateUpdate.context?.raw_data
+      },
+      source: 'enhanced-wrapper'
+    };
+    
+    try {
+      // Try the enhanced endpoint first
+      await this.makeRequest('POST', '/v1/tasks/state-enhanced', payload);
+    } catch (error) {
+      // If enhanced endpoint doesn't exist, fall back to regular update
+      if (error.message.includes('404') || error.message.includes('Not Found')) {
+        console.warn('[Tallr] Enhanced state endpoint not available, falling back to regular state update');
+        return this.updateTaskState(taskId, stateUpdate.state, 
+          `Enhanced: ${stateUpdate.context?.detection_method || 'unknown'} detection`, {
+          detectionMethod: stateUpdate.context?.detection_method
+        });
+      }
+      
+      console.error(`[Tallr] Failed to update enhanced task state:`, error.message);
       throw error;
     }
   }
