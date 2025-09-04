@@ -283,3 +283,7 @@ pnpm-lock.yaml
 CLAUDE.md
 CHANGELOG.md
 AGENTS.md
+
+# Reference repositories (for development only)
+reference/
+@reference/
