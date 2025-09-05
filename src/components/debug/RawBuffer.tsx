@@ -9,19 +9,10 @@ interface RawBufferProps {
 
 export function RawBuffer({ debugData, onCopy, copiedStates }: RawBufferProps) {
   const buffer = debugData?.cleanedBuffer || '';
-  const fullLength = (debugData as any)?.fullBufferLength || buffer.length;
-  
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
-        <h3 className="text-xl font-semibold text-text-primary">
-          Detection Window (Last 5 Lines)
-          {fullLength > buffer.length && (
-            <span className="text-sm text-text-secondary ml-2">
-              [{buffer.length} of {fullLength} total chars]
-            </span>
-          )}
-        </h3>
+        <h3 className="text-xl font-semibold text-text-primary">Buffer ({buffer.length} chars)</h3>
         <CopyButton onClick={onCopy} copyKey="buffer" copiedStates={copiedStates} />
       </div>
       <pre
