@@ -71,6 +71,12 @@ const CODEX_PATTERNS = [
     regex: /esc to interrupt/i,
     description: 'Codex working state detection',
     expectedState: 'WORKING'
+  },
+  {
+    pattern: '▌ Working',
+    regex: /▌\s*Working/i,
+    description: 'Codex explicit working indicator',
+    expectedState: 'WORKING'
   }
 ];
 
@@ -126,7 +132,8 @@ export function detectState(agent, line, recentOutput = '') {
       state: 'PENDING',
       details: cleanLine,
       confidence: 'high',
-      patternTests
+      patternTests,
+      detectionWindow: recentFewLines  // Add for debug visibility
     };
   }
   
@@ -139,7 +146,8 @@ export function detectState(agent, line, recentOutput = '') {
       state: 'WORKING',
       details: cleanLine,
       confidence: 'high',
-      patternTests
+      patternTests,
+      detectionWindow: recentLines  // Add for debug visibility
     };
   }
   
@@ -150,7 +158,8 @@ export function detectState(agent, line, recentOutput = '') {
     state: 'IDLE',
     details: cleanLine,
     confidence: idleConfidence,
-    patternTests
+    patternTests,
+    detectionWindow: recentLines  // Add for debug visibility
   };
 }
 
