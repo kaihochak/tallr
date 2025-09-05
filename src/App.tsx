@@ -416,7 +416,7 @@ function App() {
           {/* Left cluster: connection, version, tasks toggle */}
           <div className="flex items-center gap-4">
             <CliConnectionStatus />
-            <span>v0.1.1</span>
+            <span>v0.1.2</span>
             <button
               onClick={() => setShowDoneTasks(prev => !prev)}
               className="px-2 py-1 rounded bg-bg-tertiary/50 text-text-secondary hover:bg-bg-hover/50 transition-colors cursor-pointer"
