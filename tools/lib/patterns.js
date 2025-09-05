@@ -26,22 +26,9 @@ const CLAUDE_PATTERNS = [
   },
 ];
 
-// Codex patterns - prioritize WORKING over PENDING when both present
+// Codex patterns – broaden PENDING coverage; keep WORKING conservative
 const CODEX_PATTERNS = [
-  // WORKING - check first for better priority
-  {
-    pattern: 'esc to interrupt',
-    regex: /esc to interrupt/i,
-    description: 'Codex working state detection',
-    expectedState: 'WORKING'
-  },
-  {
-    pattern: '▌ Working',
-    regex: /▌\s*Working/i,
-    description: 'Codex explicit working indicator',
-    expectedState: 'WORKING'
-  },
-  // PENDING - more specific patterns
+  // PENDING
   {
     pattern: 'yes/no',
     regex: /yes\/no/i,
@@ -55,6 +42,12 @@ const CODEX_PATTERNS = [
     expectedState: 'PENDING'
   },
   {
+    pattern: 'Yes and No on same line',
+    regex: /\bYes\b.*\bNo\b/i,
+    description: 'Codex Yes/No selection (looser spacing)',
+    expectedState: 'PENDING'
+  },
+  {
     pattern: 'Allow command? prompt',
     regex: /Allow command\?/i,
     description: 'Codex allow command confirmation',
@@ -65,6 +58,19 @@ const CODEX_PATTERNS = [
     regex: /Do not run the command/i,
     description: 'Codex negative command advisory',
     expectedState: 'PENDING'
+  },
+  {
+    pattern: 'block spinner (▌▍▎▏▋▊█)',
+    regex: /(^|\n)\s*[▌▍▎▏▋▊█](?:\s|$)/m,
+    description: 'Codex spinner block detected',
+    expectedState: 'PENDING'
+  },
+  // WORKING
+  {
+    pattern: 'esc to interrupt',
+    regex: /esc to interrupt/i,
+    description: 'Codex working state detection',
+    expectedState: 'WORKING'
   }
 ];
 
@@ -98,57 +104,53 @@ export function detectState(agent, line, recentOutput = '') {
   const cleanLine = stripAnsi(line).trim();
   if (!cleanLine) return null;
   
-  // SIMPLIFIED: Use only last 5 lines for ALL detection - matches what debug shows
-  const detectionWindow = recentOutput.split('\n').slice(-5).join('\n');
+  // Use recent output for both pattern tests AND detection for consistency
+  const recentLines = recentOutput.split('\n').slice(-15).join('\n'); // Last 15 lines
+  const recentFewLines = recentOutput.split('\n').slice(-10).join('\n'); // Last 10 lines for PENDING
   
-  // Check for strong completion indicators
-  const hasStrongCompletion = /✓.*Applied patch|Success.*Updated.*files|All set\.|^Done\.|Task completed/i.test(detectionWindow);
-  
-  // Test all patterns against the SAME 5-line window
+  // Test all patterns against recent buffer (consistent with detection logic)
   const patternTests = patterns.map(p => ({
     pattern: p.pattern,
     description: p.description,
-    matches: p.regex.test(detectionWindow),
+    matches: p.regex.test(recentLines), // Use same data source as detection
     expectedState: p.expectedState
   }));
   
-  // PRIORITY 1: Check for WORKING patterns first (active processing)
-  const workingPatterns = patterns.filter(p => p.expectedState === 'WORKING');
-  const hasWorking = workingPatterns.some(p => p.regex.test(detectionWindow));
-  
-  if (hasWorking && !hasStrongCompletion) {
-    return {
-      state: 'WORKING',
-      details: cleanLine,
-      confidence: 'high',
-      patternTests,
-      detectionWindow
-    };
-  }
-  
-  // PRIORITY 2: Check for PENDING patterns (needs user input)
+  // PRIORITY 1: Check for PENDING patterns in recent lines (immediate response needed)
   const pendingPatterns = patterns.filter(p => p.expectedState === 'PENDING');
-  const hasPending = pendingPatterns.some(p => p.regex.test(detectionWindow));
+  const hasPendingInRecent = pendingPatterns.some(p => p.regex.test(recentFewLines));
+  const hasPendingInCurrent = pendingPatterns.some(p => p.regex.test(cleanLine));
   
-  if (hasPending) {
+  if (hasPendingInRecent || hasPendingInCurrent) {
     return {
       state: 'PENDING',
       details: cleanLine,
       confidence: 'high',
-      patternTests,
-      detectionWindow  // Include for debug visibility
+      patternTests
     };
   }
   
-  // PRIORITY 3: IDLE state (default)
-  const idleConfidence = hasStrongCompletion ? 'high' : 'medium';
+  // PRIORITY 2: Check for WORKING patterns in recent output (only if no PENDING found)
+  const workingPatterns = patterns.filter(p => p.expectedState === 'WORKING');
+  const hasWorkingPattern = workingPatterns.some(p => p.regex.test(recentLines));
+  
+  if (hasWorkingPattern) {
+    return {
+      state: 'WORKING',
+      details: cleanLine,
+      confidence: 'high',
+      patternTests
+    };
+  }
+  
+  // PRIORITY 3: Enhanced IDLE detection with better confidence assessment
+  const idleConfidence = assessIdleConfidence(cleanLine, recentOutput);
   
   return {
     state: 'IDLE',
     details: cleanLine,
     confidence: idleConfidence,
-    patternTests,
-    detectionWindow
+    patternTests
   };
 }
 
