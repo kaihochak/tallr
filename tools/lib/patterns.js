@@ -59,16 +59,10 @@ const CODEX_PATTERNS = [
     description: 'Codex negative command advisory',
     expectedState: 'PENDING'
   },
-  {
-    pattern: 'block spinner (▌▍▎▏▋▊█)',
-    regex: /(^|\n)\s*[▌▍▎▏▋▊█](?:\s|$)/m,
-    description: 'Codex spinner block detected',
-    expectedState: 'PENDING'
-  },
   // WORKING
   {
-    pattern: 'esc to interrupt',
-    regex: /esc to interrupt/i,
+    pattern: 'Esc to interrupt',
+    regex: /Esc to interrupt/i,
     description: 'Codex working state detection',
     expectedState: 'WORKING'
   },
