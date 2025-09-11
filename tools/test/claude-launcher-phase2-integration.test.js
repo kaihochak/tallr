@@ -64,7 +64,11 @@ describe('Claude Phase 2 Integration - Code Structure Verification', () => {
         // Verify @happy-coder's approach is implemented
         expect(networkLauncherContent).toContain("import { createInterface } from 'readline';");
         expect(networkLauncherContent).toContain("const hasLauncher = command === 'claude';");
-        expect(networkLauncherContent).toContain("stdio: ['inherit', 'inherit', 'inherit', 'pipe']");
+        // Accept both Phase 2 (fd3 only) and Phase 3 (fd3 + fd4) stdio forms
+        expect(
+          networkLauncherContent.includes("stdio: ['inherit', 'inherit', 'inherit', 'pipe']") ||
+          networkLauncherContent.includes("stdio: ['inherit', 'inherit', 'inherit', 'pipe', 'pipe']")
+        ).toBe(true);
         
         // Verify network detection components
         expect(networkLauncherContent).toContain("debug.network");

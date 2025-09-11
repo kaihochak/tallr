@@ -22,11 +22,24 @@ Implement @happy-coder's network-based state detection for more accurate Claude 
 - Session persistence (we have our own)
 - Complex daemon architecture
 
-## Implementation
+## Implementation Progress
 
-### Phase 1: Core Network Detection
+### ✅ Phase 1: Core Network Detection (COMPLETE)
+**Documentation**: [NETWORK_PHASE_1_LAUNCHER.md](./NETWORK_PHASE_1_LAUNCHER.md)
 
-#### File 1: `tools/lib/claude-launcher.js` (NEW)
+### ✅ Phase 2: Tallr Integration (COMPLETE)  
+**Documentation**: [NETWORK_PHASE_2_INTEGRATION.md](./NETWORK_PHASE_2_INTEGRATION.md)
+
+### 🚧 Phase 3: PENDING Detection (APPROACH REVISED)
+**Documentation**: [NETWORK_PHASE_3_PENDING.md](./NETWORK_PHASE_3_PENDING.md)
+
+**Key Discovery**: @happy-coder uses Claude SDK's `canCallTool` callback, not API response analysis
+
+## Original Implementation Plan (Now Modularized)
+
+### Phase 1: Core Network Detection ✅
+
+#### File 1: `tools/lib/claude-launcher.cjs` (CREATED)
 **Purpose**: The spy script that runs BEFORE Claude loads
 
 ```javascript
@@ -85,10 +98,17 @@ global.fetch = function(...args) {
 import('@anthropic-ai/claude-code/cli.js');
 ```
 
-#### File 2: `tools/tl-wrap.js` (MODIFY)
-**Purpose**: Add launcher mode option
+### Phase 2: Tallr Integration ✅
 
-**Changes to `runWithPTY` function (around line 160):**
+#### Modular Architecture Implemented:
+- `tools/lib/ide-detector.js` (IDE detection logic)
+- `tools/lib/auth-manager.js` (authentication and gateway)
+- `tools/lib/network-launcher.js` (network detection)
+- `tools/lib/process-manager.js` (PTY management)
+- `tools/lib/status-indicator.js` (CLI status display)
+
+#### Original File: `tools/tl-wrap.js` (REFACTORED)
+**Purpose**: Add launcher mode option (now modularized)
 
 ```javascript
 async function runWithPTY(command, commandArgs) {
@@ -315,6 +335,14 @@ Original implementation: https://github.com/happy-coder/happy-cli
 3. Test with `TALLR_LAUNCHER_MODE=true`
 4. Add UI detection method badge
 5. Document and deploy
+
+---
+
+## Rollout Status (Phases)
+- Phase 1/2 (default): Active. Network WORKING/IDLE via fetch spy. No SDK.
+- Phase 3a (SDK PENDING): Available behind `TALLR_SDK_MODE=true` or `--sdk`. Includes early `permission-prompt` and `permission-request` on tool attempt. Falls back to CLI on SDK error.
+- Phase 3b (Messages): `claude-message` events emitted from SDK path and forwarded to backend via `updateTaskDetails` (UI consumption pending).
+- Phase 4 (Approval loop): Planned. Tauri command → fd 4 to approve/deny.
 
 **Simple, focused, and properly attributed adaptation of @happy-coder's core innovation.**
 
@@ -558,10 +586,10 @@ The implementation has been broken down into focused phase documents for clarity
 
 ### Phase Documents:
 - **[NETWORK_PHASE_1_LAUNCHER.md](./NETWORK_PHASE_1_LAUNCHER.md)** - Create Claude launcher with fetch interception ✅ **COMPLETE**
-- **NETWORK_PHASE_2_PTY.md** - Integrate launcher into tl-wrap.js for Claude only (NEXT)
-- **NETWORK_PHASE_3_STATE.md** - Connect to state tracker (TODO)
-- **NETWORK_PHASE_4_PENDING.md** - Add PENDING detection via API analysis (TODO)
-- **NETWORK_PHASE_5_OTHER_AGENTS.md** - Create launchers for Gemini/Codex (TODO)
+- **[NETWORK_PHASE_2_INTEGRATION.md](./NETWORK_PHASE_2_INTEGRATION.md)** - Integrate launcher into Tallr with modular refactoring ✅ **COMPLETE**
+- **[NETWORK_PHASE_3_PENDING.md](./NETWORK_PHASE_3_PENDING.md)** - Add PENDING detection via API analysis 🚧 **IN PROGRESS**
+- **NETWORK_PHASE_4_OTHER_AGENTS.md** - Create launchers for Gemini/Codex (TODO)
+- **NETWORK_PHASE_5_UNIFICATION.md** - Migrate all agents to network detection (TODO)
 
 Each phase document contains:
 - Specific goals and success criteria
@@ -569,15 +597,26 @@ Each phase document contains:
 - Testing procedures
 - Troubleshooting guide
 
-### State Detection Strategy After Implementation:
+### State Detection Strategy After Phase 2:
 ```
-Claude with TALLR_LAUNCHER_MODE=true:
-  → WORKING: Network detection (fetch-start)
-  → IDLE: Network detection (fetch-end + 500ms)
-  → PENDING: Network detection (API analysis) [future]
+Claude (Network Detection - DEFAULT):
+  → WORKING: Network detection (fetch-start) ✅ IMPLEMENTED
+  → IDLE: Network detection (fetch-end + 500ms) ✅ IMPLEMENTED
+  → PENDING: Pattern detection (fallback) ⚠️ PHASE 3 IN PROGRESS
 
-Gemini/Codex (or Claude with launcher disabled):
-  → All states: Pattern detection (existing behavior)
+Gemini/Codex (Pattern Detection):
+  → All states: Pattern detection (existing behavior) ✅ UNCHANGED
+```
+
+### State Detection Strategy After Phase 3 (Goal):
+```
+Claude (Complete Network Detection):
+  → WORKING: Network detection (fetch-start) ✅
+  → IDLE: Network detection (fetch-end + 500ms) ✅
+  → PENDING: Network detection (API analysis) 🚧 IN PROGRESS
+
+Gemini/Codex (Pattern Detection):
+  → All states: Pattern detection ✅ UNCHANGED
 ```
 
 ---
@@ -596,13 +635,47 @@ Gemini/Codex (or Claude with launcher disabled):
 - ✅ Comprehensive test suite with Vitest framework
 - ✅ CI/CD integration for automated testing
 
-**File to Create**: `tools/lib/claude-launcher.js`
+### ✅ **Phase 2: Tallr Integration with Modular Refactoring** (COMPLETED)
+📄 **See: [NETWORK_PHASE_2_INTEGRATION.md](./NETWORK_PHASE_2_INTEGRATION.md)**
+**Goal**: Integrate launcher as DEFAULT for Claude, refactor for maintainability
 
-**Implementation Steps**:
-1. Create basic file structure with module imports
-2. Add writeMessage function (copy from claude_local_launcher.cjs lines 8-14)
-3. Add Claude import at bottom (line 98)
-4. Test basic launching works
+**✅ STATUS: COMPLETE** - Production-ready integration with modular architecture
+- ✅ Launcher as DEFAULT for Claude (no environment variables needed)
+- ✅ Automatic fallback to pattern detection for robustness
+- ✅ Modular refactoring: Split tl-wrap.js into focused modules
+- ✅ Status indicators: Users see detection method without debug mode
+- ✅ Updated test suite for modular architecture
+- ✅ Production verified with extensive debug output
+
+### 🚧 **Phase 3: PENDING State Detection** (APPROACH REVISED)
+📄 **See: [NETWORK_PHASE_3_PENDING.md](./NETWORK_PHASE_3_PENDING.md)**
+**Goal**: Complete network detection using Claude SDK's `canCallTool` callback (following @happy-coder)
+
+**🚧 STATUS: REDESIGNING** - Following @happy-coder's proven SDK approach instead of API analysis
+- ❌ API response analysis approach (streaming responses split across chunks)
+- ✅ **New Approach**: Use Claude SDK's `canCallTool` callback mechanism  
+- ⬜ Implement SDK integration with permission handling system
+- ⬜ PENDING state detection when `canCallTool` is triggered
+- ⬜ Permission approval/denial flow via fd 3 messages
+- ⬜ Complete state cycle: IDLE → WORKING → PENDING → back to IDLE/WORKING
+- ⬜ Testing with real tool use scenarios (file operations, etc.)
+
+## Major Achievements
+
+### ✅ Phase 1 & 2 Accomplishments:
+- **Network Detection Foundation**: @happy-coder's proven technique successfully adapted
+- **Production Integration**: Network detection is the DEFAULT for Claude
+- **Modular Architecture**: Clean, maintainable code structure
+- **Zero Breaking Changes**: All existing functionality preserved
+- **Status Visibility**: Users can see detection method without debug mode
+- **Comprehensive Testing**: All phases fully tested with Vitest framework
+- **Real-time Accuracy**: IDLE ↔ WORKING states based on actual network activity
+
+### 🚧 Phase 3 Goals:
+- **Complete State Detection**: Add PENDING via API analysis
+- **Tool Use Recognition**: Detect when Claude needs permission
+- **Full State Cycle**: IDLE → WORKING → PENDING → back to IDLE/WORKING
+- **Minimal Performance Impact**: Response analysis without slowing Claude
 
 **Code to Copy from @happy-coder**:
 ```javascript
@@ -991,3 +1064,32 @@ Broken into 9 focused phases, each independently testable. Can pause at any phas
 - 90% direct code reuse from working system
 - Clear incremental phases with testable milestones
 - Full fallback to existing pattern detection
+
+---
+
+## IPC Protocol (fd 3 / fd 4)
+
+Stable, cross‑phase protocol for communication between the Claude launcher (child) and Tallr wrapper (parent). Messages are newline‑delimited JSON (NDJSON).
+
+- Spawn stdio: `['inherit','inherit','inherit','pipe','pipe']`
+  - `child.stdio[3]` (fd 3): telemetry/events from child → parent
+  - `child.stdio[4]` (fd 4): control signals from parent → child
+
+fd 3: Telemetry (Child → Parent)
+- fetch-start: `{ type: 'fetch-start', id, hostname, path, method, timestamp }`
+- fetch-end: `{ type: 'fetch-end', id, timestamp, error? }`
+- permission-request: `{ type: 'permission-request', id, tool: { name, args }, timestamp }`
+- claude-message: `{ type: 'claude-message', role: 'assistant', text, timestamp }`
+
+fd 4: Control (Parent → Child)
+- permission-response: `{ type: 'permission-response', id, decision: 'allow'|'deny' }`
+
+Notes
+- Correlate permission messages by `id` (one pending resolver per id in child).
+- Parent reads fd 3 line‑by‑line via `readline`; child reads fd 4 via a small buffer split on `\n`.
+- PENDING on permission-request; WORKING on fetch-start (post‑allow); IDLE on fetch-end with existing 500ms debounce.
+- If fd 4 is absent, requests remain pending (by design).
+
+Manual Debugging
+- View telemetry only: `node tools/lib/claude-launcher.cjs --print 3>&1 1>/dev/null 2>&1`
+- Dev convenience approvals from IDE: type `/allow` or `/deny` while pending (additive; does not replace UI flow).
