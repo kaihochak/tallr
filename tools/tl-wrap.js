@@ -1,114 +1,12 @@
 #!/usr/bin/env node
 
-import pty from 'node-pty';
 import { TallrClient } from './lib/http-client.js';
 import { StateTracker } from './lib/state-tracker.js';
-import { getIdeCommand, promptForIdeCommand } from './lib/settings.js';
-import { MAX_BUFFER_SIZE } from './lib/patterns.js';
 import { debug } from './lib/debug.js';
 import { showLogo } from './logo.js';
-import { execSync } from 'child_process';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
-
-const IDE_MAPPINGS = {
-  'Visual Studio Code': 'code',
-  'Code': 'code',
-  'Cursor': 'cursor', 
-  'Windsurf': 'windsurf',
-  'WebStorm': 'webstorm',
-  'IntelliJ IDEA': 'idea',
-  'PyCharm': 'pycharm',
-  'PhpStorm': 'phpstorm',
-  'RubyMine': 'rubymine',
-  'CLion': 'clion',
-  'GoLand': 'goland',
-  'Rider': 'rider',
-  'Zed': 'zed',
-  'Xcode': 'xcode'
-};
-
-function detectCurrentIDE() {
-  try {
-    if (process.env.VSCODE_INJECTION === '1' || process.env.TERM_PROGRAM === 'vscode') {
-      return getIdeCommand('Visual Studio Code', 'code');
-    }
-    if (process.env.CURSOR_AGENT || process.env.TERM_PROGRAM === 'cursor') {
-      return getIdeCommand('Cursor', 'cursor');
-    }
-    
-    const ppid = process.ppid;
-    if (ppid) {
-      try {
-        const parentName = execSync(`ps -p ${ppid} -o comm=`, { encoding: 'utf8' }).trim();
-        
-        const userCommand = getIdeCommand(parentName);
-        if (userCommand) {
-          return userCommand;
-        }
-        
-        if (IDE_MAPPINGS[parentName]) {
-          return getIdeCommand(parentName, IDE_MAPPINGS[parentName]);
-        }
-        
-        for (const [appName, command] of Object.entries(IDE_MAPPINGS)) {
-          if (parentName.toLowerCase().includes(appName.toLowerCase()) || 
-              appName.toLowerCase().includes(parentName.toLowerCase())) {
-            return getIdeCommand(parentName, command);
-          }
-        }
-        
-        const fallbackCommand = promptForIdeCommand(parentName);
-        return fallbackCommand;
-      } catch {
-      }
-    }
-  } catch {
-  }
-  
-  return null;
-}
-
-
-// Get auth token from file or environment
-function getAuthToken() {
-  // Check environment variables first (highest priority)
-  if (process.env.TALLR_TOKEN) {
-    return process.env.TALLR_TOKEN;
-  }
-  
-  // Try to read from auth token file (same location as Rust backend)
-  try {
-    const appDataDir = path.join(os.homedir(), 'Library', 'Application Support', 'Tallr');
-    const tokenFile = path.join(appDataDir, 'auth.token');
-    
-    if (fs.existsSync(tokenFile)) {
-      const token = fs.readFileSync(tokenFile, 'utf8').trim();
-      if (token) {
-        return token;
-      }
-    }
-  } catch (error) {
-    console.error('[CLI AUTH] ❌ Failed to read auth token file:', error.message);
-    if (process.env.DEBUG) {
-      console.error('[CLI AUTH] Full error details:', error);
-    }
-  }
-  
-  // No fallback - authentication required
-  throw new Error('Authentication required. Please start the Tallr application first.');
-}
-
-// Simple gateway detection for Tallr backend
-function detectTallrGateway() {
-  if (process.env.TALLR_GATEWAY) {
-    return process.env.TALLR_GATEWAY;
-  }
-  
-  // Use consistent port 4317 for both dev and prod
-  return 'http://127.0.0.1:4317';
-}
+import { detectCurrentIDE } from './lib/ide-detector.js';
+import { getAuthToken, detectTallrGateway } from './lib/auth-manager.js';
+import { runWithPTY } from './lib/process-manager.js';
 
 const config = {
   token: getAuthToken(),
@@ -142,130 +40,10 @@ const stateTracker = new StateTracker(client, taskId, config.agent, true); // En
 // Start health pings IMMEDIATELY - before any other operations
 client.startHealthPings(10000); // Ping every 10 seconds
 
-function restoreTerminal() {
-  if (process.stdin.setRawMode && process.stdin.isTTY) {
-    process.stdin.setRawMode(false);
-  }
-}
-
 async function updateTaskAndCleanup(state, details) {
   stateTracker.stopDebugUpdates();
   client.stopHealthPings();
   await client.updateTaskState(taskId, state, details);
-}
-
-/**
- * PTY approach for interactive CLIs - minimal passthrough
- */
-async function runWithPTY(command, commandArgs) {
-  const ptyProcess = pty.spawn(command, commandArgs, {
-    name: 'xterm-color',
-    cols: process.stdout.columns || 80,
-    rows: process.stdout.rows || 30,
-    cwd: process.cwd(),
-    env: { 
-      ...process.env,
-      TALLR_TASK_ID: taskId,  // Ensure task ID is available to child process
-      TALLR_TOKEN: config.token  // Pass auth token to child process for hooks
-    }
-  });
-
-  // Terminal resize handling
-  let resizeTimeout;
-  const handleResize = () => {
-    clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(() => {
-      if (ptyProcess && !ptyProcess.killed) {
-        const cols = process.stdout.columns || 80;
-        const rows = process.stdout.rows || 30;
-        debug.cli('Terminal resized, updating PTY', { cols, rows });
-        try {
-          ptyProcess.resize(cols, rows);
-        } catch (error) {
-          debug.cliError('Failed to resize PTY', error);
-        }
-      }
-    }, 100); // Debounce resize events by 100ms
-  };
-
-  // Listen for terminal resize events
-  process.stdout.on('resize', handleResize);
-  
-  // Ensure SIGWINCH is handled (required for resize events to work properly)
-  process.on('SIGWINCH', () => {
-    // This ensures the 'resize' event fires properly on stdout
-  });
-
-  // Single entry point for all PTY data processing
-  ptyProcess.on('data', (data) => {
-    process.stdout.write(data);
-    stateTracker.handlePtyData(data);
-  });
-
-  if (process.stdin.setRawMode && process.stdin.isTTY) {
-    process.stdin.setRawMode(true);
-    process.stdin.on('data', (data) => {
-      ptyProcess.write(data);
-    });
-  }
-
-  ptyProcess.on('exit', async (code, signal) => {
-    const success = code === 0;
-    const details = success 
-      ? `Claude session completed successfully` 
-      : `Claude session ended with code ${code}`;
-
-    debug.cli('PTY process exited', { code, signal, success });
-    
-    // Clean up resize listeners
-    clearTimeout(resizeTimeout);
-    process.stdout.removeListener('resize', handleResize);
-    
-    await updateTaskAndCleanup(success ? 'DONE' : 'IDLE', details);
-    restoreTerminal();
-    process.exit(code);
-  });
-
-  ptyProcess.on('error', async (error) => {
-    debug.cliError('PTY process error', error);
-    console.error(`\n[Tallr] PTY error:`, error.message);
-    
-    // Clean up resize listeners
-    clearTimeout(resizeTimeout);
-    process.stdout.removeListener('resize', handleResize);
-    
-    try {
-      restoreTerminal();
-      await updateTaskAndCleanup('ERROR', `PTY error: ${error.message}`);
-    } catch (cleanupError) {
-      console.error(`[Tallr] Cleanup error:`, cleanupError.message);
-    }
-    
-    const exitCode = error.code === 'ENOENT' ? 127 : 1;
-    process.exit(exitCode);
-  });
-
-  const cleanup = async (signal, exitCode) => {
-    
-    // Clean up resize listeners
-    clearTimeout(resizeTimeout);
-    process.stdout.removeListener('resize', handleResize);
-    
-    try {
-      if (ptyProcess && !ptyProcess.killed) {
-        ptyProcess.kill(signal);
-      }
-      restoreTerminal();
-      await updateTaskAndCleanup('CANCELLED', `Interactive session ${signal.toLowerCase()}`);
-    } catch (cleanupError) {
-      console.error(`[Tallr] Cleanup error:`, cleanupError.message);
-    } finally {
-      process.exit(exitCode);
-    }
-  };
-
-  process.on('SIGINT', () => cleanup('SIGINT', 130));
-  process.on('SIGTERM', () => cleanup('SIGTERM', 143));
 }
 
 /**
@@ -300,7 +78,7 @@ async function main() {
       debug.state('Initial state synced');
     }
 
-    await runWithPTY(command, commandArgs);
+    await runWithPTY(command, commandArgs, config, taskId, stateTracker, updateTaskAndCleanup);
     
   } catch (error) {
     debug.cliError('Wrapper error', error);
@@ -350,6 +128,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 export { 
   config,
   client,
-  stateTracker,
-  runWithPTY
+  stateTracker
 };
