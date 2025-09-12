@@ -37,6 +37,7 @@ export interface TaskRowProps {
   onShowDebug: (taskId: string) => void;
   onTogglePin: (taskId: string, pinned: boolean) => Promise<void>;
   allTasks: Task[];
+  hideProjectName?: boolean;
 }
 
 export type TaskState = 'PENDING' | 'WORKING' | 'IDLE' | 'DONE' | 'ERROR';

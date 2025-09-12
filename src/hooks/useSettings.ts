@@ -19,6 +19,7 @@ interface AppSettings {
   viewMode: 'full' | 'simple' | 'tally';
   notificationsEnabled: boolean;
   autoSortTasks: boolean;
+  groupByProject: boolean;
 }
 
 export function useSettings() {
@@ -30,7 +31,8 @@ export function useSettings() {
     theme: "light",
     viewMode: "full",
     notificationsEnabled: true,
-    autoSortTasks: true
+    autoSortTasks: true,
+    groupByProject: true
   });
   
   const [isLoading, setIsLoading] = useState(true);
@@ -65,6 +67,9 @@ export function useSettings() {
             : true,
           autoSortTasks: loadedSettings.autoSortTasks !== undefined 
             ? loadedSettings.autoSortTasks 
+            : true,
+          groupByProject: loadedSettings.groupByProject !== undefined 
+            ? loadedSettings.groupByProject 
             : true
         };
         
@@ -189,6 +194,12 @@ export function useSettings() {
     await saveSettings({ autoSortTasks: newState });
   }, [settings.autoSortTasks, saveSettings]);
 
+  // Toggle group by project
+  const toggleGroupByProject = useCallback(async () => {
+    const newState = !settings.groupByProject;
+    await saveSettings({ groupByProject: newState });
+  }, [settings.groupByProject, saveSettings]);
+
   // Apply theme when settings change
   useEffect(() => {
     applyTheme(settings.theme);
@@ -204,6 +215,7 @@ export function useSettings() {
     toggleViewMode,
     toggleNotifications,
     toggleAutoSortTasks,
+    toggleGroupByProject,
     saveSettings
   };
 }
