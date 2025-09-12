@@ -65,11 +65,11 @@ export function useSettings() {
           notificationsEnabled: loadedSettings.notificationsEnabled !== undefined 
             ? loadedSettings.notificationsEnabled 
             : true,
-          autoSortTasks: loadedSettings.autoSortTasks !== undefined 
-            ? loadedSettings.autoSortTasks 
+          autoSortTasks: loadedSettings.autoSortTasks !== undefined
+            ? loadedSettings.autoSortTasks
             : true,
-          groupByProject: loadedSettings.groupByProject !== undefined 
-            ? loadedSettings.groupByProject 
+          groupByProject: loadedSettings.groupByProject !== undefined
+            ? loadedSettings.groupByProject
             : true
         };
         
