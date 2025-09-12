@@ -474,14 +474,16 @@ function App() {
                                 <div className="mb-3 flex justify-center">
                                   <FilterPill
                                     selected={isSelected}
-                                    size={selectedProjectId && !isSelected ? "sm" : "md"}
+                                    size="md"
                                     onClick={() => setSelectedProjectId(selectedProjectId === projectId ? null : projectId)}
-                                    className={`${selectedProjectId && !isSelected ? 'text-xs px-2' : 'w-full max-w-none justify-center'} ${getProjectStateClasses(projectState, isSelected)} ${!hasFilteredTasks && !isSelected ? 'opacity-50' : ''}`}
+                                    className={`w-full max-w-none justify-center ${getProjectStateClasses(projectState, isSelected)} ${!hasFilteredTasks && !isSelected ? 'opacity-50' : ''}`}
                                     title={selectedProjectId === projectId ? 'Clear filter' : `Filter to ${project?.name || 'this project'} only`}
                                   >
                                     {selectedProjectId && !isSelected ? (
-                                      // Compact view for unselected columns
-                                      `${(project?.name || 'Unknown').substring(0, 8)}${(project?.name?.length || 0) > 8 ? '...' : ''}`
+                                      // Truncated text for unselected columns but same height
+                                      <span className="truncate">
+                                        {project?.name || 'Unknown'}
+                                      </span>
                                     ) : (
                                       // Full view for selected or no-filter state
                                       `${project?.name || 'Unknown'} (${isSelected ? projectTasks.length : allProjectTasks.length})`
@@ -494,12 +496,12 @@ function App() {
                               <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border-primary scrollbar-track-transparent">
                                 {selectedProjectId && selectedProjectId !== projectId ? (
                                   // Collapsed view - show all tasks as vertical color indicators (like tally mode but vertical)
-                                  <div className="flex flex-col gap-1 items-center px-1">
+                                  <div className="flex flex-col px-2">
                                     {allProjectTasks.map((task) => (
                                       <button
                                         key={task.id}
-                                        className={`w-full h-3 rounded-sm tally-segment-${task.state.toLowerCase()} transition-all duration-200 hover:h-4 ${
-                                          task.pinned ? 'ring-1 ring-teal-500 ring-inset' : ''
+                                        className={`w-full min-h-[44px] mb-2 rounded-lg tally-segment-${task.state.toLowerCase()} transition-all duration-200 hover:brightness-110 ${
+                                          task.pinned ? 'ring-2 ring-teal-500 ring-inset' : ''
                                         }`}
                                         onClick={(e) => {
                                           if (e.altKey) {
