@@ -6,12 +6,14 @@ interface UseFilteredTasksParams {
   appState: AppState;
   showDoneTasks: boolean;
   selectedProjectId: string | null;
+  autoSortTasks: boolean;
 }
 
 export function useFilteredTasks({ 
   appState, 
   showDoneTasks, 
-  selectedProjectId 
+  selectedProjectId,
+  autoSortTasks 
 }: UseFilteredTasksParams) {
   return useMemo(() => {
     const tasks = Object.values(appState.tasks);
@@ -41,6 +43,12 @@ export function useFilteredTasks({
 
       return true;
     }).sort((a, b) => {
+      if (!autoSortTasks) {
+        // Simple sorting: just by creation time (newest first) when auto-sort is disabled
+        return b.createdAt - a.createdAt;
+      }
+
+      // Auto-sort enabled: use complex priority sorting
       // First priority: pinned tasks at top
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
@@ -54,7 +62,7 @@ export function useFilteredTasks({
       // Third priority: creation order (oldest first for stability)
       return a.createdAt - b.createdAt;
     });
-  }, [appState, showDoneTasks, selectedProjectId]);
+  }, [appState, showDoneTasks, selectedProjectId, autoSortTasks]);
 }
 
 // Helper hook for task counts

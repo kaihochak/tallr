@@ -6,7 +6,9 @@ import {
   Moon,
   Rows3,
   Rows2,
-  Square
+  Square,
+  ArrowUpDown,
+  ListOrdered
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { invoke } from '@tauri-apps/api/core';
@@ -20,11 +22,13 @@ interface UnifiedToolbarProps {
   showDoneTasks: boolean; // retained for API compatibility (unused here)
   alwaysOnTop: boolean;
   notificationsEnabled: boolean;
+  autoSortTasks: boolean;
   theme: 'light' | 'dark';
   viewMode: 'full' | 'simple' | 'tally';
   onTogglePin: () => void;
   onToggleDoneTasks: () => void; // retained (unused here)
   onToggleNotifications: () => void;
+  onToggleAutoSortTasks: () => void;
   onToggleTheme: () => void;
   onToggleViewMode: () => void;
 }
@@ -36,11 +40,13 @@ export default function UnifiedToolbar({
   /* unused here: */ showDoneTasks: _showDoneTasks,
   alwaysOnTop,
   notificationsEnabled,
+  autoSortTasks,
   theme,
   viewMode,
   onTogglePin,
   /* unused here: */ onToggleDoneTasks: _onToggleDoneTasks,
   onToggleNotifications,
+  onToggleAutoSortTasks,
   onToggleTheme,
   onToggleViewMode
 }: UnifiedToolbarProps) {
@@ -186,6 +192,20 @@ export default function UnifiedToolbar({
           aria-label={notificationsEnabled ? "Disable notifications" : "Enable notifications"}
         >
           {notificationsEnabled ? <Bell className="w-3.5 h-3.5" /> : <BellOff className="w-3.5 h-3.5" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={`w-6 h-6 cursor-pointer transition-all duration-200 hover:scale-105 ${
+            autoSortTasks
+              ? 'bg-bg-primary/50 text-text-primary hover:bg-bg-hover/50' 
+              : 'bg-bg-tertiary/50 text-text-secondary hover:bg-bg-hover/50'
+          }`}
+          onClick={onToggleAutoSortTasks}
+          title={autoSortTasks ? "Disable auto-sort (sort by time)" : "Enable auto-sort (sort by priority)"}
+          aria-label={autoSortTasks ? "Disable auto-sort" : "Enable auto-sort"}
+        >
+          {autoSortTasks ? <ListOrdered className="w-3.5 h-3.5" /> : <ArrowUpDown className="w-3.5 h-3.5" />}
         </Button>
         <Button
           variant="ghost"

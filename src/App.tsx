@@ -40,7 +40,7 @@ interface SetupStatus {
 
 function App() {
   const { appState, isLoading, error, retryConnection } = useAppState();
-  const { settings, toggleAlwaysOnTop, toggleTheme, toggleViewMode, toggleNotifications } = useSettings();
+  const { settings, toggleAlwaysOnTop, toggleTheme, toggleViewMode, toggleNotifications, toggleAutoSortTasks } = useSettings();
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [currentPage, setCurrentPage] = useState<'tasks' | 'debug'>('tasks');
   const [debugTaskId, setDebugTaskId] = useState<string | null>(null);
@@ -85,7 +85,8 @@ function App() {
   const filteredTasks = useFilteredTasks({ 
     appState, 
     showDoneTasks, 
-    selectedProjectId 
+    selectedProjectId,
+    autoSortTasks: settings.autoSortTasks
   });
 
   // Auto-clear project filter when no tasks match but other active tasks exist
@@ -258,11 +259,13 @@ function App() {
         showDoneTasks={showDoneTasks}
         alwaysOnTop={settings.alwaysOnTop}
         notificationsEnabled={settings.notificationsEnabled}
+        autoSortTasks={settings.autoSortTasks}
         theme={settings.theme}
         viewMode={settings.viewMode}
         onTogglePin={toggleAlwaysOnTop}
         onToggleDoneTasks={() => setShowDoneTasks(prev => !prev)}
         onToggleNotifications={toggleNotifications}
+        onToggleAutoSortTasks={toggleAutoSortTasks}
         onToggleTheme={toggleTheme}
         onToggleViewMode={toggleViewMode}
       />
