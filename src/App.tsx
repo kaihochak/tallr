@@ -456,33 +456,33 @@ function App() {
                               // No filter active - equal width columns
                               return 'flex-1 flex flex-col min-w-0';
                             } else if (isSelected) {
-                              // This project is selected - takes most space
-                              return 'flex-[4] flex flex-col min-w-0';
+                              // This project is selected - takes almost all space
+                              return 'flex-[10] flex flex-col min-w-0';
                             } else {
-                              // This project is not selected - minimal width
-                              return 'flex-[0.5] flex flex-col min-w-[120px]';
+                              // This project is not selected - extremely minimal width (just a sliver)
+                              return 'flex-[0.1] flex flex-col min-w-[40px] max-w-[60px]';
                             }
                           };
 
                           return (
                             <div
                               key={projectId}
-                              className={`${getColumnClasses()} transition-all duration-300 ease-in-out ${hasMultipleProjects && projectIndex > 0 ? 'border-l border-border-primary/20 pl-4' : ''}`}
+                              className={`${getColumnClasses()} transition-all duration-300 ease-in-out ${hasMultipleProjects && projectIndex > 0 ? 'border-l border-border-primary/20 pl-2' : ''}`}
                             >
                               {/* Project header using FilterPill - always show when multiple projects */}
                               {hasMultipleProjects && (
                                 <div className="mb-3 flex justify-center">
                                   <FilterPill
                                     selected={isSelected}
-                                    size="md"
+                                    size={selectedProjectId && !isSelected ? "sm" : "md"}
                                     onClick={() => setSelectedProjectId(selectedProjectId === projectId ? null : projectId)}
-                                    className={`w-full max-w-none justify-center ${getProjectStateClasses(projectState, isSelected)} ${!hasFilteredTasks && !isSelected ? 'opacity-50' : ''}`}
-                                    title={selectedProjectId === projectId ? 'Clear filter' : `Filter to ${project?.name || 'this project'} only`}
+                                    className={`${selectedProjectId && !isSelected ? 'w-8 h-8 p-0 min-w-0' : 'w-full max-w-none'} justify-center ${getProjectStateClasses(projectState, isSelected)} ${!hasFilteredTasks && !isSelected ? 'opacity-50' : ''}`}
+                                    title={`${project?.name || 'Unknown'} (${allProjectTasks.length} tasks)${selectedProjectId === projectId ? ' - Click to clear filter' : ''}`}
                                   >
                                     {selectedProjectId && !isSelected ? (
-                                      // Truncated text for unselected columns but same height
-                                      <span className="truncate">
-                                        {project?.name || 'Unknown'}
+                                      // Ultra minimal - just show first letter for collapsed columns
+                                      <span className="text-xs font-bold">
+                                        {(project?.name || 'U')[0].toUpperCase()}
                                       </span>
                                     ) : (
                                       // Full view for selected or no-filter state
@@ -496,7 +496,7 @@ function App() {
                               <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border-primary scrollbar-track-transparent">
                                 {selectedProjectId && selectedProjectId !== projectId ? (
                                   // Collapsed view - show all tasks as vertical color indicators (like tally mode but vertical)
-                                  <div className="flex flex-col px-2">
+                                  <div className="flex flex-col px-1">
                                     {allProjectTasks.map((task) => (
                                       <button
                                         key={task.id}
