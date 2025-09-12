@@ -388,19 +388,26 @@ function App() {
                 {settings.groupByProject ? (
                   // Grouped by project - column layout
                   (() => {
-                    // First, get all projects that have any tasks (not just filtered)
-                    const allTasksByProject = Object.values(appState.tasks)
-                      .filter(task => showDoneTasks ? task.state === 'DONE' : task.state !== 'DONE')
-                      .reduce((acc, task) => {
-                        const projectId = task.projectId;
-                        if (!acc[projectId]) {
-                          acc[projectId] = [];
-                        }
-                        acc[projectId].push(task);
-                        return acc;
-                      }, {} as Record<string, typeof filteredTasks>);
+                    // Get all tasks using the same filtered and sorted list
+                    // This ensures consistent ordering whether filtered or not
+                    const allFilteredTasks = useFilteredTasks({
+                      appState,
+                      showDoneTasks,
+                      selectedProjectId: null, // Get all projects
+                      autoSortTasks: settings.autoSortTasks
+                    });
                     
-                    // Then apply project filtering to get the tasks to display
+                    // Group the properly sorted tasks by project
+                    const allTasksByProject = allFilteredTasks.reduce((acc, task) => {
+                      const projectId = task.projectId;
+                      if (!acc[projectId]) {
+                        acc[projectId] = [];
+                      }
+                      acc[projectId].push(task);
+                      return acc;
+                    }, {} as Record<string, typeof filteredTasks>);
+                    
+                    // For the selected project, use the filtered tasks
                     const tasksByProject = filteredTasks.reduce((acc, task) => {
                       const projectId = task.projectId;
                       if (!acc[projectId]) {
