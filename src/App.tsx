@@ -454,20 +454,20 @@ function App() {
                           const getColumnClasses = () => {
                             if (!selectedProjectId) {
                               // No filter active - equal width columns
-                              return 'flex-1 flex flex-col min-w-0';
+                              return 'flex-1 flex flex-col min-w-0 transition-[flex] duration-300 ease-in-out';
                             } else if (isSelected) {
                               // This project is selected - takes almost all space
-                              return 'flex-[10] flex flex-col min-w-0';
+                              return 'flex-[10] flex flex-col min-w-0 transition-[flex] duration-300 ease-in-out';
                             } else {
                               // This project is not selected - extremely minimal width (just a sliver)
-                              return 'flex-[0.1] flex flex-col min-w-[40px] max-w-[60px]';
+                              return 'w-[50px] flex-shrink-0 flex flex-col transition-[width] duration-300 ease-in-out';
                             }
                           };
 
                           return (
                             <div
                               key={projectId}
-                              className={`${getColumnClasses()} transition-all duration-300 ease-in-out ${hasMultipleProjects && projectIndex > 0 ? 'border-l border-border-primary/20 pl-2' : ''}`}
+                              className={`${getColumnClasses()} ${hasMultipleProjects && projectIndex > 0 ? 'border-l border-border-primary/20 pl-2' : ''}`}
                             >
                               {/* Project header using FilterPill - always show when multiple projects */}
                               {hasMultipleProjects && (
@@ -476,7 +476,7 @@ function App() {
                                     selected={isSelected}
                                     size={selectedProjectId && !isSelected ? "sm" : "md"}
                                     onClick={() => setSelectedProjectId(selectedProjectId === projectId ? null : projectId)}
-                                    className={`${selectedProjectId && !isSelected ? 'w-8 h-8 p-0 min-w-0' : 'w-full max-w-none'} justify-center ${getProjectStateClasses(projectState, isSelected)} ${!hasFilteredTasks && !isSelected ? 'opacity-50' : ''}`}
+                                    className={`${selectedProjectId && !isSelected ? 'w-8 h-8 p-0 min-w-0' : 'w-full max-w-none'} justify-center ${getProjectStateClasses(projectState, isSelected)} ${!hasFilteredTasks && !isSelected ? 'opacity-50' : ''} transition-all duration-300`}
                                     title={`${project?.name || 'Unknown'} (${allProjectTasks.length} tasks)${selectedProjectId === projectId ? ' - Click to clear filter' : ''}`}
                                   >
                                     {selectedProjectId && !isSelected ? (
