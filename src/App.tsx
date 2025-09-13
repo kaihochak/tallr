@@ -91,6 +91,14 @@ function App() {
     autoSortTasks: settings.autoSortTasks
   });
 
+  // Get all tasks for project grouping (without project filter)
+  const allFilteredTasks = useFilteredTasks({
+    appState,
+    showDoneTasks,
+    selectedProjectId: null, // Get all projects
+    autoSortTasks: settings.autoSortTasks
+  });
+
   // Auto-clear project filter when no tasks match but other active tasks exist
   useEffect(() => {
     if (selectedProjectId && filteredTasks.length === 0 && !showDoneTasks) {
@@ -388,14 +396,6 @@ function App() {
                 {settings.groupByProject ? (
                   // Grouped by project - column layout
                   (() => {
-                    // Get all tasks using the same filtered and sorted list
-                    // This ensures consistent ordering whether filtered or not
-                    const allFilteredTasks = useFilteredTasks({
-                      appState,
-                      showDoneTasks,
-                      selectedProjectId: null, // Get all projects
-                      autoSortTasks: settings.autoSortTasks
-                    });
                     
                     // Group the properly sorted tasks by project
                     const allTasksByProject = allFilteredTasks.reduce((acc, task) => {
@@ -534,7 +534,7 @@ function App() {
                                       onShowDebug={handleShowDebugForTask}
                                       onTogglePin={handleTogglePin}
                                       allTasks={filteredTasks}
-                                      hideProjectName={true}
+                                      hideProjectName={hasMultipleProjects}
                                     />
                                   ))
                                 ) : (
