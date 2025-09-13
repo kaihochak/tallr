@@ -39,7 +39,8 @@ export default function TaskRow({
   onJumpToContext,
   onShowDebug,
   onTogglePin,
-  allTasks
+  allTasks,
+  hideProjectName = false
 }: TaskRowProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
@@ -143,6 +144,7 @@ export default function TaskRow({
               task={task}
               project={project}
               allTasks={allTasks}
+              hideProjectName={hideProjectName}
             />
           </div>
 

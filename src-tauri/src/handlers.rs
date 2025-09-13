@@ -39,25 +39,36 @@ pub async fn upsert_task(
     let now = current_timestamp();
     
     // Check if project with same repo_path already exists
-    let project_id = state.projects
+    let project_id = if let Some((existing_id, _)) = state.projects
         .iter()
         .find(|(_, p)| p.repo_path == req.project.repo_path)
-        .map(|(id, _)| id.clone())
-        .unwrap_or_else(|| {
-            // Create new project if not found
-            let new_id = uuid::Uuid::new_v4().to_string();
-            let project = Project {
-                id: new_id.clone(),
-                name: req.project.name.clone(),
-                repo_path: req.project.repo_path.clone(),
-                preferred_ide: req.project.preferred_ide.unwrap_or_else(|| "".to_string()),
-                github_url: req.project.github_url,
-                created_at: now,
-                updated_at: now,
-            };
-            state.projects.insert(new_id.clone(), project);
-            new_id
-        });
+        .map(|(id, p)| (id.clone(), p.clone())) {
+        
+        // Update existing project's preferred_ide if provided
+        if let Some(existing_project) = state.projects.get_mut(&existing_id) {
+            if let Some(new_ide) = req.project.preferred_ide.clone() {
+                if !new_ide.is_empty() {
+                    existing_project.preferred_ide = new_ide;
+                    existing_project.updated_at = now;
+                }
+            }
+        }
+        existing_id
+    } else {
+        // Create new project if not found
+        let new_id = uuid::Uuid::new_v4().to_string();
+        let project = Project {
+            id: new_id.clone(),
+            name: req.project.name.clone(),
+            repo_path: req.project.repo_path.clone(),
+            preferred_ide: req.project.preferred_ide.unwrap_or_else(|| "".to_string()),
+            github_url: req.project.github_url,
+            created_at: now,
+            updated_at: now,
+        };
+        state.projects.insert(new_id.clone(), project);
+        new_id
+    };
 
     // Create or update task (preserve existing pinned status if task exists)
     let existing_pinned = state.tasks.get(&req.task.id).map(|t| t.pinned).unwrap_or(false);

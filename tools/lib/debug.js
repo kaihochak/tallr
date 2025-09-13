@@ -141,6 +141,10 @@ class DebugLogger {
     this.log('tallr:hooks', message, data);
   }
 
+  network(message, data) {
+    this.log('tallr:network', message, data);
+  }
+
   // Error convenience methods
   stateError(message, error) {
     this.error('tallr:state', message, error);

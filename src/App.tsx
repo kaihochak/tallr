@@ -5,6 +5,7 @@ import TaskRow from "./components/TaskRow";
 import EmptyState from "./components/EmptyState";
 import UnifiedToolbar from "./components/UnifiedToolbar";
 import { ProjectFilterPills } from "./components/ProjectFilterPills";
+import { FilterPill } from "./components/ui/FilterPill";
 import { DebugPage } from "./components/DebugPage";
 import { ErrorDisplay } from "./components/debug/ErrorDisplay";
 import { CliConnectionStatus } from "./components/CliConnectionStatus";
@@ -18,6 +19,7 @@ import { debug } from "./utils/debug";
 import { logger } from "./utils/logger";
 import { notificationService } from "./services/notificationService";
 import { ApiService } from "./services/api";
+import { getHighestPriorityState } from "./lib/taskHelpers";
 
 interface Task {
   id: string;
@@ -40,7 +42,7 @@ interface SetupStatus {
 
 function App() {
   const { appState, isLoading, error, retryConnection } = useAppState();
-  const { settings, toggleAlwaysOnTop, toggleTheme, toggleViewMode, toggleNotifications } = useSettings();
+  const { settings, toggleAlwaysOnTop, toggleTheme, toggleViewMode, toggleNotifications, toggleAutoSortTasks, toggleGroupByProject } = useSettings();
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [currentPage, setCurrentPage] = useState<'tasks' | 'debug'>('tasks');
   const [debugTaskId, setDebugTaskId] = useState<string | null>(null);
@@ -85,7 +87,16 @@ function App() {
   const filteredTasks = useFilteredTasks({ 
     appState, 
     showDoneTasks, 
-    selectedProjectId 
+    selectedProjectId,
+    autoSortTasks: settings.autoSortTasks
+  });
+
+  // Get all tasks for project grouping (without project filter)
+  const allFilteredTasks = useFilteredTasks({
+    appState,
+    showDoneTasks,
+    selectedProjectId: null, // Get all projects
+    autoSortTasks: settings.autoSortTasks
   });
 
   // Auto-clear project filter when no tasks match but other active tasks exist
@@ -258,11 +269,15 @@ function App() {
         showDoneTasks={showDoneTasks}
         alwaysOnTop={settings.alwaysOnTop}
         notificationsEnabled={settings.notificationsEnabled}
+        autoSortTasks={settings.autoSortTasks}
+        groupByProject={settings.groupByProject}
         theme={settings.theme}
         viewMode={settings.viewMode}
         onTogglePin={toggleAlwaysOnTop}
         onToggleDoneTasks={() => setShowDoneTasks(prev => !prev)}
         onToggleNotifications={toggleNotifications}
+        onToggleAutoSortTasks={toggleAutoSortTasks}
+        onToggleGroupByProject={toggleGroupByProject}
         onToggleTheme={toggleTheme}
         onToggleViewMode={toggleViewMode}
       />
@@ -365,34 +380,194 @@ function App() {
               )
             ) : (
               <div className="flex flex-col">
-                <ProjectFilterPills
-                  projects={appState.projects}
-                  tasks={appState.tasks}
-                  selectedProjectId={selectedProjectId}
-                  onSelectProject={setSelectedProjectId}
-                  showDoneTasks={showDoneTasks}
-                  viewMode={settings.viewMode}
-                />
+                {!settings.groupByProject && (
+                  <ProjectFilterPills
+                    projects={appState.projects}
+                    tasks={appState.tasks}
+                    selectedProjectId={selectedProjectId}
+                    onSelectProject={setSelectedProjectId}
+                    showDoneTasks={showDoneTasks}
+                    viewMode={settings.viewMode}
+                  />
+                )}
                 {showHooksTip && (
                   <HooksTip onDismiss={handleDismissHooksTip} />
                 )}
-                {filteredTasks.map((task) => {
-                  const project = appState.projects[task.projectId];
+                {settings.groupByProject ? (
+                  // Grouped by project - column layout
+                  (() => {
+                    
+                    // Group the properly sorted tasks by project
+                    const allTasksByProject = allFilteredTasks.reduce((acc, task) => {
+                      const projectId = task.projectId;
+                      if (!acc[projectId]) {
+                        acc[projectId] = [];
+                      }
+                      acc[projectId].push(task);
+                      return acc;
+                    }, {} as Record<string, typeof filteredTasks>);
+                    
+                    // For the selected project, use the filtered tasks
+                    const tasksByProject = filteredTasks.reduce((acc, task) => {
+                      const projectId = task.projectId;
+                      if (!acc[projectId]) {
+                        acc[projectId] = [];
+                      }
+                      acc[projectId].push(task);
+                      return acc;
+                    }, {} as Record<string, typeof filteredTasks>);
+                    
+                    // Use all projects for showing FilterPills, but filtered tasks for content
+                    const allProjectEntries = Object.entries(allTasksByProject);
+                    const hasMultipleProjects = allProjectEntries.length > 1;
+                    
+                    if (allProjectEntries.length === 0) {
+                      return null;
+                    }
+                    
+                    return (
+                      <div className="flex gap-4 min-h-0 flex-1">
+                        {allProjectEntries.map(([projectId, allProjectTasks], projectIndex) => {
+                          // Get the filtered tasks for this project (might be empty)
+                          const projectTasks = tasksByProject[projectId] || [];
+                          const project = appState.projects[projectId];
+                          // Use allProjectTasks for state calculation to show true project state
+                          const highestPriorityState = getHighestPriorityState(allProjectTasks);
+                          const isSelected = selectedProjectId === projectId;
+                          const projectState = highestPriorityState.toLowerCase();
+                          const hasFilteredTasks = projectTasks.length > 0;
+                          
+                          // Use the same state-based styling as ProjectFilterPills
+                          const getProjectStateClasses = (state: string, isSelected: boolean) => {
+                            switch (state) {
+                              case 'pending':
+                                return isSelected 
+                                  ? 'border-status-pending bg-status-pending/30 text-status-pending dark:bg-status-pending/20 dark:text-status-pending hover:bg-status-pending/40 dark:hover:bg-status-pending/30 status-pulse-pending'
+                                  : 'border-status-pending/60 bg-status-pending/12 status-pulse-pending';
+                              case 'working':
+                                return isSelected
+                                  ? 'border-status-working bg-status-working/30 text-status-working dark:bg-status-working/20 dark:text-status-working hover:bg-status-working/40 dark:hover:bg-status-working/30 status-pulse-working'
+                                  : 'border-status-working/60 bg-status-working/12 status-pulse-working';
+                              case 'idle':
+                                return isSelected
+                                  ? 'border-status-idle bg-status-idle/40 text-status-idle dark:bg-status-idle/20 dark:text-status-idle hover:bg-status-idle/50 dark:hover:bg-status-idle/30'
+                                  : 'border-status-idle/30 bg-status-idle/5';
+                              default:
+                                return '';
+                            }
+                          };
+                          
+                          // Dynamic width based on selection
+                          const getColumnClasses = () => {
+                            if (!selectedProjectId) {
+                              // No filter active - equal width columns
+                              return 'flex-1 flex flex-col min-w-0 transition-[flex] duration-300 ease-in-out';
+                            } else if (isSelected) {
+                              // This project is selected - takes almost all space
+                              return 'flex-[10] flex flex-col min-w-0 transition-[flex] duration-300 ease-in-out';
+                            } else {
+                              // This project is not selected - extremely minimal width (just a sliver)
+                              return 'w-[50px] flex-shrink-0 flex flex-col transition-[width] duration-300 ease-in-out';
+                            }
+                          };
 
-                  return (
-                    <TaskRow
-                      key={task.id}
-                      task={task}
-                      project={project}
-                      viewMode={settings.viewMode}
-                      onDeleteTask={handleDeleteTask}
-                      onJumpToContext={handleJumpToSpecificTask}
-                      onShowDebug={handleShowDebugForTask}
-                      onTogglePin={handleTogglePin}
-                      allTasks={filteredTasks}
-                    />
-                  );
-                })}
+                          return (
+                            <div
+                              key={projectId}
+                              className={`${getColumnClasses()} ${hasMultipleProjects && projectIndex > 0 ? 'border-l border-border-primary/20 pl-2' : ''}`}
+                            >
+                              {/* Project header using FilterPill - always show when multiple projects */}
+                              {hasMultipleProjects && (
+                                <div className="mb-3 flex justify-center">
+                                  <FilterPill
+                                    selected={isSelected}
+                                    size={selectedProjectId && !isSelected ? "sm" : "md"}
+                                    onClick={() => setSelectedProjectId(selectedProjectId === projectId ? null : projectId)}
+                                    className={`${selectedProjectId && !isSelected ? 'w-8 h-8 p-0 min-w-0' : 'w-full max-w-none'} justify-center ${getProjectStateClasses(projectState, isSelected)} ${!hasFilteredTasks && !isSelected ? 'opacity-50' : ''} transition-all duration-300`}
+                                    title={`${project?.name || 'Unknown'} (${allProjectTasks.length} tasks)${selectedProjectId === projectId ? ' - Click to clear filter' : ''}`}
+                                  >
+                                    {selectedProjectId && !isSelected ? (
+                                      // Ultra minimal - just show first letter for collapsed columns
+                                      <span className="text-xs font-bold">
+                                        {(project?.name || 'U')[0].toUpperCase()}
+                                      </span>
+                                    ) : (
+                                      // Full view for selected or no-filter state
+                                      `${project?.name || 'Unknown'} (${isSelected ? projectTasks.length : allProjectTasks.length})`
+                                    )}
+                                  </FilterPill>
+                                </div>
+                              )}
+                              
+                              {/* Tasks for this project */}
+                              <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border-primary scrollbar-track-transparent">
+                                {selectedProjectId && selectedProjectId !== projectId ? (
+                                  // Collapsed view - show all tasks as vertical color indicators (like tally mode but vertical)
+                                  <div className="flex flex-col px-1">
+                                    {allProjectTasks.map((task) => (
+                                      <button
+                                        key={task.id}
+                                        className={`w-full min-h-[44px] mb-2 rounded-lg tally-segment-${task.state.toLowerCase()} transition-all duration-200 hover:brightness-110 ${
+                                          task.pinned ? 'ring-2 ring-teal-500 ring-inset' : ''
+                                        }`}
+                                        onClick={(e) => {
+                                          if (e.altKey) {
+                                            handleShowDebugForTask(task.id);
+                                          } else {
+                                            handleJumpToSpecificTask(task.id);
+                                          }
+                                        }}
+                                        title={`${task.agent} - ${task.title} (${task.state.toLowerCase()})`}
+                                      />
+                                    ))}
+                                  </div>
+                                ) : projectTasks.length > 0 ? (
+                                  // Normal view - show full TaskRow components
+                                  projectTasks.map((task) => (
+                                    <TaskRow
+                                      key={task.id}
+                                      task={task}
+                                      project={project}
+                                      viewMode={settings.viewMode}
+                                      onDeleteTask={handleDeleteTask}
+                                      onJumpToContext={handleJumpToSpecificTask}
+                                      onShowDebug={handleShowDebugForTask}
+                                      onTogglePin={handleTogglePin}
+                                      allTasks={filteredTasks}
+                                      hideProjectName={hasMultipleProjects}
+                                    />
+                                  ))
+                                ) : (
+                                  // Empty state when no tasks exist for this project
+                                  null
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()
+                ) : (
+                  // Normal single column layout
+                  filteredTasks.map((task) => {
+                    const project = appState.projects[task.projectId];
+
+                    return (
+                      <TaskRow
+                        key={task.id}
+                        task={task}
+                        project={project}
+                        viewMode={settings.viewMode}
+                        onDeleteTask={handleDeleteTask}
+                        onJumpToContext={handleJumpToSpecificTask}
+                        onShowDebug={handleShowDebugForTask}
+                        onTogglePin={handleTogglePin}
+                        allTasks={filteredTasks}
+                      />
+                    );
+                  })
+                )}
               </div>
             )}
           </div>

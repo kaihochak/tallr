@@ -34,7 +34,8 @@
     "react-dom": "^19.0.0",
     "split2": "^4.2.0",
     "strip-ansi": "^7.1.0",
-    "tailwind-merge": "^3.3.1"
+    "tailwind-merge": "^3.3.1",
+    "vitest": "^3.2.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.12",

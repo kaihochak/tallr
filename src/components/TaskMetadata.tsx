@@ -8,22 +8,32 @@ interface TaskMetadataProps {
   project: Project | undefined;
   allTasks: Task[];
   className?: string;
+  hideProjectName?: boolean;
 }
 
-export default function TaskMetadata({ task, project, allTasks, className }: TaskMetadataProps) {
+export default function TaskMetadata({ task, project, allTasks, className, hideProjectName = false }: TaskMetadataProps) {
   const sessionNumber = calculateSessionNumber(task, allTasks, project);
   
   return (
     <div className={cn("flex items-center gap-3 flex-1", className)}>
-      {/* Project Name with Session Number */}
-      <span className="font-bold text-text-primary text-base sm:text-lg whitespace-nowrap overflow-hidden text-ellipsis">
-        {project?.name || "Unknown"}
-        {sessionNumber && (
-          <span className="font-medium text-text-secondary text-sm sm:text-base ml-1.5">
-            #{sessionNumber}
-          </span>
-        )}
-      </span>
+      {/* Project Name with Session Number - conditionally hidden */}
+      {!hideProjectName && (
+        <span className="font-bold text-text-primary text-base sm:text-lg whitespace-nowrap overflow-hidden text-ellipsis">
+          {project?.name || "Unknown"}
+          {sessionNumber && (
+            <span className="font-medium text-text-secondary text-sm sm:text-base ml-1.5">
+              #{sessionNumber}
+            </span>
+          )}
+        </span>
+      )}
+      
+      {/* Session Number only (when project name is hidden) */}
+      {hideProjectName && sessionNumber && (
+        <span className="font-bold text-text-primary text-base sm:text-lg whitespace-nowrap">
+          #{sessionNumber}
+        </span>
+      )}
       
       {/* Badges */}
       <div className="flex items-center text-text-muted">

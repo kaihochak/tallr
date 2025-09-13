@@ -18,6 +18,8 @@ interface AppSettings {
   theme: 'light' | 'dark';
   viewMode: 'full' | 'simple' | 'tally';
   notificationsEnabled: boolean;
+  autoSortTasks: boolean;
+  groupByProject: boolean;
 }
 
 export function useSettings() {
@@ -28,7 +30,9 @@ export function useSettings() {
     preferredIde: "cursor",
     theme: "light",
     viewMode: "full",
-    notificationsEnabled: true
+    notificationsEnabled: true,
+    autoSortTasks: true,
+    groupByProject: true
   });
   
   const [isLoading, setIsLoading] = useState(true);
@@ -60,6 +64,12 @@ export function useSettings() {
             : 'full' as const,
           notificationsEnabled: loadedSettings.notificationsEnabled !== undefined 
             ? loadedSettings.notificationsEnabled 
+            : true,
+          autoSortTasks: loadedSettings.autoSortTasks !== undefined 
+            ? loadedSettings.autoSortTasks 
+            : true,
+          groupByProject: loadedSettings.groupByProject !== undefined 
+            ? loadedSettings.groupByProject 
             : true
         };
         
@@ -178,6 +188,18 @@ export function useSettings() {
     await saveSettings({ notificationsEnabled: newState });
   }, [settings.notificationsEnabled, saveSettings]);
 
+  // Toggle auto sort tasks
+  const toggleAutoSortTasks = useCallback(async () => {
+    const newState = !settings.autoSortTasks;
+    await saveSettings({ autoSortTasks: newState });
+  }, [settings.autoSortTasks, saveSettings]);
+
+  // Toggle group by project
+  const toggleGroupByProject = useCallback(async () => {
+    const newState = !settings.groupByProject;
+    await saveSettings({ groupByProject: newState });
+  }, [settings.groupByProject, saveSettings]);
+
   // Apply theme when settings change
   useEffect(() => {
     applyTheme(settings.theme);
@@ -192,6 +214,8 @@ export function useSettings() {
     toggleTheme,
     toggleViewMode,
     toggleNotifications,
+    toggleAutoSortTasks,
+    toggleGroupByProject,
     saveSettings
   };
 }

@@ -5,7 +5,9 @@ export default defineConfig({
     // Only include our test files, exclude reference directories
     include: ['tools/test/**/*.test.{js,ts}', 'src/**/*.test.{js,ts,jsx,tsx}'],
     exclude: ['reference/**/*', 'node_modules/**/*'],
-    testTimeout: 20000, // Increase timeout for integration tests
-    hookTimeout: 10000,
+    testTimeout: 40000, // Increased timeout for Phase 2 integration tests (network calls)
+    hookTimeout: 15000,
+    // Allow longer timeouts for individual tests that need it
+    slowTestThreshold: 10000,
   },
 });
