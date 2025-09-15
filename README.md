@@ -10,7 +10,7 @@
 ## Overview
 Tallr is a desktop dashboard for monitoring AI CLI sessions (Claude, Gemini, Codex) with real-time state detection and native notifications. Stay in flow by seeing when your AI is working, waiting, or done - all in a clean, always-on-top window so you can stay in flow without context switching.
 
-[![Tallr Walkthrough Video](https://img.youtube.com/vi/-jQ5ACv4mBg/maxresdefault.jpg)](https://www.youtube.com/watch?v=-jQ5ACv4mBg)
+[![Tallr Walkthrough Video](https://img.youtube.com/vi/-jQ5ACv4mBg/maxresdefault.jpg)](https://www.youtube.com/watch?v=HcDyc9N5JZI)
 
 > **Author's Note:** This started as a personal tool and learning experience. I'm constantly working to improve it, especially the state detection which I know is buggy (particularly for Codex and Gemini).
 My next goal is migrating from pattern recognition to a network-based approach for more accurate state tracking. If you find this useful, I'd love your feedback and patience as we make it better together.
