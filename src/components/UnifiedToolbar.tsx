@@ -218,7 +218,7 @@ export default function UnifiedToolbar({
           size="icon"
           className={`w-6 h-6 cursor-pointer transition-all duration-200 hover:scale-105 ${
             groupByProject && viewMode !== 'tally'
-              ? 'bg-bg-primary/50 text-text-primary hover:bg-bg-hover/50' 
+              ? 'bg-bg-primary/50 text-text-primary hover:bg-bg-hover/50'
               : 'bg-bg-tertiary/50 text-text-secondary hover:bg-bg-hover/50'
           }`}
           onClick={onToggleGroupByProject}
