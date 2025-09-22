@@ -190,8 +190,10 @@ export default function UnifiedToolbar({
           size="icon"
           className={`w-6 h-6 cursor-pointer transition-all duration-200 hover:scale-105 ${
             notificationsEnabled
-              ? 'bg-bg-primary/50 text-text-primary hover:bg-bg-hover/50' 
-              : 'bg-bg-tertiary/50 text-text-secondary hover:bg-bg-hover/50'
+              ? theme === 'light'
+                ? 'bg-gray-300 text-gray-800 hover:bg-gray-400'
+                : 'bg-gray-600 text-white hover:bg-gray-700'
+              : 'bg-transparent text-text-secondary hover:bg-bg-hover/30'
           }`}
           onClick={onToggleNotifications}
           title={notificationsEnabled ? "Disable notifications" : "Enable notifications"}
@@ -204,8 +206,10 @@ export default function UnifiedToolbar({
           size="icon"
           className={`w-6 h-6 cursor-pointer transition-all duration-200 hover:scale-105 ${
             autoSortTasks
-              ? 'bg-bg-primary/50 text-text-primary hover:bg-bg-hover/50' 
-              : 'bg-bg-tertiary/50 text-text-secondary hover:bg-bg-hover/50'
+              ? theme === 'light'
+                ? 'bg-gray-300 text-gray-800 hover:bg-gray-400'
+                : 'bg-gray-600 text-white hover:bg-gray-700'
+              : 'bg-transparent text-text-secondary hover:bg-bg-hover/30'
           }`}
           onClick={onToggleAutoSortTasks}
           title={autoSortTasks ? "Disable auto-sort (sort by time)" : "Enable auto-sort (sort by priority)"}
@@ -218,8 +222,10 @@ export default function UnifiedToolbar({
           size="icon"
           className={`w-6 h-6 cursor-pointer transition-all duration-200 hover:scale-105 ${
             groupByProject && viewMode !== 'tally'
-              ? 'bg-bg-primary/50 text-text-primary hover:bg-bg-hover/50'
-              : 'bg-bg-tertiary/50 text-text-secondary hover:bg-bg-hover/50'
+              ? theme === 'light'
+                ? 'bg-gray-300 text-gray-800 hover:bg-gray-400'
+                : 'bg-gray-600 text-white hover:bg-gray-700'
+              : 'bg-transparent text-text-secondary hover:bg-bg-hover/30'
           }`}
           onClick={onToggleGroupByProject}
           title={groupByProject ? "Disable project grouping (single column)" : "Enable project grouping (columns by project)"}
@@ -231,7 +237,11 @@ export default function UnifiedToolbar({
         <Button
           variant="ghost"
           size="icon"
-          className="w-6 h-6 bg-bg-primary/50 text-text-primary hover:bg-bg-hover/50 hover:scale-105 cursor-pointer transition-all duration-200"
+          className={`w-6 h-6 cursor-pointer transition-all duration-200 hover:scale-105 ${
+            theme === 'light'
+              ? 'bg-gray-300 text-gray-800 hover:bg-gray-400'
+              : 'bg-transparent text-text-secondary hover:bg-bg-hover/30'
+          }`}
           onClick={onToggleTheme}
           title={getThemeTitle()}
           aria-label={getThemeTitle()}
@@ -244,9 +254,11 @@ export default function UnifiedToolbar({
           variant="ghost"
           size="icon"
           className={`w-6 h-6 cursor-pointer transition-all duration-200 hover:scale-105 ${
-            viewMode !== 'full'
-              ? 'bg-bg-tertiary/50 text-text-secondary hover:bg-bg-hover/50' 
-              : 'bg-bg-primary/50 text-text-primary hover:bg-bg-hover/50'
+            viewMode === 'full'
+              ? theme === 'light'
+                ? 'bg-gray-300 text-gray-800 hover:bg-gray-400'
+                : 'bg-gray-600 text-white hover:bg-gray-700'
+              : 'bg-transparent text-text-secondary hover:bg-bg-hover/30'
           }`}
           onClick={onToggleViewMode}
           title={getViewModeTitle()}
@@ -260,9 +272,11 @@ export default function UnifiedToolbar({
           variant="ghost"
           size="icon"
           className={`w-6 h-6 cursor-pointer transition-all duration-200 hover:scale-105 ${
-            alwaysOnTop 
-              ? 'bg-bg-tertiary/50 text-text-secondary hover:bg-bg-hover/50' 
-              : 'bg-bg-primary/50 text-text-primary hover:bg-bg-hover/50'
+            alwaysOnTop
+              ? theme === 'light'
+                ? 'bg-gray-300 text-gray-800 hover:bg-gray-400'
+                : 'bg-gray-600 text-white hover:bg-gray-700'
+              : 'bg-transparent text-text-secondary hover:bg-bg-hover/30'
           }`}
           onClick={handleTogglePin}
           title={alwaysOnTop ? "Disable always on top (⌘⇧T)" : "Enable always on top (⌘⇧T)"}

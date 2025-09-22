@@ -426,7 +426,7 @@ function App() {
                     }
                     
                     return (
-                      <div className="flex gap-4 min-h-0 flex-1">
+                      <div className="flex flex-wrap gap-2 min-h-0 flex-1">
                         {allProjectEntries.map(([projectId, allProjectTasks], projectIndex) => {
                           // Get the filtered tasks for this project (might be empty)
                           const projectTasks = tasksByProject[projectId] || [];
@@ -436,12 +436,12 @@ function App() {
                           const isSelected = selectedProjectId === projectId;
                           const projectState = highestPriorityState.toLowerCase();
                           const hasFilteredTasks = projectTasks.length > 0;
-                          
+
                           // Use the same state-based styling as ProjectFilterPills
                           const getProjectStateClasses = (state: string, isSelected: boolean) => {
                             switch (state) {
                               case 'pending':
-                                return isSelected 
+                                return isSelected
                                   ? 'border-status-pending bg-status-pending/30 text-status-pending dark:bg-status-pending/20 dark:text-status-pending hover:bg-status-pending/40 dark:hover:bg-status-pending/30 status-pulse-pending'
                                   : 'border-status-pending/60 bg-status-pending/12 status-pulse-pending';
                               case 'working':
@@ -456,18 +456,18 @@ function App() {
                                 return '';
                             }
                           };
-                          
-                          // Dynamic width based on selection
+
+                          // Dynamic width based on selection with flex-wrap constraints
                           const getColumnClasses = () => {
                             if (!selectedProjectId) {
-                              // No filter active - equal width columns
-                              return 'flex-1 flex flex-col min-w-0 transition-[flex] duration-300 ease-in-out';
+                              // No filter active - roughly 2 per row with equal distribution
+                              return 'flex-1 flex flex-col min-w-0 basis-1/2 max-w-[calc(50%-4px)] transition-all duration-300 ease-in-out';
                             } else if (isSelected) {
-                              // This project is selected - takes almost all space
-                              return 'flex-[10] flex flex-col min-w-0 transition-[flex] duration-300 ease-in-out';
+                              // This project is selected - can expand more but still constrained
+                              return 'flex-[2] flex flex-col min-w-0 basis-1/2 max-w-[400px] transition-all duration-300 ease-in-out';
                             } else {
-                              // This project is not selected - extremely minimal width (just a sliver)
-                              return 'w-[50px] flex-shrink-0 flex flex-col transition-[width] duration-300 ease-in-out';
+                              // This project is not selected - smaller when something else is selected
+                              return 'flex-1 flex flex-col min-w-0 basis-1/4 max-w-[100px] transition-all duration-300 ease-in-out';
                             }
                           };
 
@@ -498,7 +498,7 @@ function App() {
                                   </FilterPill>
                                 </div>
                               )}
-                              
+
                               {/* Tasks for this project */}
                               <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border-primary scrollbar-track-transparent">
                                 {selectedProjectId && selectedProjectId !== projectId ? (
