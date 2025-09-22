@@ -31,7 +31,7 @@ export function useSettings() {
     theme: "light",
     viewMode: "full",
     notificationsEnabled: true,
-    autoSortTasks: true,
+    autoSortTasks: false,
     groupByProject: true
   });
   
@@ -67,7 +67,7 @@ export function useSettings() {
             : true,
           autoSortTasks: loadedSettings.autoSortTasks !== undefined
             ? loadedSettings.autoSortTasks
-            : true,
+            : false,
           groupByProject: loadedSettings.groupByProject !== undefined
             ? loadedSettings.groupByProject
             : true
