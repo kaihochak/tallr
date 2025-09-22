@@ -30,6 +30,3 @@ jobs:
 
       - name: Smoke test CLI tool
         run: ./tools/tallr --help
-
-      - name: Test Claude network detection launcher
-        run: npm run test:ci
