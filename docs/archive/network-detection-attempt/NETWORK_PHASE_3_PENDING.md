@@ -1,7 +1,16 @@
-# ✅ Network Detection - Phase 3: PENDING via SDK canCallTool (CURRENT STATUS)
+# ❌ ARCHIVED - Phase 3: PENDING Detection (FAILED)
+
+> **STATUS**: Multiple approaches tried, all failed
+> **APPROACHES**: SDK canCallTool (crashed), API parsing (complex), IPC hooks (fragmented sessions)
+> **ISSUES**: SDK undefined functions, session management breakage
+> **SEE**: README.md for detailed failure analysis
+
+---
+
+# ❌ Network Detection - Phase 3: PENDING via SDK canCallTool (FAILED)
 
 ## Goal
-Add accurate PENDING detection and user approval flow using Claude SDK’s `canCallTool` callback, while preserving Phase 1/2 WORKING/IDLE via fetch interception.
+Add accurate PENDING detection and user approval flow using Claude SDK's `canCallTool` callback, while preserving Phase 1/2 WORKING/IDLE via fetch interception.
 
 ## Current Status (Stabilized)
 - Default path: Phase 1/2 only (fetch-based WORKING/IDLE). SDK path is gated behind `TALLR_SDK_MODE=true` or `--sdk`.

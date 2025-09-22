@@ -177,8 +177,13 @@ Promise.resolve().then(async () => {
         
         let promptInput;
         if (hasDirectPrompt) {
-            // Use the first non-option argument as the prompt
-            promptInput = nonOptionArgs[0];
+            // For non-interactive mode with canCallTool, we need AsyncIterable not string
+            // Based on Happy Coder's requirement: canCallTool needs --input-format stream-json
+            promptInput = {
+                async *[Symbol.asyncIterator]() {
+                    yield { role: 'user', content: nonOptionArgs[0] };
+                }
+            };
         } else {
             // Create interactive prompt iterator
             promptInput = {

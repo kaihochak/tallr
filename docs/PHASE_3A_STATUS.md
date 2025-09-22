@@ -1,22 +1,52 @@
-# Phase 3a (SDK PENDING) – Current State and How To Test
+# Phase 3: Automatic Hooks (PENDING Detection) – Current State and Testing
 
 ## Summary
-- Default (stable): Phase 1/2 only. WORKING/IDLE via fetch spy.
-- SDK path (Phase 3a): Opt-in via `TALLR_SDK_MODE=true` or `--sdk`.
-- Early PENDING: Emits `permission-prompt` when Claude asks to proceed.
-- Authoritative PENDING: Emits `permission-request` on SDK tool attempt.
-- IPC: fd 3 telemetry; fd 4 control only in SDK mode. See plan’s IPC section.
+- **Default (stable)**: Hybrid architecture combining network detection + automatic hooks
+- **Network Detection**: WORKING/IDLE states via fetch interception (Phase 1/2)
+- **Automatic Hooks**: PENDING states via automatic `.claude/settings.local.json` setup
+- **SDK Mode**: Deprecated (was broken, replaced by hooks approach)
+- **Architecture**: Both systems run in parallel, detecting different state transitions
 
-## Commands
-- Baseline sanity:
-  - `./tools/tallr claude --print "hello"`
-  - `DEBUG=tallr:network ./tools/tallr claude --print "hello"` → expect fetch-start/fetch-end
+## Testing Commands
 
-- Enable SDK (Phase 3a):
-  - One-time: `chmod +x tools/lib/claude-remote-launcher.cjs`
-  - `TALLR_SDK_MODE=true ./tools/tallr claude --print "hello"`
-  - `TALLR_SDK_MODE=true DEBUG=tallr:state,tallr:network ./tools/tallr claude --print` then type a tool prompt; expect PENDING on ask-to-proceed; `/allow` to continue for dev
+### Basic Functionality Tests
+```bash
+# Test automatic hook setup
+rm -f .claude/settings.local.json
+./tools/tallr claude --print "hello"
+cat .claude/settings.local.json  # Should show Tallr hooks
 
-## Notes
-- SDK spawn errors fall back to CLI automatically; default runs remain unaffected.
-- UI message consumption (Phase 3b) and approval loop (Phase 4) are separate.
+# Test network detection (WORKING/IDLE)
+DEBUG=tallr:network ./tools/tallr claude --print "hello"
+# Expect: fetch-start → WORKING, fetch-end → IDLE
+```
+
+### PENDING State Testing
+```bash
+# Test PENDING detection with tool use
+DEBUG=tallr:state ./tools/tallr claude
+# In Claude: "Please read the file package.json"
+# Expect: PENDING state when Claude asks for file permission
+
+# Test complete state cycle
+./tools/tallr claude
+# Ask: "Read package.json and explain this project"
+# Expect: IDLE → WORKING → PENDING → WORKING → IDLE
+```
+
+### Hook Preservation Testing
+```bash
+# Test non-destructive hook setup
+mkdir -p .claude
+echo '{"hooks": {"Custom": "echo test"}}' > .claude/settings.local.json
+./tools/tallr claude --print "hello"
+cat .claude/settings.local.json | jq '.hooks'
+# Should show both Custom and Tallr hooks preserved
+```
+
+## Implementation Notes
+- **Automatic Setup**: Hooks are created automatically when Tallr starts
+- **Non-Destructive**: Existing user hooks are preserved
+- **Direct Communication**: Hooks send HTTP requests directly to Tallr backend
+- **No Manual Configuration**: No `.claude/settings.local.json` setup required
+- **Fallback Support**: Pattern detection remains available if network detection fails

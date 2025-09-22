@@ -7,6 +7,7 @@ import { showLogo } from './logo.js';
 import { detectCurrentIDE } from './lib/ide-detector.js';
 import { getAuthToken, detectTallrGateway } from './lib/auth-manager.js';
 import { runWithPTY } from './lib/process-manager.js';
+import { setupClaudeHooks } from './lib/claude-hooks.js';
 
 const config = {
   token: getAuthToken(),
@@ -76,6 +77,14 @@ async function main() {
     if (taskCreated) {
       await stateTracker.syncInitialState();
       debug.state('Initial state synced');
+    }
+
+    // Set up automatic Claude hooks for PENDING detection
+    if (command === 'claude') {
+      const hookSetupSuccess = setupClaudeHooks(process.cwd(), taskId, config.token, config.gateway);
+      if (hookSetupSuccess) {
+        debug.cli('Claude hooks configured automatically');
+      }
     }
 
     await runWithPTY(command, commandArgs, config, taskId, stateTracker, updateTaskAndCleanup);

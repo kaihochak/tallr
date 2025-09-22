@@ -1,3 +1,11 @@
+# ❌ ARCHIVED - Phase 2: Tallr Integration
+
+> **STATUS**: Integration successful but caused session management problems
+> **ISSUES**: Ctrl+C cleanup failures, frontend disconnection
+> **SEE**: README.md for why the approach was abandoned
+
+---
+
 # ✅ Network Detection - Phase 2: Tallr Integration (COMPLETE)
 
 ## Goal

@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import { createInterface } from 'readline';
 import path from 'path';
+import fs from 'fs';
 import { debug } from './debug.js';
 import { showNetworkDetectionStatus } from './status-indicator.js';
 
@@ -159,22 +160,123 @@ export async function tryNetworkLauncher(command, commandArgs, config, taskId, s
     
     // Set up network listener using @happy-coder's approach
     setupNetworkListener(childProcess, stateTracker, taskId);
-    
+
+    // Set up hook IPC monitoring for launcher mode
+    const ipcFile = path.join(process.cwd(), '.tallr-session-ipc');
+    const setupHookIPC = () => {
+      try {
+        fs.writeFileSync(ipcFile, '');
+        debug.cli('Created IPC file for hook communication in launcher mode:', ipcFile);
+
+        const watcher = fs.watchFile(ipcFile, { interval: 100 }, () => {
+          try {
+            const content = fs.readFileSync(ipcFile, 'utf8').trim();
+            if (!content) return;
+
+            const lines = content.split('\n').filter(line => line.trim());
+            for (const line of lines) {
+              try {
+                const message = JSON.parse(line);
+                if (message.type === 'state') {
+                  debug.cli('Hook IPC message received in launcher mode:', message);
+                  stateTracker.changeState(message.state, message.details, 'high', 'hook');
+                }
+              } catch (e) {
+                debug.cliError('Invalid hook IPC message:', line);
+              }
+            }
+
+            fs.writeFileSync(ipcFile, '');
+          } catch (error) {
+            debug.cliError('Error reading hook IPC file in launcher mode:', error);
+          }
+        });
+
+        return watcher;
+      } catch (error) {
+        debug.cliError('Failed to set up IPC in launcher mode:', error);
+        return null;
+      }
+    };
+
+    const ipcWatcher = setupHookIPC();
+
     debug.cli('Network detection launcher started successfully');
     
     // Show user-friendly status indicator
     showNetworkDetectionStatus(command);
     
+    // Set up proper signal handling for cleanup
+    const cleanup = async (signal, exitCode) => {
+      debug.cli('Cleaning up network launcher process', { signal });
+      try {
+        if (childProcess && !childProcess.killed) {
+          childProcess.kill(signal);
+        }
+      } catch (error) {
+        debug.cliError('Error killing launcher process:', error);
+      }
+
+      // Clean up IPC
+      if (ipcWatcher) {
+        try {
+          fs.unwatchFile(ipcFile);
+          fs.unlinkSync(ipcFile);
+          debug.cli('Cleaned up IPC file in launcher mode');
+        } catch (e) {
+          debug.cliError('Error cleaning up IPC in launcher mode:', e);
+        }
+      }
+
+      process.exit(exitCode);
+    };
+
+    // Forward signals to child process
+    process.on('SIGINT', () => cleanup('SIGINT', 130));
+    process.on('SIGTERM', () => cleanup('SIGTERM', 143));
+
     // Handle process events
     childProcess.on('exit', (code, signal) => {
       debug.cli('Launcher process exited', { code, signal });
+
+      // Clean up IPC
+      if (ipcWatcher) {
+        try {
+          fs.unwatchFile(ipcFile);
+          fs.unlinkSync(ipcFile);
+          debug.cli('Cleaned up IPC file on launcher exit');
+        } catch (e) {
+          debug.cliError('Error cleaning up IPC on launcher exit:', e);
+        }
+      }
+
+      // Exit with same code as child
+      process.exit(code || 0);
     });
-    
+
     childProcess.on('error', (error) => {
       debug.cliError('Launcher process error:', error);
+
+      // Clean up IPC
+      if (ipcWatcher) {
+        try {
+          fs.unwatchFile(ipcFile);
+          fs.unlinkSync(ipcFile);
+          debug.cli('Cleaned up IPC file on launcher error');
+        } catch (e) {
+          debug.cliError('Error cleaning up IPC on launcher error:', e);
+        }
+      }
+
+      process.exit(1);
     });
-    
-    return true; // Success - launcher is active
+
+    // Keep the main process alive while child runs
+    // This replaces the immediate return true
+    return new Promise((resolve) => {
+      // Process will exit via childProcess.on('exit') or signal handlers
+      // This ensures we don't return control until the session is complete
+    });
     
   } catch (error) {
     debug.cliError('Launcher failed, falling back to pattern detection:', error);

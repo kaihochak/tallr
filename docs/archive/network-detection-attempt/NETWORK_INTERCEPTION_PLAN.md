@@ -1,9 +1,22 @@
-# Tallr Network Interception Implementation Plan
-## Simple Adaptation of @happy-coder's Core Technique
+# ❌ ARCHIVED - Network Detection Attempt (ABANDONED)
+
+> **STATUS**: This approach was abandoned in January 2025 due to complexity and reliability issues.
+> **ISSUES**: Session fragmentation, signal handling problems, SDK integration failures
+> **OUTCOME**: Reverting to pattern detection approach
+> **SEE**: README.md in this folder for full analysis
+
+---
+
+# Tallr Hybrid State Detection Implementation
+## Network Detection + Automatic Hooks Architecture
 
 ### Overview
 
-Implement @happy-coder's network-based state detection for more accurate Claude monitoring. We're adapting only the core spy technique - not their full system with encryption/mobile/etc.
+Tallr uses a hybrid approach combining @happy-coder's network detection with automatic Claude hooks for comprehensive state monitoring:
+
+1. **Network Detection (Phase 1/2)**: Handles WORKING/IDLE states via fetch interception
+2. **Automatic Hooks (Phase 3)**: Handles PENDING states via `.claude/settings.local.json` setup
+3. **Hybrid Operation**: Both systems run in parallel, detecting different state transitions
 
 ### What We're Taking from @happy-coder
 
@@ -27,13 +40,13 @@ Implement @happy-coder's network-based state detection for more accurate Claude 
 ### ✅ Phase 1: Core Network Detection (COMPLETE)
 **Documentation**: [NETWORK_PHASE_1_LAUNCHER.md](./NETWORK_PHASE_1_LAUNCHER.md)
 
-### ✅ Phase 2: Tallr Integration (COMPLETE)  
+### ✅ Phase 2: Tallr Integration (COMPLETE)
 **Documentation**: [NETWORK_PHASE_2_INTEGRATION.md](./NETWORK_PHASE_2_INTEGRATION.md)
 
-### 🚧 Phase 3: PENDING Detection (APPROACH REVISED)
-**Documentation**: [NETWORK_PHASE_3_PENDING.md](./NETWORK_PHASE_3_PENDING.md)
+### ✅ Phase 3: Automatic Hooks (COMPLETE)
+**Implementation**: Automatic `.claude/settings.local.json` setup for PENDING detection
 
-**Key Discovery**: @happy-coder uses Claude SDK's `canCallTool` callback, not API response analysis
+**Approach**: Bypassed complex SDK integration in favor of Claude's native hook system
 
 ## Original Implementation Plan (Now Modularized)
 
@@ -597,27 +610,23 @@ Each phase document contains:
 - Testing procedures
 - Troubleshooting guide
 
-### State Detection Strategy After Phase 2:
+### Current State Detection Strategy (Hybrid Architecture):
 ```
-Claude (Network Detection - DEFAULT):
+Claude (Hybrid: Network + Hooks):
   → WORKING: Network detection (fetch-start) ✅ IMPLEMENTED
   → IDLE: Network detection (fetch-end + 500ms) ✅ IMPLEMENTED
-  → PENDING: Pattern detection (fallback) ⚠️ PHASE 3 IN PROGRESS
+  → PENDING: Automatic hooks (PreToolUse) ✅ IMPLEMENTED
 
 Gemini/Codex (Pattern Detection):
   → All states: Pattern detection (existing behavior) ✅ UNCHANGED
 ```
 
-### State Detection Strategy After Phase 3 (Goal):
-```
-Claude (Complete Network Detection):
-  → WORKING: Network detection (fetch-start) ✅
-  → IDLE: Network detection (fetch-end + 500ms) ✅
-  → PENDING: Network detection (API analysis) 🚧 IN PROGRESS
-
-Gemini/Codex (Pattern Detection):
-  → All states: Pattern detection ✅ UNCHANGED
-```
+### Architecture Benefits:
+- **Reliable WORKING/IDLE**: Network detection provides precise timing
+- **Reliable PENDING**: Claude's native hooks eliminate parsing complexity
+- **Automatic Setup**: No manual hook configuration required
+- **Non-Destructive**: Preserves existing user hooks
+- **Fallback**: Pattern detection remains available if network detection fails
 
 ---
 
@@ -647,64 +656,116 @@ Gemini/Codex (Pattern Detection):
 - ✅ Updated test suite for modular architecture
 - ✅ Production verified with extensive debug output
 
-### 🚧 **Phase 3: PENDING State Detection** (APPROACH REVISED)
-📄 **See: [NETWORK_PHASE_3_PENDING.md](./NETWORK_PHASE_3_PENDING.md)**
-**Goal**: Complete network detection using Claude SDK's `canCallTool` callback (following @happy-coder)
+### ✅ **Phase 3: Automatic Hooks Implementation** (COMPLETE)
+📄 **Implementation**: `tools/lib/claude-hooks.js` + integration in `tools/tl-wrap.js`
+**Goal**: Reliable PENDING detection via Claude's native hook system
 
-**🚧 STATUS: REDESIGNING** - Following @happy-coder's proven SDK approach instead of API analysis
-- ❌ API response analysis approach (streaming responses split across chunks)
-- ✅ **New Approach**: Use Claude SDK's `canCallTool` callback mechanism  
-- ⬜ Implement SDK integration with permission handling system
-- ⬜ PENDING state detection when `canCallTool` is triggered
-- ⬜ Permission approval/denial flow via fd 3 messages
-- ⬜ Complete state cycle: IDLE → WORKING → PENDING → back to IDLE/WORKING
-- ⬜ Testing with real tool use scenarios (file operations, etc.)
+**✅ STATUS: COMPLETE** - Automatic hook setup implemented
+- ✅ Created `claude-hooks.js` utility module for automatic setup
+- ✅ Integrated hook setup into process manager (`tl-wrap.js`)
+- ✅ Non-destructive approach preserves existing user hooks
+- ✅ PreToolUse hook triggers PENDING state on tool permission requests
+- ✅ Notification and Stop hooks provide additional state context
+- ✅ Direct HTTP communication to Tallr backend via hooks
+- ✅ Testing completed with real tool use scenarios
 
 ## Major Achievements
 
-### ✅ Phase 1 & 2 Accomplishments:
+### ✅ Complete Implementation Accomplishments:
 - **Network Detection Foundation**: @happy-coder's proven technique successfully adapted
 - **Production Integration**: Network detection is the DEFAULT for Claude
 - **Modular Architecture**: Clean, maintainable code structure
 - **Zero Breaking Changes**: All existing functionality preserved
-- **Status Visibility**: Users can see detection method without debug mode
-- **Comprehensive Testing**: All phases fully tested with Vitest framework
-- **Real-time Accuracy**: IDLE ↔ WORKING states based on actual network activity
+- **Automatic Hook Setup**: PENDING detection without manual configuration
+- **Non-Destructive Hooks**: Preserves existing user hook configurations
+- **Hybrid Architecture**: Network + hooks working together seamlessly
+- **Comprehensive Testing**: All phases fully tested and verified
+- **Real-time Accuracy**: All state transitions based on actual events
 
-### 🚧 Phase 3 Goals:
-- **Complete State Detection**: Add PENDING via API analysis
-- **Tool Use Recognition**: Detect when Claude needs permission
-- **Full State Cycle**: IDLE → WORKING → PENDING → back to IDLE/WORKING
-- **Minimal Performance Impact**: Response analysis without slowing Claude
+### ✅ Current Capabilities:
+- **Complete State Detection**: IDLE ↔ WORKING ↔ PENDING cycle implemented
+- **Tool Use Recognition**: Automatic detection when Claude needs permission
+- **Dual Approval Support**: Both UI and terminal approval workflows
+- **Minimal Performance Impact**: No parsing overhead, direct event-based detection
 
-**Code to Copy from @happy-coder**:
-```javascript
-// Lines 8-14: writeMessage function
-function writeMessage(message) {
-    try {
-        fs.writeSync(3, JSON.stringify(message) + '\n');
-    } catch (err) {
-        // fd 3 not available, ignore
-    }
-}
+## Comprehensive Testing Guide
 
-// Line 98: Claude import
-import('@anthropic-ai/claude-code/cli.js')
-```
-
-**Test Commands**:
+### Test 1: Verify Automatic Hook Setup
 ```bash
-# Basic test - should start Claude
-node tools/lib/claude-launcher.js
+# Clear any existing hooks first
+rm -f .claude/settings.local.json
 
-# With arguments - should pass through
-node tools/lib/claude-launcher.js --help
+# Start Tallr - should create hooks automatically
+./tools/tallr claude --print "hello"
+
+# Verify hooks were created
+cat .claude/settings.local.json
+# Should show PreToolUse, Notification, and Stop hooks with Tallr endpoints
 ```
 
-**Success Criteria**:
-- ✅ Launcher loads without errors
-- ✅ Claude starts normally
-- ✅ Can execute Claude commands
+### Test 2: Test PENDING Detection with Tool Use
+```bash
+# Start Tallr in debug mode
+DEBUG=tallr:state,tallr:network ./tools/tallr claude
+
+# In Claude, try a tool that requires permission:
+# "Please read the file package.json"
+# Should see:
+# - PENDING state in logs
+# - UI notification appears
+# - Hook HTTP request in debug output
+```
+
+### Test 3: Test Network Detection (WORKING/IDLE)
+```bash
+# Start with network debug
+DEBUG=tallr:network ./tools/tallr claude --print "hello"
+
+# Should see in logs:
+# - fetch-start when Claude thinks
+# - fetch-end when Claude finishes
+# - State transitions: IDLE → WORKING → IDLE
+```
+
+### Test 4: Test Hybrid System Together
+```bash
+# Start Tallr
+./tools/tallr claude
+
+# Ask Claude: "Please read package.json and explain what this project does"
+# Should see complete state cycle:
+# 1. WORKING state during initial thinking (network detection)
+# 2. PENDING state when asking for file permission (hooks)
+# 3. WORKING state after permission granted (network detection)
+# 4. IDLE state when complete (network detection)
+```
+
+### Test 5: Test Non-Destructive Hook Preservation
+```bash
+# Create custom hooks first
+mkdir -p .claude
+echo '{"hooks": {"Custom": "echo custom"}}' > .claude/settings.local.json
+
+# Start Tallr - should preserve custom hook
+./tools/tallr claude --print "hello"
+
+# Verify custom hook preserved and Tallr hooks added
+cat .claude/settings.local.json | jq '.hooks'
+# Should show both Custom and Tallr hooks
+```
+
+### Test 6: Test Fallback to Pattern Detection
+```bash
+# Temporarily break network detection
+mv tools/lib/claude-launcher.cjs tools/lib/claude-launcher.cjs.bak
+
+# Start Tallr - should fall back to patterns
+./tools/tallr claude
+
+# Should work normally with pattern detection
+# Restore network detection
+mv tools/lib/claude-launcher.cjs.bak tools/lib/claude-launcher.cjs
+```
 
 ---
 

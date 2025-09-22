@@ -1,3 +1,11 @@
+# ❌ ARCHIVED - Phase 1: Launcher Implementation
+
+> **STATUS**: Phase 1 worked successfully but overall approach abandoned
+> **OUTCOME**: Launcher implementation functional but caused session management issues
+> **SEE**: README.md for why the entire network detection approach was abandoned
+
+---
+
 # ✅ Network Detection - Phase 1: Launcher Implementation (COMPLETE)
 
 ## Goal
