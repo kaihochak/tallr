@@ -460,6 +460,10 @@ function App() {
                           // Dynamic width based on selection with flex-wrap constraints
                           const getColumnClasses = () => {
                             if (!selectedProjectId) {
+                              // Special case: if only one project, constrained width
+                              if (allProjectEntries.length === 1) {
+                                return 'flex-1 flex flex-col min-w-0 max-w-[350px] transition-all duration-300 ease-in-out';
+                              }
                               // No filter active - roughly 2 per row with equal distribution
                               return 'flex-1 flex flex-col min-w-0 basis-1/2 max-w-[calc(50%-4px)] transition-all duration-300 ease-in-out';
                             } else if (isSelected) {

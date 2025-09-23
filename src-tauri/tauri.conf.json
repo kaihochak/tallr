@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "Tallr",
-        "width": 360,
-        "height": 600,
+        "width": 340,
+        "height": 400,
         "minWidth": 120,
         "minHeight": 60,
         "resizable": true,

@@ -1,5 +1,16 @@
 import { useEffect, useCallback, useRef, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { LogicalSize } from '@tauri-apps/api/dpi';
+
+// Window dimension constants for different modes
+const SIMPLE_MODE_WIDTH = 360;
+const SIMPLE_MODE_HEIGHT = 200;
+
+const FULL_MODE_WIDTH = 360;
+const FULL_MODE_HEIGHT = 320;
+
+const TALLY_MODE_WIDTH = 360;
+const TALLY_MODE_HEIGHT = 90;
 
 interface UseAdaptiveWindowSizeParams {
   viewMode: 'full' | 'simple' | 'tally';
@@ -22,51 +33,42 @@ export const useAdaptiveWindowSize = ({
 
   // Calculate optimal window height based on content
   const calculateOptimalHeight = useCallback((
-    mode: string, 
-    count: number, 
-    _showDone: boolean, 
-    error: boolean, 
-    loading: boolean
+    mode: string,
+    _count: number,
+    _showDone: boolean,
+    _error: boolean,
+    _loading: boolean
   ): number => {
-    const TOOLBAR_HEIGHT = 44;
-    const FOOTER_HEIGHT = mode === 'simple' ? 50 : 60; // Smaller footer for simple mode
-    const PADDING = mode === 'simple' ? 24 : 32; // Less padding for simple mode
-    const BUFFER = mode === 'simple' ? 16 : 20; // Less buffer for simple mode
-    
     if (mode === 'tally') {
-      return 110; // Fixed height for tally mode (44px toolbar + 44px tally lights + 22px labels)
+      return TALLY_MODE_HEIGHT;
     }
-    
-    if (error) {
-      return Math.max(300, TOOLBAR_HEIGHT + 150 + FOOTER_HEIGHT + PADDING + BUFFER);
+
+    if (mode === 'simple') {
+      return SIMPLE_MODE_HEIGHT;
     }
-    
-    if (loading || count === 0) {
-      return TOOLBAR_HEIGHT + 400 + FOOTER_HEIGHT + PADDING + BUFFER; // ~536px
+
+    return FULL_MODE_HEIGHT;
+  }, []);
+
+  // Calculate optimal window width based on mode
+  const calculateOptimalWidth = useCallback((mode: string): number => {
+    if (mode === 'tally') {
+      return TALLY_MODE_WIDTH;
+    } else if (mode === 'simple') {
+      return SIMPLE_MODE_WIDTH;
+    } else {
+      return FULL_MODE_WIDTH;
     }
-    
-    // Calculate based on task rows
-    const TASK_HEIGHT = mode === 'simple' ? 36 : 52; // Reduced simple mode height
-    const PROJECT_FILTER_HEIGHT = mode === 'simple' ? 40 : 48; // Slightly smaller filter height for simple mode
-    const tasksHeight = count * TASK_HEIGHT;
-    const totalContentHeight = PROJECT_FILTER_HEIGHT + tasksHeight;
-    
-    const calculatedHeight = TOOLBAR_HEIGHT + totalContentHeight + FOOTER_HEIGHT + PADDING + BUFFER;
-    
-    // Apply reasonable bounds
-    const MIN_HEIGHT = 400;
-    const MAX_HEIGHT = Math.min(800, window.screen.availHeight * 0.8);
-    
-    return Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, calculatedHeight));
   }, []);
 
   // Debounced window resize function
   const applyWindowSize = useCallback(async (isViewModeChange = false) => {
     const appWindow = getCurrentWindow();
-    
+
     try {
       const currentSize = await appWindow.outerSize();
       const optimalHeight = calculateOptimalHeight(viewMode, taskCount, showDoneTasks, hasError, isLoading);
+      const optimalWidth = calculateOptimalWidth(viewMode);
       
       // Skip if height hasn't changed significantly (unless it's a view mode change)
       if (!isViewModeChange && lastAppliedHeightRef.current !== null) {
@@ -81,40 +83,29 @@ export const useAdaptiveWindowSize = ({
         if (!prevSize && isViewModeChange) {
           setPrevSize({ width: currentSize.width, height: currentSize.height });
         }
-        await appWindow.setResizable(false);
-        await appWindow.setSize({ 
-          width: currentSize.width, 
-          height: optimalHeight, 
-          type: 'Physical' 
-        } as any);
+        await appWindow.setSize(new LogicalSize(optimalWidth, optimalHeight));
       } else {
-        // For non-tally modes, apply optimal height but keep resizable
-        await appWindow.setResizable(true);
-        
-        await appWindow.setSize({ 
-          width: currentSize.width, 
-          height: optimalHeight, 
-          type: 'Physical' 
-        } as any);
+        // For non-tally modes, apply optimal dimensions
+        await appWindow.setSize(new LogicalSize(optimalWidth, optimalHeight));
         
         // Clear prevSize if we were coming from tally mode
         if (prevSize && isViewModeChange) {
           setPrevSize(null);
         }
       }
-      
+
       lastAppliedHeightRef.current = optimalHeight;
     } catch (err) {
       console.warn('Failed to apply adaptive sizing', err);
     }
-  }, [viewMode, taskCount, showDoneTasks, hasError, isLoading, calculateOptimalHeight, prevSize]);
+  }, [viewMode, taskCount, showDoneTasks, hasError, isLoading, calculateOptimalHeight, calculateOptimalWidth, prevSize]);
 
   // Effect for view mode changes (immediate)
   useEffect(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
-    
+
     timeoutRef.current = setTimeout(() => {
       applyWindowSize(true);
     }, 100);
