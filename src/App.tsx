@@ -248,11 +248,7 @@ function App() {
 
   // Use adaptive window sizing hook
   useAdaptiveWindowSize({
-    viewMode: settings.viewMode,
-    taskCount: filteredTasks.length,
-    showDoneTasks,
-    hasError: !!error,
-    isLoading
+    viewMode: settings.viewMode
   });
 
   if (showSetupWizard) {
@@ -457,21 +453,22 @@ function App() {
                             }
                           };
 
-                          // Dynamic width based on selection with flex-wrap constraints
+                          // Simplified width-based approach to prevent layout thrashing
                           const getColumnClasses = () => {
+                            const baseClasses = 'flex flex-col min-w-0 transition-[width] duration-200 ease-out';
+
                             if (!selectedProjectId) {
-                              // Special case: if only one project, constrained width
+                              // No selection - equal distribution
                               if (allProjectEntries.length === 1) {
-                                return 'flex-1 flex flex-col min-w-0 max-w-[350px] transition-all duration-300 ease-in-out';
+                                return `${baseClasses} w-full max-w-[350px]`;
                               }
-                              // No filter active - roughly 2 per row with equal distribution
-                              return 'flex-1 flex flex-col min-w-0 basis-1/2 max-w-[calc(50%-4px)] transition-all duration-300 ease-in-out';
+                              return `${baseClasses} w-[calc(50%-4px)]`;
                             } else if (isSelected) {
-                              // This project is selected - can expand more but still constrained
-                              return 'flex-[2] flex flex-col min-w-0 basis-1/2 max-w-[400px] transition-all duration-300 ease-in-out';
+                              // Selected project gets more space
+                              return `${baseClasses} w-[60%]`;
                             } else {
-                              // This project is not selected - smaller when something else is selected
-                              return 'flex-1 flex flex-col min-w-0 basis-1/4 max-w-[100px] transition-all duration-300 ease-in-out';
+                              // Unselected projects get minimal space
+                              return `${baseClasses} w-[80px]`;
                             }
                           };
 
@@ -487,7 +484,7 @@ function App() {
                                     selected={isSelected}
                                     size={selectedProjectId && !isSelected ? "sm" : "md"}
                                     onClick={() => setSelectedProjectId(selectedProjectId === projectId ? null : projectId)}
-                                    className={`${selectedProjectId && !isSelected ? 'w-8 h-8 p-0 min-w-0' : 'w-full max-w-none'} justify-center ${getProjectStateClasses(projectState, isSelected)} ${!hasFilteredTasks && !isSelected ? 'opacity-50' : ''} transition-all duration-300`}
+                                    className={`${selectedProjectId && !isSelected ? 'w-8 h-8 p-0 min-w-0' : 'w-full max-w-none'} justify-center ${getProjectStateClasses(projectState, isSelected)} ${!hasFilteredTasks && !isSelected ? 'opacity-50' : ''} transition-[width,height,opacity,background-color,border-color] duration-200 ease-out`}
                                     title={`${project?.name || 'Unknown'} (${allProjectTasks.length} tasks)${selectedProjectId === projectId ? ' - Click to clear filter' : ''}`}
                                   >
                                     {selectedProjectId && !isSelected ? (
