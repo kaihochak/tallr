@@ -475,7 +475,7 @@ function App() {
                           return (
                             <div
                               key={projectId}
-                              className={`${getColumnClasses()} ${hasMultipleProjects && projectIndex > 0 ? 'border-l border-border-primary/20 pl-2' : ''}`}
+                              className={getColumnClasses()}
                             >
                               {/* Project header using FilterPill - always show when multiple projects */}
                               {hasMultipleProjects && (
