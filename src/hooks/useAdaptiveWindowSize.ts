@@ -14,31 +14,17 @@ const TALLY_MODE_HEIGHT = 90;
 
 interface UseAdaptiveWindowSizeParams {
   viewMode: 'full' | 'simple' | 'tally';
-  taskCount: number;
-  showDoneTasks: boolean;
-  hasError: boolean;
-  isLoading: boolean;
 }
 
 export const useAdaptiveWindowSize = ({
-  viewMode,
-  taskCount,
-  showDoneTasks,
-  hasError,
-  isLoading
+  viewMode
 }: UseAdaptiveWindowSizeParams) => {
   const [prevSize, setPrevSize] = useState<{ width: number; height: number } | null>(null);
   const lastAppliedHeightRef = useRef<number | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Calculate optimal window height based on content
-  const calculateOptimalHeight = useCallback((
-    mode: string,
-    _count: number,
-    _showDone: boolean,
-    _error: boolean,
-    _loading: boolean
-  ): number => {
+  // Calculate optimal window height based on mode
+  const calculateOptimalHeight = useCallback((mode: string): number => {
     if (mode === 'tally') {
       return TALLY_MODE_HEIGHT;
     }
@@ -67,7 +53,7 @@ export const useAdaptiveWindowSize = ({
 
     try {
       const currentSize = await appWindow.outerSize();
-      const optimalHeight = calculateOptimalHeight(viewMode, taskCount, showDoneTasks, hasError, isLoading);
+      const optimalHeight = calculateOptimalHeight(viewMode);
       const optimalWidth = calculateOptimalWidth(viewMode);
       
       // Skip if height hasn't changed significantly (unless it's a view mode change)
@@ -98,7 +84,7 @@ export const useAdaptiveWindowSize = ({
     } catch (err) {
       console.warn('Failed to apply adaptive sizing', err);
     }
-  }, [viewMode, taskCount, showDoneTasks, hasError, isLoading, calculateOptimalHeight, calculateOptimalWidth, prevSize]);
+  }, [viewMode, calculateOptimalHeight, calculateOptimalWidth, prevSize]);
 
   // Effect for view mode changes (immediate)
   useEffect(() => {
@@ -118,23 +104,6 @@ export const useAdaptiveWindowSize = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode]);
 
-  // Effect for content changes (debounced)
-  useEffect(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    
-    timeoutRef.current = setTimeout(() => {
-      applyWindowSize(false);
-    }, 300);
-
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taskCount, showDoneTasks, hasError, isLoading]);
 
   return {
     // Expose function for manual resize if needed
