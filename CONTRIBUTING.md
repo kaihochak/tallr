@@ -113,11 +113,24 @@ Before you begin, ensure you have the following installed:
 
 ### Debugging & Logging
 
-- **Enable debug logging**:
+- **Developer testing** (recommended approach):
   ```bash
-  # CLI wrapper verbose output
-  DEBUG=tallr ./tools/tallr claude
-  
+  # Normal test command (network detection enabled by default for Claude)
+  ./tools/tallr claude
+
+  # Check logs in separate terminal (cleaner workflow)
+  tail -f "$HOME/Library/Application Support/Tallr/logs/cli-wrapper.log" | jq '.'
+
+  # Filter by specific components
+  tail -f "$HOME/Library/Application Support/Tallr/logs/cli-wrapper.log" | jq 'select(.namespace == "tallr:state")'
+  tail -f "$HOME/Library/Application Support/Tallr/logs/cli-wrapper.log" | jq 'select(.namespace == "tallr:network")'
+  ```
+
+- **Agent/debug mode** (when you need CLI output):
+  ```bash
+  # CLI wrapper verbose output (prints to terminal)
+  DEBUG=tallr:network ./tools/tallr claude
+
   # Rust backend verbose output
   RUST_LOG=debug npm run tauri:dev
   ```
@@ -125,15 +138,6 @@ Before you begin, ensure you have the following installed:
 - **Log files** (always created, more verbose with debug flags):
   - Rust backend: `~/Library/Application Support/Tallr/logs/tallr.log`
   - CLI wrapper: `~/Library/Application Support/Tallr/logs/cli-wrapper.log`
-  
-- **Watch logs in real-time** (doesn't interfere with CLI):
-  ```bash
-  # See all logs with formatting
-  tail -f "$HOME/Library/Application Support/Tallr/logs/cli-wrapper.log" | jq '.'
-  
-  # Filter by namespace (e.g., state changes only)
-  tail -f "$HOME/Library/Application Support/Tallr/logs/cli-wrapper.log" | jq 'select(.namespace == "tallr:state")'
-  ```
 
 - **Adding logging to new code**:
   ```typescript

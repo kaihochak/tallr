@@ -61,8 +61,30 @@ class DebugLogger {
 
   writeToFile(level, namespace, message, data) {
     if (!this.logFile) return;
-    
+
+    // Only log verbose stuff when debug mode is on
+    const isVerbose = message.includes('handlePtyData') ||
+                     message.includes('processStateDetection') ||
+                     message.includes('detectState result') ||
+                     namespace.includes('pattern') ||
+                     namespace.includes('network');
+    if (isVerbose && !this.enabled) return;
+
     try {
+      // Log rotation: if main log > 10MB, move to backup then clear main
+      try {
+        const stats = fs.statSync(this.logFile);
+        if (stats.size > 10 * 1024 * 1024) { // 10MB limit
+          const backupFile = this.logFile + '.1';
+          if (fs.existsSync(backupFile)) {
+            fs.unlinkSync(backupFile); // Remove old backup
+          }
+          fs.renameSync(this.logFile, backupFile); // Move current to backup
+        }
+      } catch (e) {
+        // Ignore rotation errors, just continue logging
+      }
+
       const timestamp = new Date().toISOString();
       const logEntry = {
         timestamp,
@@ -72,7 +94,7 @@ class DebugLogger {
         data: data !== undefined ? data : null,
         pid: process.pid
       };
-      
+
       const logLine = JSON.stringify(logEntry) + '\n';
       fs.appendFileSync(this.logFile, logLine);
     } catch (error) {
@@ -82,7 +104,7 @@ class DebugLogger {
   }
 
   log(namespace, message, data) {
-    // Always write to file (for persistent logging), regardless of console debug settings
+    // Write to file with conditional filtering for verbose logs
     this.writeToFile('info', namespace, message, data);
     
     if (!this.shouldLog(namespace)) return;

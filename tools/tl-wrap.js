@@ -7,7 +7,8 @@ import { getIdeCommand, promptForIdeCommand } from './lib/settings.js';
 import { MAX_BUFFER_SIZE } from './lib/patterns.js';
 import { debug } from './lib/debug.js';
 import { showLogo } from './logo.js';
-import { execSync } from 'child_process';
+import { execSync, spawn } from 'child_process';
+import { createInterface } from 'readline';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -155,9 +156,149 @@ async function updateTaskAndCleanup(state, details) {
 }
 
 /**
- * PTY approach for interactive CLIs - minimal passthrough
+ * Set up network listener for launcher spy messages
+ * Uses @happy-coder's approach with createInterface for fd 3 reading
+ */
+function setupNetworkListener(childProcess) {
+  // Track active fetches for thinking state (@happy-coder's approach)
+  const activeFetches = new Map();
+
+  // Listen to the custom fd (fd 3) line by line (@happy-coder's exact code)
+  if (childProcess.stdio[3]) {
+    const rl = createInterface({
+      input: childProcess.stdio[3],
+      crlfDelay: Infinity
+    });
+
+    rl.on('line', (line) => {
+      try {
+        const message = JSON.parse(line);
+
+        switch (message.type) {
+          case 'fetch-start':
+            activeFetches.set(message.id, {
+              hostname: message.hostname,
+              path: message.path,
+              startTime: message.timestamp
+            });
+            debug.network('Network request started:', {
+              id: message.id,
+              hostname: message.hostname,
+              path: message.path
+            });
+            stateTracker.changeState('WORKING', 'Claude is thinking...', 'high', 'network');
+            break;
+
+          case 'fetch-end':
+            activeFetches.delete(message.id);
+            debug.network('Network request ended:', {
+              id: message.id,
+              active: activeFetches.size
+            });
+
+            // @happy-coder's 500ms debouncing to avoid flickering
+            if (activeFetches.size === 0) {
+              setTimeout(() => {
+                if (activeFetches.size === 0) {
+                  debug.network('All requests complete, transitioning to IDLE');
+                  stateTracker.changeState('IDLE', 'Ready for input', 'high', 'network');
+                }
+              }, 500);
+            }
+            break;
+
+          default:
+            debug.network('Unknown network message type:', message.type);
+            break;
+        }
+      } catch (error) {
+        // Ignore malformed JSON messages (but log for debugging)
+        debug.network('Failed to parse network spy message:', line);
+      }
+    });
+
+    rl.on('error', (error) => {
+      debug.cliError('Network spy readline error:', error);
+    });
+
+    debug.network('Network detection listener established on fd 3');
+  } else {
+    debug.cliError('fd 3 not available for network detection - launcher may have failed');
+  }
+}
+
+/**
+ * Main process spawning - tries launcher first for Claude, falls back to PTY + patterns
  */
 async function runWithPTY(command, commandArgs) {
+  // Try network detection launcher first for Claude (default behavior)
+  if (command === 'claude') {
+    debug.cli('Attempting network detection launcher for', command);
+
+    try {
+      // @happy-coder's exact approach: regular spawn with fd 3 pipe
+      const launcherPath = path.join(path.dirname(new URL(import.meta.url).pathname), 'lib', 'claude-launcher.cjs');
+
+      const childProcess = spawn('node', [launcherPath, ...commandArgs], {
+        stdio: ['inherit', 'inherit', 'inherit', 'pipe'], // fd 3 for spy messages
+        cwd: process.cwd(),
+        env: {
+          ...process.env,
+          TALLR_TASK_ID: taskId,
+          TALLR_TOKEN: config.token
+        }
+      });
+
+      // Set up network listener using @happy-coder's approach
+      setupNetworkListener(childProcess);
+
+      debug.cli('Network detection launcher started successfully');
+
+      // Handle process events
+      childProcess.on('exit', async (code, signal) => {
+        const success = code === 0;
+        const details = success
+          ? `Claude session completed successfully`
+          : `Claude session ended with code ${code}`;
+
+        debug.cli('Launcher process exited', { code, signal, success });
+        await updateTaskAndCleanup(success ? 'DONE' : 'IDLE', details);
+        process.exit(code);
+      });
+
+      childProcess.on('error', async (error) => {
+        debug.cliError('Launcher process error:', error);
+        await updateTaskAndCleanup('ERROR', `Launcher error: ${error.message}`);
+        process.exit(1);
+      });
+
+      // Set up cleanup handlers
+      const cleanup = async (signal, exitCode) => {
+        try {
+          if (childProcess && !childProcess.killed) {
+            childProcess.kill(signal);
+          }
+          await updateTaskAndCleanup('CANCELLED', `Session ${signal.toLowerCase()}`);
+        } catch (cleanupError) {
+          debug.cliError('Cleanup error:', cleanupError);
+        } finally {
+          process.exit(exitCode);
+        }
+      };
+
+      process.on('SIGINT', () => cleanup('SIGINT', 130));
+      process.on('SIGTERM', () => cleanup('SIGTERM', 143));
+
+      return; // Success - exit early, network detection is active
+
+    } catch (error) {
+      debug.cliError('Launcher failed, falling back to pattern detection:', error);
+      // Fall through to PTY + pattern detection
+    }
+  }
+
+  // Fallback: PTY + pattern detection (original approach)
+  debug.cli('Using PTY + pattern detection for', command);
   const ptyProcess = pty.spawn(command, commandArgs, {
     name: 'xterm-color',
     cols: process.stdout.columns || 80,

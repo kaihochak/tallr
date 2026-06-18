@@ -280,7 +280,6 @@ pnpm-lock.yaml
 
 # Claude Code / AI assistants
 .claude/
-CLAUDE.md
 CHANGELOG.md
 AGENTS.md
 
